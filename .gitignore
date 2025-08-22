@@ -1,0 +1,82 @@
+# ------------------------------
+# Python: Bytecode & Build-Artefakte
+# ------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution/Build
+build/
+dist/
+wheels/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+.installed.cfg
+
+# PEP 582
+__pypackages__/
+
+# ------------------------------
+# Virtuelle Umgebungen
+# ------------------------------
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# ------------------------------
+# Konfiguration/Secrets
+# ------------------------------
+.env
+.env.*
+.envrc
+
+# ------------------------------
+# Tool-/Linter-/Test-Caches
+# ------------------------------
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+.cache/
+
+# ------------------------------
+# Notebooks
+# ------------------------------
+.ipynb_checkpoints/
+
+# ------------------------------
+# IDE/Editor
+# ------------------------------
+.vscode/
+.idea/
+*.iml
+
+# ------------------------------
+# Betriebssystem
+# ------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ------------------------------
+# Projekt-spezifisch
+# ------------------------------
+# Automatisch generierte Ergebnisse
+outputs/**
+!outputs/.gitkeep
+
+# Temporäres / Rohdaten (falls verwendet)
+data/
+datasets/
+tmp/
+.tmp/
+logs/
+*.log
