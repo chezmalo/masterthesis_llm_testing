@@ -33,7 +33,7 @@ class LLMAnswer(BaseModel):
     @classmethod
     def json_schema_str(cls) -> str:
         # gibt das JSON-Schema als formatierten String zurück mithilfe von Pydantic (cls referenziert die Klasse selbst)
-        return cls.model_json_schema_json(indent=2)
+        return json.dumps(cls.model_json_schema(), ensure_ascii=False, indent=2)
 
 # erster Prompting-Ansatz (Zero-Shot, mittelspezifisch)
 SYSTEM_PROMPT = (
@@ -75,7 +75,6 @@ def ask_llm(model: str, system_prompt: str, user_prompt: str) -> str:
             {"role": "user", "content": user_prompt},
         ],
         temperature=config.TEMPERATURE,
-        max_tokens=config.MAX_TOKENS,
         # testen des forced JSON-Outputs
         response_format={"type": "json_object"}
     )
