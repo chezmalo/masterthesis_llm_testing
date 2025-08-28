@@ -1,7 +1,7 @@
 import argparse
 from pathlib import Path
 from src.utils import now_stamp, write_jsonl, load_cases
-from src.llm import ask_llm, parse_answer, build_user_prompt, SYSTEM_PROMPT
+from src.llm_runner import ask_llm, parse_answer, build_user_prompt, SYSTEM_PROMPT
 from src import config
 
 def main():
