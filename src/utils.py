@@ -15,7 +15,7 @@ def ensure_parent(path: Path) -> None:
 def write_jsonl(path: Path, obj: dict) -> None:
     ensure_parent(path)
     with path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+        f.write(json.dumps(obj, ensure_ascii=False, indent=4) + "\n")
 
 # loads all yaml files in the given directory and returns a list of dicts
 def load_cases(cases_dir: Path) -> list[dict]:
