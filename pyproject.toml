@@ -3,12 +3,8 @@ name = "masterthesis-llm-testing"
 version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
-  "openai>=1.40", # OpenAI Paket zur Kommunikation mit Anbieter der LLMs 
-  "pydantic>=2.7", # Schema
-  "pydantic-settings>=2.3", # Settings
-  "jinja2>=3.1", # Prompttemplates
-  "python-dotenv>=1.0", # Laden der .env
-  "pyyaml>=6.0", # Zum Einlesen der Testfälle
-  "typer>=0.12", # CLI
-  "rich>=13.7" # Logging
+  "openai>=1.40",   # openai als zugriffsmethode auf llms
+  "pydantic>=2.7",  # json handling
+  "pyyaml>=6.0",    # anwendungsfälle aus yaml
+  "python-dotenv>=1.0"  # .env handling 
 ]

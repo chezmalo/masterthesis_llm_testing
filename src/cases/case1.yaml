@@ -1,0 +1,16 @@
+id: CASE-001
+description: >
+  Summiere Beträge aus TRANSACTIONS je Kunde und Jahr. Prüfe, ob die Aggregation korrekt ist
+  und beschreibe die Datenherkunft (Quelle->Ziel).
+input_tables:
+  TRANSACTIONS:
+    columns:
+      - {name: CUSTOMER_ID, type: INT}
+      - {name: AMOUNT_EUR, type: DECIMAL(12,2)}
+      - {name: BOOKING_DATE, type: DATE}
+  TARGET_AGG:
+    columns:
+      - {name: CUSTOMER_ID, type: INT}
+      - {name: YEAR, type: INT}
+      - {name: SUM_AMOUNT_EUR, type: DECIMAL(14,2)}
+focus: "Aggregation, Group-By YEAR(BOOKING_DATE), Rundungsfehler"
