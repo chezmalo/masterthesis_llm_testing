@@ -1,7 +1,8 @@
 import argparse
 from pathlib import Path
 from src.utils import now_stamp, write_jsonl, load_cases
-from src.llm_runner import ask_llm, parse_answer, build_user_prompt, SYSTEM_PROMPT
+from src.llm_runner import ask_llm, parse_answer, build_user_prompt
+from src.model_prompts import SYSTEM_PROMPT
 from src import config
 
 def main():
@@ -31,6 +32,9 @@ def main():
             # Ergebnis + Quelldatei speichern
             row = parsed.model_dump()
             row["_source_file"] = case["_file"]
+            # Output-Dateinamen mit Case-Name und Modell generieren
+            case_name = Path(case["_file"]).stem
+            out_file = Path(args.out) / f"results_{case_name}_{args.model}_{now_stamp()}.jsonl"
             write_jsonl(out_file, row)
             print(f"[OK] {case['id']} -> gespeichert")
         except Exception as e:

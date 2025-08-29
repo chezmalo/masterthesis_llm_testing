@@ -4,6 +4,7 @@ from typing import Literal, Optional, List
 from pydantic import BaseModel, Field, ValidationError
 from openai import OpenAI
 from src import config
+from src.model_prompts import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
 
 # JSON SCHEMA FÜR DIE LLM-ANTWORT
 class TraceStep(BaseModel):
@@ -53,12 +54,12 @@ def build_user_prompt(case: dict) -> str:
     focus = case.get("focus", "Datenherkunft, Transformationen, Rechenlogik")
     schema_json = LLMAnswer.json_schema_str()
 
-    # user prompt mit spezifischen details bauen
-    return (
-        f"Aufgabe ({case_id}):\n{desc}\n\n"
-        f"Eingabetabellen (Ausschnitt als JSON):\n{json.dumps(inputs, ensure_ascii=False)}\n\n"
-        f"Fokus:\n{focus}\n\n"
-        f"Gib die Antwort ausschließlich als JSON entsprechend des folgenden Schemas aus:\n{schema_json}\n"
+    return USER_PROMPT_TEMPLATE.format(
+        case_id=case_id,
+        desc=desc,
+        inputs=json.dumps(inputs, ensure_ascii=False),
+        focus=focus,
+        schema_json=schema_json
     )
 
 # Aufruf der OpenAI-kompatiblen API (llm-stats.com mit api_key)
