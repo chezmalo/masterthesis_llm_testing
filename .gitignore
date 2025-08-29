@@ -66,13 +66,6 @@ htmlcov/
 Thumbs.db
 desktop.ini
 
-# ------------------------------
-# Projekt-spezifisch
-# ------------------------------
-# Automatisch generierte Ergebnisse
-outputs/**
-!outputs/.gitkeep
-
 # Temporäres / Rohdaten (falls verwendet)
 data/
 datasets/
