@@ -1,40 +1,10 @@
 import json
 import re
-from typing import Literal, Optional, List
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import ValidationError
 from openai import OpenAI
 from src import config
+from src.llm_output_format import LLMAnswer
 from src.model_prompts import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
-
-# JSON SCHEMA FÜR DIE LLM-ANTWORT
-class TraceStep(BaseModel):
-    step: int
-    description: str
-    formula: Optional[str] = None
-    notes: Optional[str] = None
-
-# einzelne Findings (Risiken, Fehler, Verbesserungsvorschläge)
-class Finding(BaseModel):
-    id: str
-    severity: Literal["info", "low", "medium", "high", "critical"]
-    message: str
-    source: Optional[str] = None
-
-# llm answer schema
-class LLMAnswer(BaseModel):
-    case_id: str = Field(..., description="ID des Testfalls")
-    task_understanding: str
-    data_lineage: List[str] = Field(default_factory=list)
-    transformations: List[TraceStep] = Field(default_factory=list)
-    computations_valid: bool
-    computation_details: Optional[str] = None
-    risks_or_errors: List[Finding] = Field(default_factory=list)
-    final_answer: str
-
-    @classmethod
-    def json_schema_str(cls) -> str:
-        # gibt das JSON-Schema als formatierten String zurück mithilfe von Pydantic (cls referenziert die Klasse selbst)
-        return json.dumps(cls.model_json_schema(), ensure_ascii=False, indent=2)
 
 # erster Prompting-Ansatz (Zero-Shot, mittelspezifisch)
 SYSTEM_PROMPT = (
@@ -69,7 +39,7 @@ def _client() -> OpenAI:
     return OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL)
 
 # API-Aufruf an das LLM
-def ask_llm(model: str, system_prompt: str, user_prompt: str) -> str:
+def prompt_llm(model: str, system_prompt: str, user_prompt: str) -> str:
     client = _client()
     resp = client.chat.completions.create(
         model=model,

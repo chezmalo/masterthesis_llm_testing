@@ -1,7 +1,7 @@
 import argparse
 from pathlib import Path
 from src.utils import now_stamp, write_jsonl, load_cases
-from src.llm_runner import ask_llm, parse_answer, build_user_prompt
+from src.llm_runner import prompt_llm, parse_answer, build_user_prompt
 from src.model_prompts import SYSTEM_PROMPT
 from src import config
 
@@ -18,7 +18,7 @@ def main():
     out_file = Path(args.out) / f"results_{args.model.replace('/','_')}_{now_stamp()}.jsonl"
     out_file.parent.mkdir(parents=True, exist_ok=True)
     limit = args.limit 
-    
+
     # Fälle laden und nacheinander verarbeiten
     cases = load_cases(cases_dir)
     if limit is not None and limit > 0:
@@ -28,7 +28,7 @@ def main():
         try:
             # User-Prompt bauen, LLM die Prompts übergeben, Antwort parsen
             user_prompt = build_user_prompt(case)
-            raw = ask_llm(args.model, SYSTEM_PROMPT, user_prompt)
+            raw = prompt_llm(args.model, SYSTEM_PROMPT, user_prompt)
             parsed = parse_answer(raw)
 
             # Ergebnis + Quelldatei speichern
