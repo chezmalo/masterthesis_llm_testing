@@ -13,4 +13,12 @@ input_tables:
       - {name: CUSTOMER_ID, type: INT}
       - {name: YEAR, type: INT}
       - {name: SUM_AMOUNT_EUR, type: DECIMAL(14,2)}
+sql_script: |
+  INSERT INTO TARGET_AGG (CUSTOMER_ID, YEAR, SUM_AMOUNT_EUR)
+  SELECT
+    CUSTOMER_ID,
+    YEAR(BOOKING_DATE) AS YEAR,
+    SUM(AMOUNT_EUR) AS SUM_AMOUNT_EUR
+  FROM TRANSACTIONS
+  GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE);
 focus: "Aggregation, Group-By YEAR(BOOKING_DATE), Rundungsfehler"

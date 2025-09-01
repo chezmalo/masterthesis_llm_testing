@@ -15,6 +15,9 @@ Aufgabe ({case_id}):
 Eingabetabellen (Ausschnitt als JSON):
 {inputs}
 
+SQL-Transformation:
+{sql_transformation}
+
 Fokus:
 {focus}
 

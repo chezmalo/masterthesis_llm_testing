@@ -51,13 +51,15 @@ def build_user_prompt(case: dict) -> str:
     case_id = case["id"]
     desc = case["description"]
     inputs = case["input_tables"]
-    focus = case.get("focus", "Datenherkunft, Transformationen, Rechenlogik")
+    sql_transformation = case["sql_script"]
+    focus = case.get("focus", "Datentypen, Transformationen, Rechenlogik")
     schema_json = LLMAnswer.json_schema_str()
 
     return USER_PROMPT_TEMPLATE.format(
         case_id=case_id,
         desc=desc,
         inputs=json.dumps(inputs, ensure_ascii=False),
+        sql_transformation=sql_transformation,
         focus=focus,
         schema_json=schema_json
     )
