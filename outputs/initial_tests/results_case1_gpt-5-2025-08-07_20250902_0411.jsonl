@@ -1,0 +1,83 @@
+{
+    "case_id": "CASE-001",
+    "task_understanding": "Beträge aus TRANSACTIONS je CUSTOMER_ID und Kalenderjahr aggregieren und in TARGET_AGG schreiben. Prüfung auf korrekte YEAR-Gruppierung und mögliche Rundungs-/Präzisionsprobleme.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> TARGET_AGG.CUSTOMER_ID (unverändert)",
+        "TRANSACTIONS.BOOKING_DATE -> TARGET_AGG.YEAR (via YEAR(BOOKING_DATE))",
+        "TRANSACTIONS.AMOUNT_EUR -> TARGET_AGG.SUM_AMOUNT_EUR (via SUM)"
+    ],
+    "transformations": [
+        {
+            "step": 1,
+            "description": "Quelle lesen",
+            "formula": "SELECT CUSTOMER_ID, BOOKING_DATE, AMOUNT_EUR FROM TRANSACTIONS",
+            "notes": null
+        },
+        {
+            "step": 2,
+            "description": "Kalenderjahr ableiten",
+            "formula": "YEAR(BOOKING_DATE) AS YEAR",
+            "notes": "Portabilität: ANSI-Alternative EXTRACT(YEAR FROM BOOKING_DATE)"
+        },
+        {
+            "step": 3,
+            "description": "Aggregation je Kunde und Jahr",
+            "formula": "SUM(AMOUNT_EUR) GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE)",
+            "notes": "DECIMAL-Summen sind exakt; NULL-Werte in SUM werden ignoriert"
+        },
+        {
+            "step": 4,
+            "description": "Ziel befüllen",
+            "formula": "INSERT INTO TARGET_AGG (CUSTOMER_ID, YEAR, SUM_AMOUNT_EUR) SELECT ...",
+            "notes": "Spaltenzuordnung 1:1 gemäß SELECT"
+        }
+    ],
+    "computations_valid": true,
+    "computation_details": "Logik ist fachlich korrekt: YEAR(BOOKING_DATE) gruppiert nach Kalenderjahr, SUM auf DECIMAL vermeidet Rundungsfehler. Ergebnis entspricht Summe pro CUSTOMER_ID und Jahr.",
+    "risks_or_errors": [
+        {
+            "id": "F1",
+            "severity": "medium",
+            "message": "Mögliche Überlauf-/Abschneidegefahr beim INSERT in DECIMAL(14,2), wenn Jahressummen den Wertebereich überschreiten.",
+            "source": "TARGET_AGG.SUM_AMOUNT_EUR"
+        },
+        {
+            "id": "F2",
+            "severity": "low",
+            "message": "Spaltenname/Alias YEAR kann in einigen Systemen reserviert sein; potenzielle Syntax-/Kompatibilitätsprobleme.",
+            "source": "TARGET_AGG.YEAR"
+        },
+        {
+            "id": "F3",
+            "severity": "low",
+            "message": "YEAR() ist nicht überall ANSI-kompatibel; Portabilitätsrisiko zwischen Datenbanken.",
+            "source": "SQL-Funktion YEAR()"
+        },
+        {
+            "id": "F4",
+            "severity": "low",
+            "message": "BOOKING_DATE kann NULL sein; YEAR(NULL) ergibt NULL und erzeugt eine NULL-Jahresgruppe oder Insert-Fehler bei NOT NULL.",
+            "source": "TRANSACTIONS.BOOKING_DATE"
+        },
+        {
+            "id": "F5",
+            "severity": "info",
+            "message": "Keine Rundungsfehler zu erwarten, da SUM auf DECIMAL(,2) exakt rechnet; nur bei späteren CASTs/Typänderungen relevant.",
+            "source": "SUM(DECIMAL)"
+        },
+        {
+            "id": "F6",
+            "severity": "info",
+            "message": "Bereitgestelltes Metadaten-JSON der Spaltentypen ist fehlerhaft formatiert (DECIMAL(12,2)); kann Tools für Schema-Parsing stören.",
+            "source": "Eingabetabellen-JSON"
+        },
+        {
+            "id": "F7",
+            "severity": "info",
+            "message": "Leistungsoptimierung möglich über Index/Cluster auf (CUSTOMER_ID, BOOKING_DATE).",
+            "source": "TRANSACTIONS"
+        }
+    ],
+    "final_answer": "Die Aggregation ist fachlich korrekt: SUM(AMOUNT_EUR) je CUSTOMER_ID und YEAR(BOOKING_DATE). Rundungsfehler sind bei DECIMAL nicht zu erwarten. Risiken: mögliche Überläufe beim INSERT in DECIMAL(14,2), Portabilität von YEAR() und potenzielle Kollision mit Spaltenname YEAR sowie NULL-BOOKING_DATE. Verbesserungen ohne Ergebnisänderung: Zielpräzision erhöhen (z.B. DECIMAL(18,2) oder größer), YEAR-Spalte/Alias umbenennen oder quoten, ANSI EXTRACT(YEAR FROM BOOKING_DATE) nutzen, NULL-BOOKING_DATE filtern (WHERE BOOKING_DATE IS NOT NULL), Performance-Index auf (CUSTOMER_ID, BOOKING_DATE).",
+    "_source_file": "case1.yaml"
+}

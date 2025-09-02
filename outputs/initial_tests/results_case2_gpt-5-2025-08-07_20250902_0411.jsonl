@@ -1,0 +1,71 @@
+{
+    "case_id": "CASE-002",
+    "task_understanding": "JOIN zwischen ACCOUNTS und CUSTOMERS via CUSTOMER_ID; CHAR->INT-Casts; Null-Handling prüfen; Typinkonsistenzen und Risiken bewerten.",
+    "data_lineage": [
+        "TARGET.ACCOUNT_ID <- CAST(ACCOUNTS.ACCOUNT_ID AS INT)",
+        "TARGET.CUSTOMER_ID <- CAST(ACCOUNTS.CUSTOMER_ID AS INT)",
+        "TARGET.SEGMENT <- CUSTOMERS.SEGMENT via LEFT JOIN ON CAST(ACCOUNTS.CUSTOMER_ID AS INT) = CUSTOMERS.CUSTOMER_ID WHERE ACCOUNTS.CUSTOMER_ID IS NOT NULL"
+    ],
+    "transformations": [
+        {
+            "step": 1,
+            "description": "Filtern der Quellkonten auf nicht-NULL CUSTOMER_ID.",
+            "formula": "WHERE a.CUSTOMER_ID IS NOT NULL",
+            "notes": "Leere Strings oder Blanks passieren den Filter."
+        },
+        {
+            "step": 2,
+            "description": "Left Join auf CUSTOMERS über numerische CUSTOMER_ID.",
+            "formula": "LEFT JOIN CUSTOMERS c ON CAST(a.CUSTOMER_ID AS INT) = c.CUSTOMER_ID",
+            "notes": "Funktion auf JOIN-Key kann Indexnutzung verhindern."
+        },
+        {
+            "step": 3,
+            "description": "Zielspalten projizieren und casten.",
+            "formula": "SELECT CAST(a.ACCOUNT_ID AS INT) AS ACCOUNT_ID, CAST(a.CUSTOMER_ID AS INT) AS CUSTOMER_ID, c.SEGMENT",
+            "notes": "CHAR->INT Casts können bei Nicht-Zahlen fehlschlagen oder unerwartet coerzen."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Semantisch korrekt, aber riskant: CAST auf CHAR(10) kann bei Nicht-numerischen Werten Laufzeitfehler erzeugen bzw. engine-spezifisch zu 0/NULL coerzen. JOIN auf gecastetem Ausdruck verhindert Indexnutzung. Potenzielle INT-Überläufe. WHERE filtert NULL, nicht jedoch leere/padded Werte.",
+    "risks_or_errors": [
+        {
+            "id": "CAST_NON_NUMERIC_ERROR",
+            "severity": "high",
+            "message": "CAST von CHAR(10) mit nicht-numerischen Inhalten auf INT kann fehlschlagen oder engine-spezifisch zu 0/NULL coerzen; Risiko von Abbrüchen oder falschen Zuordnungen.",
+            "source": "CAST(a.CUSTOMER_ID AS INT), CAST(a.ACCOUNT_ID AS INT)"
+        },
+        {
+            "id": "JOIN_ON_FUNCTION",
+            "severity": "medium",
+            "message": "Funktion im JOIN-Key verhindert Indexnutzung und verschlechtert Performance; zusätzlich abhängig von Whitespace/Pad-Verhalten von CHAR.",
+            "source": "ON CAST(a.CUSTOMER_ID AS INT) = c.CUSTOMER_ID"
+        },
+        {
+            "id": "EMPTY_STRING_PASSES_FILTER",
+            "severity": "medium",
+            "message": "WHERE a.CUSTOMER_ID IS NOT NULL lässt leere oder blank-gefüllte Strings zu; nachfolgender CAST kann fehlschlagen oder zu NULL führen.",
+            "source": "WHERE a.CUSTOMER_ID IS NOT NULL"
+        },
+        {
+            "id": "INT_OVERFLOW",
+            "severity": "high",
+            "message": "Numerische Strings können den INT-Bereich überschreiten; CAST führt zu Überlauffehlern oder truncation.",
+            "source": "TARGET.ACCOUNT_ID, TARGET.CUSTOMER_ID als INT"
+        },
+        {
+            "id": "LEADING_ZERO_LOSS",
+            "severity": "low",
+            "message": "Führende Nullen in IDs gehen beim CAST verloren; mögliche Identitätsverfälschung für ACCOUNT_ID.",
+            "source": "CAST(CHAR -> INT)"
+        },
+        {
+            "id": "NULL_SEGMENT_AFTER_LEFT_JOIN",
+            "severity": "info",
+            "message": "LEFT JOIN bewahrt Accounts ohne Match; SEGMENT wird NULL. Prüfen, ob dies beabsichtigt ist.",
+            "source": "LEFT JOIN + Projektion c.SEGMENT"
+        }
+    ],
+    "final_answer": "Kurzbeschreibung: Es werden alle ACCOUNTS mit nicht-NULL CUSTOMER_ID geladen, links mit CUSTOMERS über numerische CUSTOMER_ID verknüpft und ACCOUNT_ID/CUSTOMER_ID nach INT gecastet; SEGMENT stammt aus CUSTOMERS. Funktional möglich, jedoch nicht robust. Hauptprobleme: CAST auf CHAR kann fehlschlagen/coercen, Funktionsaufruf im JOIN verhindert Indizes, mögliche INT-Überläufe, leere Strings passieren den WHERE-Filter.\nVerbesserungen (gleiches Ergebnis bei gültig numerischen IDs, höhere Robustheit):\n- Vor-Cleansing: TRIM und NULLIF auf CHAR-IDs anwenden (NULLIF(TRIM(col), '')).\n- TRY_CAST/SAFE_CAST statt CAST nutzen und problematische Zeilen gezielt behandeln oder protokollieren.\n- Vorab-Subquery/CTE mit normalisierten Keys: SELECT TRY_CAST(TRIM(a.CUSTOMER_ID) AS INT) AS CUSTOMER_ID_INT, TRY_CAST(TRIM(a.ACCOUNT_ID) AS INT) ... und darauf joinen.\n- Falls Wertebereich groß ist: BIGINT in Staging/Join verwenden (TARGET-INT beibehalten falls vorgeschrieben) und Überlauf-Checks einbauen.\n- Performance: Computed/Persisted Spalte CUSTOMER_ID_INT in ACCOUNTS anlegen und indizieren; vermeidet Funktion im JOIN.",
+    "_source_file": "case2.yaml"
+}
