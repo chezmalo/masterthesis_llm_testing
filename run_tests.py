@@ -1,15 +1,17 @@
+import asyncio
 import typer
 from pathlib import Path
 from utils.utils import now_stamp, write_jsonl, load_cases
 from src.utils.logger import setup
-from src.llm_runner import prompt_llm, parse_answer, build_user_prompt
+from src.llm_runner import async_prompt_llm, prompt_llm, parse_answer, build_user_prompt
 from llm_schema_prompts.model_prompts import SYSTEM_PROMPT
 from src import config
 
 app = typer.Typer(help="LLM Runner für Data Lineage Testfälle")
 
 @app.command()
-def run(
+async def run(
+    ping: bool = typer.Option(False, help="Ping den LLM-Dienst an und beende das Programm"),
     model: str = typer.Option(config.DEFAULT_MODEL, help="ID des LLM-Modells vom jeweiligen Anbieter ( )"),
     cases: str = typer.Option("src/cases", help="Ordner mit .yaml Testfällen"),
     limit: int = typer.Option(None, help="Limitiere die Anzahl der zu testenden Fälle"),
@@ -20,11 +22,17 @@ def run(
     """
     Starte die Verarbeitung der Testfälle mit dem angegebenen Modell.
     """
+    logger = setup(level=loglevel, write_file=logfile)
+
+    # Ping-Check: Wenn --ping gesetzt ist, führe nur einen kurzen Test-Request aus und beende das Programm
+    if ping is True:
+        logger.info("Führe LLM-Ping durch...")
+        raise typer.Exit()  
+
     cases_dir = Path(cases)
     out_dir = Path(out)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    logger = setup(level=loglevel, write_file=logfile)
     logger.info("Starte Verarbeitung der Testfälle...")
     # Fälle laden und nacheinander verarbeiten
 
@@ -43,12 +51,12 @@ def run(
     logger.info(f"Starte {len(cases_list)} Fälle mit Modell: {model}")
     # Fälle laden und nacheinander verarbeiten
     
-    for case in cases_list:
+    async def process_case(case, model, out_dir, logger):
         try:
             logger.debug(f"Verarbeite Fall: {case.get('id', 'unbekannt')}")
             user_prompt = build_user_prompt(case)
             logger.debug(f"User-Prompt erstellt für Fall {case.get('id', 'unbekannt')}.")
-            raw = prompt_llm(model, SYSTEM_PROMPT, user_prompt)
+            raw = await async_prompt_llm(model, SYSTEM_PROMPT, user_prompt)
             logger.debug(f"Rohantwort vom LLM erhalten für Fall {case.get('id', 'unbekannt')}.")
             parsed = parse_answer(raw)
             logger.debug(f"Antwort geparst und validiert für Fall {case.get('id', 'unbekannt')}.")
@@ -67,6 +75,12 @@ def run(
             logger.error(f"Fehler bei Fall {case.get('id')}: {e}")
             out_file = out_dir / f"results_{case.get('id', 'unknown')}_{model}_{now_stamp()}.jsonl"
             write_jsonl(out_file, {"case_id": case.get("id"), "error": str(e)})
+
+    tasks = [
+        process_case(case, model, out_dir, logger)
+        for case in cases_list
+    ]
+    await asyncio.gather(*tasks)
 
 if __name__ == "__main__":
     app()
