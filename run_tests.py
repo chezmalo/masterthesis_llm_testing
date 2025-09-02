@@ -7,12 +7,13 @@ from llm_schema_prompts.model_prompts import SYSTEM_PROMPT
 from src import config
 
 def main():
-    # CLI Argumente parsen (Modell, Cases-Ordner, Output-Datei)
+    # CLI Argumente parsen (Modell, Cases-Ordner, Output-Datei, Logging)
     parser = argparse.ArgumentParser(description="LLM Runner für Data Lineage Testfälle")
     parser.add_argument("--model", default=config.DEFAULT_MODEL, help="ID des LLM-Modells vom jeweiligen Anbieter (LLM-Stats)")
     parser.add_argument("--cases", default="src/cases", help="Ordner mit .yaml Testfällen")
     parser.add_argument("--limit", default=None, help="Limitierte die Anzahl der zu testenden Fälle", type=int)
     parser.add_argument("--out", default="outputs", help="Ausgabeordner")
+    parser.add_argument("--loglevel", default="INFO", help="Logging Level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
     args = parser.parse_args()
 
     cases_dir = Path(args.cases)
@@ -20,7 +21,7 @@ def main():
     out_file.parent.mkdir(parents=True, exist_ok=True)
     limit = args.limit 
 
-    logger = setup_logger(level="INFO", write_file=True)
+    logger = setup_logger(level=args.loglevel, write_file=True)
     logger.info("Starte Verarbeitung der Testfälle...")
     # Fälle laden und nacheinander verarbeiten
     try:
