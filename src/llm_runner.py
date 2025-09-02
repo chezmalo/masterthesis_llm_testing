@@ -6,20 +6,9 @@ from openai import AsyncOpenAI, OpenAI
 from src import config
 from utils.logger import logging
 from llm_schema_prompts.llm_output_format import LLMAnswer
-from llm_schema_prompts.model_prompts import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
+from llm_schema_prompts.model_prompts import USER_PROMPT_TEMPLATE
 
 logger = logging.getLogger(__name__)
-
-# erster Prompting-Ansatz (Zero-Shot, mittelspezifisch)
-SYSTEM_PROMPT = (
-    '''Du bist ein Database-Engineer und verantwortlich für die Analyse von Datenherkünften (Data Lineage)
-    und technischen Datentransformationen. Deine Aufgabe ist es, gegebene Datenflüsse mitsamt ihren 
-    Transformationen zu verstehen und auf Fehler zu überprüfen. Anschließend sollst du den gegebenen 
-    ETL-Prozess kurz beschreiben und anschließend Feedback geben, inwiefern er funktionstüchtig ist 
-    oder mögliche Fehlerquellen beinhaltet. Informiere auch über Verbesserungspotenziale, ohne, 
-    dass sich das Endergebnis des Datenflusses verändert. Antworte ausschließlich als gültiges JSON 
-    nach dem bereitgestellten Schema. Keine Kommentare, keine zusätzlichen Felder.'''
-)
 
 def build_user_prompt(case: dict) -> str:
     logger.debug(f"Building user prompt for case: {case.get('id', 'unknown')}")
