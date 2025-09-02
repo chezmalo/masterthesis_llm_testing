@@ -3,8 +3,11 @@ import re
 from pydantic import ValidationError
 from openai import OpenAI
 from src import config
-from src.llm_output_format import LLMAnswer
-from src.model_prompts import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
+from utils.logger import logging
+from llm_schema_prompts.llm_output_format import LLMAnswer
+from llm_schema_prompts.model_prompts import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
+
+logger = logging.getLogger(__name__)
 
 # erster Prompting-Ansatz (Zero-Shot, mittelspezifisch)
 SYSTEM_PROMPT = (
@@ -18,6 +21,7 @@ SYSTEM_PROMPT = (
 )
 
 def build_user_prompt(case: dict) -> str:
+    logger.debug(f"Building user prompt for case: {case.get('id', 'unknown')}")
     case_id = case["id"]
     desc = case["description"]
     inputs = case["input_tables"]
@@ -25,7 +29,7 @@ def build_user_prompt(case: dict) -> str:
     focus = case.get("focus", "Datentypen, Transformationen, Rechenlogik")
     schema_json = LLMAnswer.json_schema_str()
 
-    return USER_PROMPT_TEMPLATE.format(
+    prompt = USER_PROMPT_TEMPLATE.format(
         case_id=case_id,
         desc=desc,
         inputs=json.dumps(inputs, ensure_ascii=False),
@@ -33,45 +37,75 @@ def build_user_prompt(case: dict) -> str:
         focus=focus,
         schema_json=schema_json
     )
+    logger.debug(f"User prompt built: {prompt[:200]}...")  # Log only the first 200 chars
+    return prompt
 
 # Aufruf der OpenAI-kompatiblen API (llm-stats.com mit api_key)
 def _client() -> OpenAI:
-    return OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL)
+    logger.debug("Initializing OpenAI client")
+    try:
+        client = OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL, timeout=60, max_retries=3)
+        logger.info("OpenAI client initialized successfully")
+        return client
+    except Exception as e:
+        logger.error(f"Failed to initialize OpenAI client: {e}")
+        raise
 
 # API-Aufruf an das LLM
 def prompt_llm(model: str, system_prompt: str, user_prompt: str) -> str:
+    logger.info(f"Prompting LLM with model: {model}")
     client = _client()
-    resp = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=config.TEMPERATURE,
-        # testen des forced JSON-Outputs
-        response_format={"type": "json_object"}
-    )
-    # return raw text
-    return resp.choices[0].message.content
+    try:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=config.TEMPERATURE,
+            # testen des forced JSON-Outputs
+            response_format={"type": "json_object"}
+        )
+        logger.info("Received response from LLM")
+        logger.debug(f"LLM response: {resp.choices[0].message.content[:200]}...")
+        # return raw output text
+        return resp.choices[0].message.content
+    except Exception as e:
+        logger.error(f"Error during LLM prompt: {e}")
+        raise
 
 # JSON-Extraktion aus der LLM-Antwort
 def _extract_json(text: str) -> dict:
     """
     Erwartet die JSON LLMANSWER. Textangaben außerhalb der JSON wird der Text abgeschnitten.
     """
+    logger.debug("Extracting JSON from LLM response")
     try:
-        return json.loads(text)
+        result = json.loads(text)
+        logger.debug("JSON extraction successful")
+        return result
     except json.JSONDecodeError:
-        # Fallback: größtes JSON-Objekt extrahieren
+        logger.warning("Direct JSON load failed, trying regex extraction")
         m = re.search(r"\{.*\}", text, flags=re.DOTALL)
         if not m:
+            logger.error("No JSON object found in text")
             raise ValueError("Es konnte kein JSON-Objekt im Text gefunden werden.")
-        return json.loads(m.group(0))
+        try:
+            result = json.loads(m.group(0))
+            logger.debug("Regex JSON extraction successful")
+            return result
+        except Exception as e:
+            logger.error(f"Regex JSON extraction failed: {e}")
+            raise
 
 # parse Antwort und validiere gegen das Schema LLMAnswer
 def parse_answer(raw: str) -> LLMAnswer:
+    logger.debug("Parsing and validating LLM answer")
     data = _extract_json(raw)
     try:
-        return LLMAnswer.model_validate(data)
+        answer = LLMAnswer.model_validate(data)
+        logger.info("LLM answer validated successfully")
+        return answer
     except ValidationError as e:
+        logger.error(f"Antwort entspricht nicht dem Schema: {e}")
         raise ValueError(f"Antwort entspricht nicht dem Schema: {e}")

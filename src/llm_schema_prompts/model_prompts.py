@@ -5,7 +5,9 @@ Transformationen zu verstehen und auf Fehler zu überprüfen. Anschließend soll
 ETL-Prozess kurz beschreiben und anschließend Feedback geben, inwiefern er funktionstüchtig ist 
 oder mögliche Fehlerquellen beinhaltet. Informiere auch über Verbesserungspotenziale, ohne, 
 dass sich das Endergebnis des Datenflusses verändert. Antworte ausschließlich als gültiges JSON 
-nach dem bereitgestellten Schema. Keine Kommentare, keine zusätzlichen Felder.
+nach dem bereitgestellten Schema. 
+
+Stilhinweis: Verwende fachliche, knappe Formulierungen. Keine Floskeln, kommentare oder überflüssige Felder.
 """
 
 USER_PROMPT_TEMPLATE = """
