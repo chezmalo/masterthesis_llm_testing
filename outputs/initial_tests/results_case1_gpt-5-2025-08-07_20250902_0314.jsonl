@@ -1,0 +1,72 @@
+{
+    "case_id": "CASE-001",
+    "task_understanding": "Summiere Beträge je Kunde und Kalenderjahr aus TRANSACTIONS in TARGET_AGG und prüfe Aggregationslogik, YEAR-Gruppierung und Rundungs-/Präzisionsaspekte.",
+    "data_lineage": [
+        "TRANSACTIONS -> TARGET_AGG (Aggregation je CUSTOMER_ID und Jahr)",
+        "TRANSACTIONS.CUSTOMER_ID -> TARGET_AGG.CUSTOMER_ID",
+        "TRANSACTIONS.BOOKING_DATE -> TARGET_AGG.YEAR (via YEAR(BOOKING_DATE))",
+        "TRANSACTIONS.AMOUNT_EUR -> TARGET_AGG.SUM_AMOUNT_EUR (via SUM(AMOUNT_EUR))"
+    ],
+    "transformations": [
+        {
+            "step": 1,
+            "description": "Jahr aus dem Buchungsdatum ableiten",
+            "formula": "YEAR(BOOKING_DATE) AS YEAR",
+            "notes": "Nicht in allen SQL-Dialekten portabel; alternativ EXTRACT(YEAR FROM BOOKING_DATE)"
+        },
+        {
+            "step": 2,
+            "description": "Gruppieren nach Kunde und Jahr; Beträge summieren",
+            "formula": "GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE); SUM(AMOUNT_EUR) AS SUM_AMOUNT_EUR",
+            "notes": "SUM ignoriert NULL; reine NULL-Gruppen ergeben NULL"
+        },
+        {
+            "step": 3,
+            "description": "Aggregierte Werte in Zieltabelle schreiben",
+            "formula": "INSERT INTO TARGET_AGG (CUSTOMER_ID, YEAR, SUM_AMOUNT_EUR) SELECT ...",
+            "notes": "Einhaltung Zielpräzision DECIMAL(14,2) beachten"
+        }
+    ],
+    "computations_valid": true,
+    "computation_details": "Logik korrekt: SUM(AMOUNT_EUR) je CUSTOMER_ID und YEAR(BOOKING_DATE). Keine Rundungsfehler bei Skala 2 zu 2; jedoch mögliches Precision-Overflow beim Insert in DECIMAL(14,2). YEAR() liefert integeres Kalenderjahr; mit DATE ohne TZ unkritisch.",
+    "risks_or_errors": [
+        {
+            "id": "CASE-001-R1",
+            "severity": "medium",
+            "message": "Mögliches Überlaufen/Abschneiden beim Insert: SUM(DECIMAL(12,2)) kann DECIMAL(14,2) überschreiten.",
+            "source": "TARGET_AGG.SUM_AMOUNT_EUR DECIMAL(14,2)"
+        },
+        {
+            "id": "CASE-001-R2",
+            "severity": "low",
+            "message": "YEAR() ist nicht in allen Dialekten portabel; EXTRACT(YEAR FROM ...) wäre robuster.",
+            "source": "SQL: YEAR(BOOKING_DATE)"
+        },
+        {
+            "id": "CASE-001-R3",
+            "severity": "low",
+            "message": "Alias/Spaltenname YEAR kann reserviert sein; ggf. quoten.",
+            "source": "TARGET_AGG.YEAR"
+        },
+        {
+            "id": "CASE-001-R4",
+            "severity": "medium",
+            "message": "NULL in BOOKING_DATE führt zu YEAR=NULL und separater NULL-Gruppe; fachlich ggf. ausschließen.",
+            "source": "TRANSACTIONS.BOOKING_DATE"
+        },
+        {
+            "id": "CASE-001-R5",
+            "severity": "info",
+            "message": "SUM ignoriert NULL in AMOUNT_EUR; reine NULL-Gruppen ergeben SUM=NULL statt 0.",
+            "source": "TRANSACTIONS.AMOUNT_EUR"
+        },
+        {
+            "id": "CASE-001-R6",
+            "severity": "info",
+            "message": "Performance: Index auf (CUSTOMER_ID, BOOKING_DATE) oder berechnetem YEAR empfehlenswert.",
+            "source": "TRANSACTIONS"
+        }
+    ],
+    "final_answer": "Die Aggregation ist fachlich korrekt: SUM(AMOUNT_EUR) je CUSTOMER_ID und YEAR(BOOKING_DATE) wird gruppiert und in TARGET_AGG geladen. Risiken: mögliche Präzisions-/Overflow-Probleme beim Insert in DECIMAL(14,2), YEAR()-Portabilität, potenzielle NULL-Jahresgruppe, SUM=NULL bei reinen NULL-Beträgen. Verbesserungen ohne Ergebnisänderung: EXTRACT(YEAR FROM BOOKING_DATE) verwenden, Alias YEAR quoten, COALESCE(SUM(AMOUNT_EUR),0) falls gewünscht, WHERE BOOKING_DATE IS NOT NULL ergänzen, Zielpräzision prüfen/erhöhen, geeignete Indizes setzen.",
+    "_source_file": "case1.yaml"
+}

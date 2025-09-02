@@ -28,9 +28,11 @@ def run(
     logger.info("Starte Verarbeitung der Testfälle...")
     # Fälle laden und nacheinander verarbeiten
 
+    cases_list = []
+
     try:
-        cases = load_cases(cases_dir)
-        logger.info(f"{len(cases)} Fälle aus {cases_dir} geladen.")
+        cases_list = load_cases(cases_dir)
+        logger.info(f"{len(cases_list)} Fälle aus {cases_dir} geladen.")
     except Exception as e:
         logger.error(f"Fehler beim Laden der Testfälle: {e}")
         raise

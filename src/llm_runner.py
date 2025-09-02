@@ -44,7 +44,7 @@ def build_user_prompt(case: dict) -> str:
 def _client() -> OpenAI:
     logger.debug("Initializing OpenAI client")
     try:
-        client = OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL, timeout=60, max_retries=3)
+        client = OpenAI(api_key=config.OPENAI_API_KEY, base_url=config.OPENAI_BASE_URL, timeout=60, max_retries=1)
         logger.info("OpenAI client initialized successfully")
         return client
     except Exception as e:
