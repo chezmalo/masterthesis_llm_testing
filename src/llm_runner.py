@@ -1,7 +1,6 @@
 import json
 import re
 import asyncio
-from xmlrpc import client
 from pydantic import ValidationError
 from openai import AsyncOpenAI, OpenAI
 from src import config
@@ -112,10 +111,13 @@ async def async_prompt_llm(model: str, system_prompt: str, user_prompt: str) -> 
 
 def ping_llm():
     try:
-        # Funktion zum Pingen des LLMs 
-        r = client.chat.completions.create( model=config.DEFAULT_MODEL, 
-            messages=[{"role": "user", "content": "ping"}], 
-            temperature=0.2 ) 
+        # Funktion zum Pingen des LLMs
+        client = _client()
+        r = client.chat.completions.create(
+            model=config.DEFAULT_MODEL,
+            messages=[{"role": "user", "content": "ping"}],
+            temperature=0.2
+        )
         logger.debug(f"LLM-Antwort auf Ping: {r.choices[0].message.content}")
         logger.info("Ping erfolgreich!")
     except Exception as e:
