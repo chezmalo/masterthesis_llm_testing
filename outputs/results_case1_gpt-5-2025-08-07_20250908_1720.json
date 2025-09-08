@@ -1,0 +1,67 @@
+{
+    "case_id": "CASE-001",
+    "task_understanding": "Summiere AMOUNT_EUR je CUSTOMER_ID und Kalenderjahr aus BOOKING_DATE; prüfe Aggregationslogik, YEAR-Gruppierung und Rundung.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> TARGET_AGG.CUSTOMER_ID",
+        "YEAR(TRANSACTIONS.BOOKING_DATE) -> TARGET_AGG.YEAR",
+        "SUM(TRANSACTIONS.AMOUNT_EUR) -> TARGET_AGG.SUM_AMOUNT_EUR"
+    ],
+    "transformations": [
+        {
+            "step": 1,
+            "description": "Selektion und Jahresableitung",
+            "formula": "YEAR_VAL = YEAR(BOOKING_DATE)",
+            "notes": "NULL BOOKING_DATE ergibt YEAR_VAL = NULL (DB-abhängig)."
+        },
+        {
+            "step": 2,
+            "description": "Aggregation nach Kunde und Jahr",
+            "formula": "SUM_AMOUNT = SUM(AMOUNT_EUR)",
+            "notes": "SUM ignoriert NULL-Werte; Vorzeichen werden beibehalten."
+        },
+        {
+            "step": 3,
+            "description": "Schreiben ins Ziel",
+            "formula": "INSERT INTO TARGET_AGG (CUSTOMER_ID, YEAR, SUM_AMOUNT_EUR) SELECT CUSTOMER_ID, YEAR(BOOKING_DATE), SUM(AMOUNT_EUR) FROM TRANSACTIONS GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE)",
+            "notes": "Alias YEAR wird in Zielspalte YEAR gemappt."
+        }
+    ],
+    "computations_valid": true,
+    "computation_details": "Logik erfüllt die Anforderung: SUM(AMOUNT_EUR) pro CUSTOMER_ID und YEAR(BOOKING_DATE). Bei DECIMAL-Eingaben entstehen keine binären Rundungsfehler; Einfügung in DECIMAL(14,2) rundet/kappt ggf. auf 2 Nachkommastellen.",
+    "risks_or_errors": [
+        {
+            "id": "R1",
+            "severity": "medium",
+            "message": "Möglicher Überlauf/Trunkierung: SUM(AMOUNT_EUR) kann DECIMAL(14,2) überschreiten.",
+            "source": "TARGET_AGG.SUM_AMOUNT_EUR"
+        },
+        {
+            "id": "R2",
+            "severity": "low",
+            "message": "YEAR ist als Spaltenname/Alias potentiell problematisch oder reserviert; kann Quoting erfordern.",
+            "source": "SQL-Transformation"
+        },
+        {
+            "id": "R3",
+            "severity": "low",
+            "message": "BOOKING_DATE = NULL erzeugt YEAR(NULL); führt zu NULL-Jahresgruppe oder Insert-Fehler je nach DB/Constraints.",
+            "source": "TRANSACTIONS.BOOKING_DATE"
+        },
+        {
+            "id": "R4",
+            "severity": "info",
+            "message": "Funktionsbasierte Gruppierung YEAR(BOOKING_DATE) kann Indexnutzung auf BOOKING_DATE verhindern.",
+            "source": "SQL-Transformation"
+        },
+        {
+            "id": "R5",
+            "severity": "low",
+            "message": "Metadaten-Typangabe wirkt fehlerhaft formatiert (DECIMAL(12,2)); Klarstellung/Behebung empfohlen.",
+            "source": "Eingabetabellen JSON"
+        }
+    ],
+    "final_answer": "Die Aggregation pro CUSTOMER_ID und YEAR(BOOKING_DATE) ist fachlich korrekt. Risiken: mögliche Überläufe in DECIMAL(14,2), NULL-Jahre, potenzielle Probleme mit YEAR als Spaltenname sowie Performance durch Funktions-Gruppierung. Verbesserungen ohne Ergebnisänderung: Zieltyp auf DECIMAL(18,2) oder höher anheben bzw. CAST(SUM(AMOUNT_EUR) AS DECIMAL(18,2)); YEAR-Spalte/Alias quoten oder EXTRACT(YEAR FROM BOOKING_DATE) verwenden; NULL-Daten explizit filtern (WHERE BOOKING_DATE IS NOT NULL); optional berechnete YEAR-Spalte materialisieren/indizieren für bessere Performance.",
+    "_source_file": "case1.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 42.728
+}

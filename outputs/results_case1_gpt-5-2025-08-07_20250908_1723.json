@@ -1,0 +1,79 @@
+{
+    "case_id": "CASE-001",
+    "task_understanding": "Beträge je Kunde und Kalenderjahr aus TRANSACTIONS aggregieren und die Korrektheit der Aggregation inkl. YEAR-Gruppierung und Rundung prüfen; Quelle->Ziel lineage beschreiben.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> TARGET_AGG.CUSTOMER_ID",
+        "TRANSACTIONS.BOOKING_DATE -> YEAR(BOOKING_DATE) -> TARGET_AGG.YEAR",
+        "TRANSACTIONS.AMOUNT_EUR -> SUM(AMOUNT_EUR) -> TARGET_AGG.SUM_AMOUNT_EUR"
+    ],
+    "transformations": [
+        {
+            "step": 1,
+            "description": "Quelle lesen",
+            "formula": "FROM TRANSACTIONS",
+            "notes": null
+        },
+        {
+            "step": 2,
+            "description": "Jahr aus Buchungsdatum ableiten",
+            "formula": "YEAR(BOOKING_DATE) AS YEAR",
+            "notes": "Kalenderjahr; NULL bei fehlendem Datum"
+        },
+        {
+            "step": 3,
+            "description": "Aggregation je Kunde und Jahr",
+            "formula": "SUM(AMOUNT_EUR)",
+            "notes": "GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE)"
+        },
+        {
+            "step": 4,
+            "description": "Ziel befüllen",
+            "formula": "INSERT INTO TARGET_AGG (CUSTOMER_ID, YEAR, SUM_AMOUNT_EUR)",
+            "notes": "1:1 Mapping der Selektliste"
+        }
+    ],
+    "computations_valid": true,
+    "computation_details": "Logik ist fachlich korrekt: SUM(AMOUNT_EUR) gruppiert nach CUSTOMER_ID und YEAR(BOOKING_DATE). DECIMAL-Summen sind exakt auf 2 Nachkommastellen; keine Rundungsfehler zu erwarten. Potenzielle Grenzfälle: NULL-BOOKING_DATE führt zu YEAR=NULL; sehr große Summen könnten DECIMAL(14,2) überschreiten.",
+    "risks_or_errors": [
+        {
+            "id": "F1",
+            "severity": "medium",
+            "message": "Summenüberlauf möglich, wenn SUM(AMOUNT_EUR) den Wertebereich von TARGET_AGG.SUM_AMOUNT_EUR (DECIMAL(14,2)) überschreitet.",
+            "source": "TARGET_AGG.SUM_AMOUNT_EUR"
+        },
+        {
+            "id": "F2",
+            "severity": "low",
+            "message": "YEAR ist in manchen Dialekten ein reserviertes Wort; Spaltenalias/Zielspalte ohne Quoting kann zu Portabilitäts-/Syntaxproblemen führen.",
+            "source": "SQL"
+        },
+        {
+            "id": "F3",
+            "severity": "low",
+            "message": "YEAR(BOOKING_DATE) ist dialektspezifisch; EXTRACT(YEAR FROM BOOKING_DATE) ist portabler.",
+            "source": "SQL"
+        },
+        {
+            "id": "F4",
+            "severity": "low",
+            "message": "BOOKING_DATE NULL ergibt YEAR=NULL und damit Insert eines NULL in TARGET_AGG.YEAR (INT); je nach Anforderung unerwünscht.",
+            "source": "TRANSACTIONS.BOOKING_DATE"
+        },
+        {
+            "id": "F5",
+            "severity": "info",
+            "message": "Indexnutzung auf BOOKING_DATE für Gruppierung nach Jahr ist begrenzt; Ausdrucksindex oder Materialisierung des Jahres kann Leistung verbessern.",
+            "source": "SQL/Performance"
+        },
+        {
+            "id": "F6",
+            "severity": "info",
+            "message": "Metadaten zeigen fehlerhafte DECIMAL-Deklarationen im JSON (Parsing von DECIMAL(p,s)); prüfen, dass die DB-Spaltentypen korrekt sind.",
+            "source": "Metadata"
+        }
+    ],
+    "final_answer": "Der ETL summiert AMOUNT_EUR je CUSTOMER_ID und Kalenderjahr korrekt via GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE) und schreibt nach TARGET_AGG. Rechnerisch sind keine Rundungsfehler zu erwarten, da DECIMAL-Summen exakt sind. Risiken: möglicher Überlauf in DECIMAL(14,2), YEAR als reserviertes Wort/Dialektfunktion, NULL-Datumswerte, sowie Performance bei YEAR()-Ausdruck. Verbesserungen ohne Ergebnisänderung: Zielspalte/Alias quoten oder umbenennen, EXTRACT(YEAR FROM BOOKING_DATE) verwenden, YEAR IS NOT NULL filtern oder gezielt behandeln, Präzision von SUM_AMOUNT_EUR großzügiger wählen (z.B. DECIMAL(18,2) oder DECIMAL(28,2)), optional Ausdrucksindex auf YEAR(BOOKING_DATE) oder berechnete Spalte für das Jahr anlegen.",
+    "_source_file": "case1.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 47.861
+}

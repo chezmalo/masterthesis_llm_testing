@@ -1,10 +1,11 @@
 import asyncio
 import typer
+import time 
 from pathlib import Path
-from utils.utils import now_stamp, write_jsonl, load_cases
+from utils.utils import now_stamp, write_json, load_cases
 from src.utils.logger import setup
 from src.llm_runner import async_prompt_llm, prompt_llm, ping_llm, parse_answer, build_user_prompt
-from llm_schema_prompts.model_prompts import SYSTEM_PROMPT
+from src.llm_schema_prompts.model_prompts import SYSTEM_PROMPT
 from src import config
 
 app = typer.Typer(help="LLM Runner für Datentransformationsfluss-Testfälle")
@@ -69,6 +70,7 @@ async def _run_async(
     sem = asyncio.Semaphore(concurrency)
 
     async def process_case(case, model, out_dir, logger):
+        t0 = time.perf_counter()
         async with sem:
             try:
                 logger.debug(f"Verarbeite Fall: {case.get('id', 'unbekannt')}")
@@ -82,17 +84,21 @@ async def _run_async(
                 # Ergebnis + Quelldatei speichern
                 row = parsed.model_dump()
                 row["_source_file"] = case["_file"]
-    
+                row["_model"] = model
+                row["_duration_seconds"] = round(time.perf_counter() - t0, 3)
+
                 # Output-Dateinamen mit Case-Name und Modell generieren
                 case_name = Path(case["_file"]).stem
-                out_file = out_dir / f"results_{case_name}_{model}_{now_stamp()}.jsonl"
-                write_jsonl(out_file, row)
-                logger.info(f"[OK] {case['id']} -> gespeichert in {out_file}")
+                out_file = out_dir / f"results_{case_name}_{model}_{now_stamp()}.json"
+                write_json(out_file, row)
+                logger.info(f"[OK] {case['id']} -> gespeichert in {out_file} "
+                        f"({row['_duration_seconds']}s)")
             except Exception as e:
                 # Fehler speichern (z.B. Fehler der YAML-Datei, JSON-Parsing-Fehler, Validierungsfehler)
-                logger.error(f"Fehler bei Fall {case.get('id')}: {e}")
-                out_file = out_dir / f"results_{case.get('id', 'unknown')}_{model}_{now_stamp()}.jsonl"
-                write_jsonl(out_file, {"case_id": case.get("id"), "error": str(e)})
+                duration = round(time.perf_counter() - t0, 3)
+                logger.error(f"Fehler bei Fall {case.get('id')}: {e} (nach {duration}s)")
+                out_file = out_dir / f"results_{case.get('id', 'unknown')}_{model}_{now_stamp()}.json"
+                write_json(out_file, {"case_id": case.get("id"), "error": str(e)})
 
     tasks = [
         process_case(case, model, out_dir, logger)

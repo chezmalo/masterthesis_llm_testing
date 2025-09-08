@@ -1,0 +1,71 @@
+{
+  "case_id": "CASE-001",
+  "task_understanding": "Beträge (AMOUNT_EUR) pro Kunde (CUSTOMER_ID) und Kalenderjahr aus BOOKING_DATE aggregieren und als Summe je (Kunde, Jahr) in TARGET_AGG ablegen. Fokus liegt auf korrekter GROUP BY-Logik (YEAR aus BOOKING_DATE) und Vermeidung von Rundungsfehlern.",
+  "data_lineage": [
+    "TRANSACTIONS.CUSTOMER_ID -> TARGET_AGG.CUSTOMER_ID",
+    "EXTRACT(YEAR FROM TRANSACTIONS.BOOKING_DATE) -> TARGET_AGG.YEAR",
+    "SUM(TRANSACTIONS.AMOUNT_EUR) -> TARGET_AGG.SUM_AMOUNT_EUR"
+  ],
+  "transformations": [
+    {
+      "step": 1,
+      "description": "Quelle lesen und relevante Felder auswählen",
+      "formula": "SELECT t.CUSTOMER_ID, t.AMOUNT_EUR, t.BOOKING_DATE FROM TRANSACTIONS t",
+      "notes": "Sicherstellen, dass AMOUNT_EUR als DECIMAL/Numeric vorliegt (keine FLOAT/DOUBLE-Coercion)."
+    },
+    {
+      "step": 2,
+      "description": "Jahr aus dem Buchungsdatum ableiten",
+      "formula": "EXTRACT(YEAR FROM t.BOOKING_DATE) AS YEAR",
+      "notes": "YEAR(t.BOOKING_DATE) ist ebenfalls möglich, aber Dialekt-abhängig. NULL in BOOKING_DATE führt zu YEAR=NULL."
+    },
+    {
+      "step": 3,
+      "description": "Aggregieren nach Kunde und Jahr",
+      "formula": "SELECT t.CUSTOMER_ID, EXTRACT(YEAR FROM t.BOOKING_DATE) AS YEAR, CAST(SUM(CAST(t.AMOUNT_EUR AS DECIMAL(18,2))) AS DECIMAL(14,2)) AS SUM_AMOUNT_EUR FROM TRANSACTIONS t GROUP BY t.CUSTOMER_ID, EXTRACT(YEAR FROM t.BOOKING_DATE)",
+      "notes": "Zwischensumme in höherer Präzision (z.B. DECIMAL(18,2)) berechnen und für Ziel auf DECIMAL(14,2) casten, um Überläufe/Precision-Loss zu vermeiden."
+    },
+    {
+      "step": 4,
+      "description": "In Zieltabelle laden",
+      "formula": "INSERT INTO TARGET_AGG (CUSTOMER_ID, YEAR, SUM_AMOUNT_EUR) <Resultat aus Schritt 3>",
+      "notes": "Optional: Vorab bestehende Zielzeilen für den Ladezeitraum löschen/upsert verwenden."
+    }
+  ],
+  "computations_valid": true,
+  "computation_details": "Die Aggregation ist fachlich korrekt: Gruppierung nach (CUSTOMER_ID, YEAR(BOOKING_DATE)) und SUM(AMOUNT_EUR). Mit DECIMAL-Datentypen entstehen keine binären Rundungsfehler; eine Zwischencast auf DECIMAL(18,2) stabilisiert die Präzision. Abschließender Cast auf DECIMAL(14,2) entspricht dem Zielschema. Dialekt-neutral ist EXTRACT(YEAR FROM ...).",
+  "risks_or_errors": [
+    {
+      "id": "F1",
+      "severity": "medium",
+      "message": "Die DECIMAL-Typen in der bereitgestellten Schemadefinition sind fehlerhaft serialisiert (\"DECIMAL(12\", \"2)\": null). Das kann Tools zur Schemavalidierung/Generierung stören.",
+      "source": "Schema/Metadaten"
+    },
+    {
+      "id": "F2",
+      "severity": "medium",
+      "message": "Rundungs-/Präzisionsrisiko, falls AMOUNT_EUR als FLOAT/DOUBLE verarbeitet oder implizit gecastet wird. SUM über Gleitkomma führt zu binären Rundungsfehlern.",
+      "source": "ETL/SQL-Engine"
+    },
+    {
+      "id": "F3",
+      "severity": "low",
+      "message": "BOOKING_DATE = NULL erzeugt YEAR = NULL. Je nach Zielkonfiguration (YEAR NOT NULL) kann dies zu Ladefehlern oder unerwarteten NULL-Gruppen führen.",
+      "source": "TRANSACTIONS.BOOKING_DATE"
+    },
+    {
+      "id": "F4",
+      "severity": "low",
+      "message": "Mögliches Überlauf-/Abschneidungsrisiko beim Schreiben in DECIMAL(14,2), wenn Summen sehr groß werden. Besser mit größerer Zwischenpräzision summieren und Grenzfälle monitoren.",
+      "source": "TARGET_AGG.SUM_AMOUNT_EUR"
+    },
+    {
+      "id": "F5",
+      "severity": "info",
+      "message": "YEAR(...) ist Dialekt-spezifisch. EXTRACT(YEAR FROM ...) erhöht Portabilität. Außerdem YEAR einmal berechnen (z. B. in Subquery/CTE) und dann gruppieren, verbessert Lesbarkeit/Leistung.",
+      "source": "SQL-Portabilität/Performance"
+    }
+  ],
+  "final_answer": "Der ETL-Prozess ist fachlich korrekt: Es wird je Kunde und Jahr (aus BOOKING_DATE abgeleitet) über AMOUNT_EUR summiert und nach TARGET_AGG geschrieben. Achte darauf, DECIMAL statt FLOAT zu verwenden (Zwischenpräzision z. B. DECIMAL(18,2)) und mögliche NULL in BOOKING_DATE zu behandeln. Das bereitgestellte Schemasnippet enthält fehlerhafte DECIMAL-Definitionen; diese sollten korrigiert werden. Optional: YEAR in einer Vorstufe berechnen und geeignete Indizes (CUSTOMER_ID, BOOKING_DATE) für Performance setzen – ohne Änderung des Ergebnisses.",
+  "_source_file": "case1.yaml"
+}

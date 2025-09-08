@@ -16,11 +16,11 @@ def ensure_parent(path: Path) -> None:
     logger.debug(f"Verzeichnis erstellt: {path.parent}")
 
 # creates dict obj as json file at path
-def write_jsonl(path: Path, obj: dict) -> None:
+def write_json(path: Path, obj: dict) -> None:
     ensure_parent(path)
-    with path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(obj, ensure_ascii=False, indent=4) + "\n")
-    logger.debug(f"JSONL erstellt: {path}")
+    with path.open("w", encoding="utf-8") as f:  # "w" = überschreiben statt anhängen
+        json.dump(obj, f, ensure_ascii=False, indent=4)
+    logger.debug(f"JSON erstellt: {path}")
 
 # loads all yaml files in the given directory and returns a list of dicts
 def load_cases(cases_dir: Path) -> list[dict]:
