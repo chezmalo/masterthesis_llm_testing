@@ -1,10 +1,9 @@
 import asyncio
 import typer
-import time 
-import sys
+import time
 import re
 from pathlib import Path
-from utils.utils import now_stamp, write_json, load_cases
+from utils.utils import now_stamp, write_json, load_cases, count_characters
 from src.utils.logger import setup
 from src.llm_runner import async_prompt_llm, prompt_llm, ping_llm, parse_answer, build_user_prompt
 from src.llm_schema_prompts.model_prompts import SYSTEM_PROMPT
@@ -27,8 +26,9 @@ def run(
     limit: int = typer.Option(None, help="Limitiere die Anzahl der zu testenden Fälle"),
     out: str = typer.Option("outputs", help="Ausgabeordner"),
     loglevel: str = typer.Option("INFO", help="Logging Level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"),
-    logfile: bool = typer.Option(True, help="Ob ein Logfile geschrieben werden soll (default: True)"),
+    logfile: bool = typer.Option(True, help="Soll ein Logfile geschrieben werden? (default: True)"),
     concurrency: int = typer.Option(8, help="Max. gleichzeitige LLM-Requests"),
+    repeat: int = typer.Option(1, help="Wie oft soll jeder Fall ausgeführt werden? (Testen der Konsistenz) (default: 1)"),
 ):
     """
     Starte die Verarbeitung der Testfälle mit dem angegebenen Modell.
@@ -41,7 +41,7 @@ def run(
         if not m:
             continue
         model_list.append(MODEL_ALIASES.get(m.lower(), m))
-    asyncio.run(_run_async(ping, model_list, cases, limit, out, loglevel, logfile, concurrency))
+    asyncio.run(_run_async(ping, model_list, cases, limit, out, loglevel, logfile, concurrency, repeat))
 
 async def _run_async(
     ping: bool,
@@ -52,10 +52,15 @@ async def _run_async(
     loglevel: str,
     logfile: bool,
     concurrency: int,
+    repeat: int,
 ):
     logger = setup(level=loglevel, write_file=logfile)
     logger.info("LLM Runner gestartet")
     logger.info(f"Verwendete Modelle: {model_list}")
+
+    # Statistikdaten pro Modell
+    stats = {model: {"char_counts": [], "durations": []} for model in model_list}
+
     # Ping-Check: Wenn --ping gesetzt ist, führe nur einen kurzen Test-Request aus und beende das Programm
     if ping is True:
         logger.info("Führe LLM-Ping durch...")
@@ -83,7 +88,7 @@ async def _run_async(
 
     logger.info(f"Starte {len(cases_list)*len(model_list)} Fälle")    
 
-    async def process_case(case, model, out_dir, logger):
+    async def process_case(case, model, out_dir, logger, repeatcount):
         t0 = time.perf_counter()
         logger.info(f"Starte Fall {case.get('id', 'unbekannt')} mit Modell: {model}")
         async with sem:
@@ -101,15 +106,21 @@ async def _run_async(
                 row["_source_file"] = case["_file"]
                 row["_model"] = model
                 row["_duration_seconds"] = round(time.perf_counter() - t0, 3)
+                row["_response_char_count"] = count_characters(raw)
+                
+                # Statistikdaten sammeln
+                stats[model]["char_counts"].append(row["_response_char_count"])
+                stats[model]["durations"].append(row["_duration_seconds"])
 
                 # Output-Dateinamen mit Case-Name und Modell generieren
                 case_name = Path(case["_file"]).stem
+                
                 # Remove uncessary parts from model name for filename
                 model_name = re.sub(r'[-_](\d{4,}([-.]\d{2,})*)$', '', model)
-                out_file = out_dir / f"results_{case_name}_{model_name}_{now_stamp()}.json"
+                out_file = out_dir / f"results_{model_name.capitalize}_{case_name.capitalize()}_REPEAT{repeatcount.capitalize}_{now_stamp()}.json"
                 write_json(out_file, row)
                 logger.info(f"[OK] {case['id']} -> gespeichert in {out_file} "
-                            f"({row['_duration_seconds']}s)")
+                            f"({row['_duration_seconds']}s, {row['_response_char_count']} Zeichen)")
             except Exception as e:
                 # Fehler speichern (z.B. Fehler der YAML-Datei, JSON-Parsing-Fehler, Validierungsfehler)
                 duration = round(time.perf_counter() - t0, 3)
@@ -121,14 +132,32 @@ async def _run_async(
     # Fälle laden und nacheinander verarbeiten
     sem = asyncio.Semaphore(concurrency)
 
-    # Run all cases for all models
+    # Run all cases for all models and repeat as many times as specified
     tasks = [
-        process_case(case, model, out_dir, logger)
+        process_case(case, model, out_dir, logger, repeatcount)
         for model in model_list
         for case in cases_list
+        for repeatcount in range(repeat)
     ]
 
     await asyncio.gather(*tasks)
+
+    # Statistik pro Modell berechnen und ausgeben
+    print("\n=== Modell-Statistiken ===")
+    for model in model_list:
+        char_counts = stats[model]["char_counts"]
+        durations = stats[model]["durations"]
+        avg_chars = round(sum(char_counts) / len(char_counts), 2)
+        avg_duration = round(sum(durations) / len(durations), 3)
+        
+        # Zeit pro 100 Zeichen berechnen
+        avg_time_per_100_chars = round((sum(durations) / sum(char_counts)) * 100, 3)
+        print(f"Modell: {model}")
+        print(f"  Durchschnittliche Zeichenanzahl: {avg_chars}")
+        print(f"  Durchschnittliche Dauer (Sekunden): {avg_duration}")
+        print(f"  Durchschnittliche Zeit pro 100 Zeichen (Sekunden): {avg_time_per_100_chars}")
+        print(f"  Anzahl Antworten: {len(char_counts)}")
+        print("")
 
 if __name__ == "__main__":
     app()
