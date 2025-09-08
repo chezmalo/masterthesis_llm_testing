@@ -1,5 +1,5 @@
 def init_stats(model_list):
-    """Initialisiert das Statistik-Dictionary für die Modelle."""
+     # Initialisiert das Statistik-Dictionary für die Modelle
     return {model: {"char_counts": [], "durations": []} for model in model_list}
 
 def print_model_statistics(model_list, stats):
