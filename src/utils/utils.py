@@ -32,3 +32,7 @@ def load_cases(cases_dir: Path) -> list[dict]:
             cases.append(data)
     logger.debug(f"Testfall-Dateien geladen: {len(cases)}")
     return cases
+
+def count_characters(text: str) -> int:
+    # Zählt die Zeichen in einer Antwort
+    return len(text) if text else 0
