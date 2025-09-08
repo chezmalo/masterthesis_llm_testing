@@ -36,3 +36,22 @@ def load_cases(cases_dir: Path) -> list[dict]:
 def count_characters(text: str) -> int:
     # Zählt die Zeichen in einer Antwort
     return len(text) if text else 0
+
+def get_model_aliases(shortform: str) -> str:
+    # Mappt Kurzbezeichnungen auf vollständige Modell-IDs
+    MODEL_ALIASES = {
+        "gpt": "gpt-5-2025-08-07",
+        "claude": "claude-sonnet-4-20250514",
+        "google": "gemini-2.5-pro",
+    }
+    return MODEL_ALIASES.get(shortform.lower(), shortform)
+
+def get_model_list(model:str) -> list[str]:
+    # Erstellt Model_List aus kommaseparierten Kurzbezeichnungen
+    model_list = []
+    for m in model.split(","):
+        m = m.strip()
+        if not m:
+            continue
+        model_list.append(get_model_aliases(m))
+    return model_list
