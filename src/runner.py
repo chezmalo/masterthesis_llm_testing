@@ -2,10 +2,11 @@ import asyncio
 import time
 import re
 from pathlib import Path
-from utils.utils import now_stamp, write_json, load_cases, count_characters
+from utils.utils import now_stamp, write_json, load_cases, add_metadata_to_row, normalize_model_name
 from src.utils.logger import setup
 from src.llm_runner import async_prompt_llm, ping_llm, parse_answer, build_user_prompt
 from src.llm_schema_prompts.model_prompts import SYSTEM_PROMPT
+from src.test_statistics import print_model_statistics, init_stats
 
 async def _run_async(
     ping: bool,
@@ -23,7 +24,7 @@ async def _run_async(
     logger.info(f"Verwendete Modelle: {model_list}")
 
     # Statistikdaten pro Modell
-    stats = {model: {"char_counts": [], "durations": []} for model in model_list}
+    stats = init_stats(model_list)
 
     # Ping-Check: Wenn --ping gesetzt ist, führe nur einen kurzen Test-Request aus und beende das Programm
     if ping is True:
@@ -69,13 +70,10 @@ async def _run_async(
                 logger.debug(f"Rohantwort vom LLM erhalten für Fall {case.get('id', 'unbekannt')}.")
                 parsed = parse_answer(raw)
                 logger.debug(f"Antwort geparst und validiert für Fall {case.get('id', 'unbekannt')}.")
-    
+
                 # Ergebnis + Quelldatei speichern
                 row = parsed.model_dump()
-                row["_source_file"] = case["_file"]
-                row["_model"] = model
-                row["_duration_seconds"] = round(time.perf_counter() - t0, 3)
-                row["_response_char_count"] = count_characters(raw)
+                row = add_metadata_to_row(row, case, model, t0, raw)
                 
                 # Statistikdaten sammeln
                 stats[model]["char_counts"].append(row["_response_char_count"])
@@ -85,7 +83,7 @@ async def _run_async(
                 case_name = Path(case["_file"]).stem
                 
                 # Remove uncessary parts from model name for filename
-                model_name = re.sub(r'[-_](\d{4,}([-.]\d{2,})*)$', '', model)
+                model_name = normalize_model_name(model)
                 out_file = out_dir / f"results_{model_name.capitalize()}_{case_name.capitalize()}_REPEAT{str(repeatcount)}_{now_stamp()}.json"
                 write_json(out_file, row)
                 logger.info(f"[OK] {case['id']} -> gespeichert in {out_file} "
@@ -107,19 +105,4 @@ async def _run_async(
 
     await asyncio.gather(*tasks)
 
-    # Statistik pro Modell berechnen und ausgeben
-    print("\n=== Modell-Statistiken ===")
-    for model in model_list:
-        char_counts = stats[model]["char_counts"]
-        durations = stats[model]["durations"]
-        avg_chars = round(sum(char_counts) / len(char_counts), 2)
-        avg_duration = round(sum(durations) / len(durations), 3)
-        
-        # Zeit pro 100 Zeichen berechnen
-        avg_time_per_100_chars = round((sum(durations) / sum(char_counts)) * 100, 3)
-        print(f"Modell: {model}")
-        print(f"  Durchschnittliche Zeichenanzahl: {avg_chars}")
-        print(f"  Durchschnittliche Dauer (Sekunden): {avg_duration}")
-        print(f"  Durchschnittliche Zeit pro 100 Zeichen (Sekunden): {avg_time_per_100_chars}")
-        print(f"  Anzahl Antworten: {len(char_counts)}")
-        print("")
+    print_model_statistics(model_list, stats)

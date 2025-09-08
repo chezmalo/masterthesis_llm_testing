@@ -2,7 +2,9 @@ import logging
 from pathlib import Path
 from datetime import datetime
 import json
+import time
 import yaml
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -55,3 +57,15 @@ def get_model_list(model:str) -> list[str]:
             continue
         model_list.append(get_model_aliases(m))
     return model_list
+
+def add_metadata_to_row(row, case, model, t0, raw):
+    # Fügt Metadaten zum Ergebnis hinzu
+    row["_source_file"] = case["_file"]
+    row["_model"] = model
+    row["_duration_seconds"] = round(time.perf_counter() - t0, 3)
+    row["_response_char_count"] = count_characters(raw)
+    return row
+
+def normalize_model_name(model_name: str) -> str:
+    # Entfernt Versionsnummern und unerwünschte Zeichen aus dem Modellnamen für Dateinamen
+    re.sub(r'[-_](\d{4,}([-.]\d{2,})*)$', '', model_name)
