@@ -1,0 +1,73 @@
+{
+    "case_id": "CASE-001",
+    "task_understanding": "Beträge je CUSTOMER_ID und Kalenderjahr aus TRANSACTIONS summieren, Ergebnis in TARGET_AGG laden. Prüfung auf korrekte Aggregation, YEAR-Gruppierung und potenzielle Rundungs-/Präzisionsprobleme.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> TARGET_AGG.CUSTOMER_ID",
+        "TRANSACTIONS.BOOKING_DATE -> TARGET_AGG.YEAR (via YEAR/EXTRACT)",
+        "TRANSACTIONS.AMOUNT_EUR -> TARGET_AGG.SUM_AMOUNT_EUR (via SUM)"
+    ],
+    "transformations": [
+        {
+            "step": 1,
+            "description": "Quelle lesen",
+            "formula": "SELECT CUSTOMER_ID, BOOKING_DATE, AMOUNT_EUR FROM TRANSACTIONS",
+            "notes": null
+        },
+        {
+            "step": 2,
+            "description": "Jahr aus Buchungsdatum ableiten",
+            "formula": "YEAR(BOOKING_DATE) bzw. EXTRACT(YEAR FROM BOOKING_DATE)",
+            "notes": "BOOKING_DATE NULL führt zu YEAR=NULL"
+        },
+        {
+            "step": 3,
+            "description": "Aggregation je Kunde und Jahr",
+            "formula": "SUM(AMOUNT_EUR) GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE)",
+            "notes": "SUM ignoriert NULL-Werte"
+        },
+        {
+            "step": 4,
+            "description": "Ziel befüllen",
+            "formula": "INSERT INTO TARGET_AGG (CUSTOMER_ID, YEAR, SUM_AMOUNT_EUR) SELECT CUSTOMER_ID, YEAR(BOOKING_DATE), SUM(AMOUNT_EUR) FROM TRANSACTIONS GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE)",
+            "notes": "Spalten-Mapping 1:1 mit abgeleitetem YEAR"
+        }
+    ],
+    "computations_valid": true,
+    "computation_details": "Logik ist fachlich korrekt: SUM pro CUSTOMER_ID und Kalenderjahr passt. Bei DECIMAL(12,2) sind keine binären Rundungsfehler zu erwarten; jedoch können Präzisions-/Überlaufgrenzen beim Insert in DECIMAL(14,2) auftreten. YEAR()-Funktion und Spaltenname YEAR können je nach Dialekt Portabilitäts-/Reserviertheitsprobleme verursachen. Null-BOOKING_DATE erzeugt YEAR=NULL-Gruppen.",
+    "risks_or_errors": [
+        {
+            "id": "F-001",
+            "severity": "high",
+            "message": "Möglicher Überlauf/Fehler beim Insert: SUM(DECIMAL(12,2)) kann DECIMAL(14,2) überschreiten (viele Transaktionen pro Kunde/Jahr).",
+            "source": "TARGET_AGG.SUM_AMOUNT_EUR"
+        },
+        {
+            "id": "F-002",
+            "severity": "medium",
+            "message": "Fehlende explizite Typ-/Rundungssteuerung: Implizites Cast auf DECIMAL(14,2) beim Insert; besser explizit CAST/ROUND setzen.",
+            "source": "SQL-Transformation"
+        },
+        {
+            "id": "F-003",
+            "severity": "medium",
+            "message": "YEAR(BOOKING_DATE) ist nicht in allen Dialekten portabel; Spaltenname YEAR kann reserviert sein.",
+            "source": "SQL-Transformation"
+        },
+        {
+            "id": "F-004",
+            "severity": "low",
+            "message": "BOOKING_DATE NULL führt zu YEAR=NULL und damit separater NULL-Gruppe im Ziel.",
+            "source": "TRANSACTIONS.BOOKING_DATE"
+        },
+        {
+            "id": "F-005",
+            "severity": "info",
+            "message": "Bereitgestelltes Tabellenschema wirkt fehlerhaft formatiert (DECIMAL(12, \"2\")/DECIMAL(14, \"2\")).",
+            "source": "Eingabetabellen-Metadaten"
+        }
+    ],
+    "final_answer": "Die Aggregation ist fachlich korrekt (SUM je CUSTOMER_ID und Kalenderjahr). Verbesserungen ohne Änderung des Ergebnisses: 1) Portabilität und Reserviertheit: EXTRACT(YEAR FROM BOOKING_DATE) verwenden und Zielspalte ggf. quoten/umbenennen. 2) Typ-/Rundungssteuerung: SUM explizit auf Zieltyp casten, z. B. CAST(SUM(AMOUNT_EUR) AS DECIMAL(14,2)); bei Bedarf ROUND(...,2) ergänzen. 3) Datenqualität: Null-Daten ausschließen (WHERE BOOKING_DATE IS NOT NULL) oder bewusst behandeln. 4) Überlaufprävention: Zielpräzision prüfen/erhöhen (z. B. DECIMAL(18,2)) oder vor dem Insert Validierungen einbauen. Datenherkunft: TRANSACTIONS -> Ableitung YEAR aus BOOKING_DATE -> Summierung AMOUNT_EUR -> Insert nach TARGET_AGG.",
+    "_source_file": "case1.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 31.088
+}

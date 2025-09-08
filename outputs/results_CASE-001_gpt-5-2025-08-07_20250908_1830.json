@@ -1,0 +1,4 @@
+{
+    "case_id": "CASE-001",
+    "error": "Error code: 401 - {'detail': 'Invalid API key'}"
+}

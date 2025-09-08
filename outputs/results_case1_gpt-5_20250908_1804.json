@@ -1,0 +1,79 @@
+{
+    "case_id": "CASE-001",
+    "task_understanding": "Summiere AMOUNT_EUR je CUSTOMER_ID und Kalenderjahr aus TRANSACTIONS nach TARGET_AGG; Aggregation, YEAR-Gruppierung und Rundung prüfen; Herkunft dokumentieren.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> TARGET_AGG.CUSTOMER_ID",
+        "YEAR(TRANSACTIONS.BOOKING_DATE) -> TARGET_AGG.YEAR",
+        "SUM(TRANSACTIONS.AMOUNT_EUR) -> TARGET_AGG.SUM_AMOUNT_EUR"
+    ],
+    "transformations": [
+        {
+            "step": 1,
+            "description": "Jahr aus Buchungsdatum ableiten",
+            "formula": "YEAR(BOOKING_DATE) AS YEAR",
+            "notes": "Alternativ EXTRACT(YEAR FROM BOOKING_DATE) für ANSI-Portabilität"
+        },
+        {
+            "step": 2,
+            "description": "Gruppierung je Kunde und Jahr",
+            "formula": "GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE)",
+            "notes": "DATE-Feld vermeidet TZ-Probleme"
+        },
+        {
+            "step": 3,
+            "description": "Summenbildung der Beträge",
+            "formula": "SUM(AMOUNT_EUR) AS SUM_AMOUNT_EUR",
+            "notes": "DECIMAL-Summe vermeidet binäre Rundungsfehler"
+        },
+        {
+            "step": 4,
+            "description": "Laden in Zieltabelle",
+            "formula": "INSERT INTO TARGET_AGG (CUSTOMER_ID, YEAR, SUM_AMOUNT_EUR) SELECT ...",
+            "notes": "Spaltenreihenfolge konsistent"
+        }
+    ],
+    "computations_valid": true,
+    "computation_details": "Logik korrekt: SUM(DECIMAL(12,2)) je CUSTOMER_ID und Kalenderjahr (YEAR(BOOKING_DATE)). Keine numerischen Rundungsfehler durch DECIMAL; potentiell Summen-Overflow bei hoher Transaktionsanzahl, wenn Ziel DECIMAL(14,2) zu klein ist.",
+    "risks_or_errors": [
+        {
+            "id": "R1",
+            "severity": "medium",
+            "message": "YEAR(BOOKING_DATE) ist nicht ANSI-SQL und in einigen Dialekten (z.B. PostgreSQL) ungültig.",
+            "source": "SQL-Transformation"
+        },
+        {
+            "id": "R2",
+            "severity": "medium",
+            "message": "Zielspaltenname YEAR kann mit Funktion/Schlüsselwort kollidieren; Insert kann Dialekt-abhängig Quoting benötigen.",
+            "source": "TARGET_AGG.YEAR"
+        },
+        {
+            "id": "R3",
+            "severity": "medium",
+            "message": "Möglicher Überlauf: SUM(DECIMAL(12,2)) in Ziel DECIMAL(14,2) kann bei vielen Zeilen pro Gruppe die Präzision überschreiten.",
+            "source": "TARGET_AGG.SUM_AMOUNT_EUR"
+        },
+        {
+            "id": "R4",
+            "severity": "low",
+            "message": "NULL in BOOKING_DATE führt zu YEAR=NULL und eigener Gruppe; bei NOT NULL in Zielspalte verursacht Insert-Fehler.",
+            "source": "TRANSACTIONS.BOOKING_DATE"
+        },
+        {
+            "id": "R5",
+            "severity": "low",
+            "message": "Funktionsbasierte Gruppierung (YEAR(BOOKING_DATE)) kann Indexnutzung auf BOOKING_DATE verhindern.",
+            "source": "SQL-Transformation"
+        },
+        {
+            "id": "R6",
+            "severity": "low",
+            "message": "Metadaten der Eingabetabellen zeigen fehlerhafte DECIMAL-Spezifikation im JSON (Formatierungsfehler).",
+            "source": "Eingabe-Metadaten"
+        }
+    ],
+    "final_answer": "Die Aggregation ist fachlich korrekt: SUM(AMOUNT_EUR) je CUSTOMER_ID und Kalenderjahr aus TRANSACTIONS wird nach TARGET_AGG geladen. Rundungsfehler sind bei DECIMAL-Summen nicht zu erwarten. Risiken: Dialektabhängigkeit von YEAR(), potenzielle Kollision/Quoting der Spalte YEAR, mögliches Summen-Overflow in DECIMAL(14,2), NULL-Handling für BOOKING_DATE sowie eingeschränkte Indexnutzung durch Funktionsaufruf. Verbesserungen ohne Ergebnisänderung: EXTRACT(YEAR FROM BOOKING_DATE) (bzw. date_part), Zielspalte in BOOKING_YEAR umbenennen oder quoten, Zielpräzision auf DECIMAL(18,2) oder höher erhöhen, WHERE BOOKING_DATE IS NOT NULL ergänzen, optional berechnete Spalte/Index auf Jahr verwenden.",
+    "_source_file": "case1.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 56.673
+}

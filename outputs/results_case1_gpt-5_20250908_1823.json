@@ -1,0 +1,67 @@
+{
+    "case_id": "CASE-001",
+    "task_understanding": "Summiere AMOUNT_EUR je CUSTOMER_ID und Kalenderjahr aus BOOKING_DATE. Prüfe Aggregation, YEAR-Gruppierung und Rundung/Präzision.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> TARGET_AGG.CUSTOMER_ID (Gruppierung)",
+        "TRANSACTIONS.BOOKING_DATE -> TARGET_AGG.YEAR (abgeleitet: YEAR(BOOKING_DATE))",
+        "TRANSACTIONS.AMOUNT_EUR -> TARGET_AGG.SUM_AMOUNT_EUR (SUM je CUSTOMER_ID, YEAR)"
+    ],
+    "transformations": [
+        {
+            "step": 1,
+            "description": "Jahr aus BOOKING_DATE ableiten",
+            "formula": "YEAR(BOOKING_DATE) AS YEAR",
+            "notes": "Gruppierung nach Kunde+Jahr"
+        },
+        {
+            "step": 2,
+            "description": "Beträge je Kunde/Jahr aggregieren",
+            "formula": "SUM(AMOUNT_EUR) AS SUM_AMOUNT_EUR",
+            "notes": "SUM ignoriert NULL in AMOUNT_EUR"
+        },
+        {
+            "step": 3,
+            "description": "Ergebnis in Zieltabelle schreiben",
+            "formula": "INSERT INTO TARGET_AGG (CUSTOMER_ID, YEAR, SUM_AMOUNT_EUR) SELECT ...",
+            "notes": null
+        }
+    ],
+    "computations_valid": true,
+    "computation_details": "Logik erfüllt die Anforderung: GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE) und SUM(AMOUNT_EUR). SUM auf DECIMAL ist exakt; mögliche Fehler entstehen durch Ziel-Precision, YEAR-Funktion/Dialekt und NULL-Daten.",
+    "risks_or_errors": [
+        {
+            "id": "CASE-001-F1",
+            "severity": "high",
+            "message": "SUM(AMOUNT_EUR) kann DECIMAL(14,2) in TARGET_AGG überschreiten oder gerundet/abgeschnitten werden; bei vielen Buchungen je Kunde/Jahr droht Überlauf.",
+            "source": "TARGET_AGG.SUM_AMOUNT_EUR"
+        },
+        {
+            "id": "CASE-001-F2",
+            "severity": "medium",
+            "message": "Spaltenname 'YEAR' ist potenziell reserviert; unquotiert kann dies je SQL-Dialekt zu Fehlern führen.",
+            "source": "TARGET_AGG.YEAR"
+        },
+        {
+            "id": "CASE-001-F3",
+            "severity": "medium",
+            "message": "YEAR(BOOKING_DATE) ist nicht ANSI-standardisiert; Dialektabhängigkeit (z. B. EXTRACT in Standard-SQL).",
+            "source": "SQL-Transformation"
+        },
+        {
+            "id": "CASE-001-F4",
+            "severity": "low",
+            "message": "BOOKING_DATE = NULL führt zu YEAR=NULL und einer separaten NULL-Gruppe im Ziel; fachlich evtl. unerwünscht.",
+            "source": "TRANSACTIONS.BOOKING_DATE"
+        },
+        {
+            "id": "CASE-001-F5",
+            "severity": "info",
+            "message": "Funktion auf Spalte (YEAR(date)) kann Indexnutzung für Gruppierung verhindern.",
+            "source": "SQL-Transformation"
+        }
+    ],
+    "final_answer": "ETL kurz: TRANSACTIONS -> Aggregation je CUSTOMER_ID und Jahr (YEAR(BOOKING_DATE), SUM(AMOUNT_EUR)) -> Insert in TARGET_AGG. Funktional korrekt für Summen je Kunde/Jahr. Risiken: Zieltyp DECIMAL(14,2) kann Summe nicht tragen; Spaltenname YEAR reserviert; YEAR()-Funktion ist dialektabhängig; NULL-BOOKING_DATE erzeugt NULL-Jahr. Verbesserungen ohne Ergebnisänderung: Zielspalte auf DECIMAL(18,2) oder größer anheben und/oder CAST(SUM(AMOUNT_EUR) AS DECIMAL(18,2)); Spaltennamen z. B. auf BOOKING_YEAR ändern oder quoten; ANSI-konform EXTRACT(YEAR FROM BOOKING_DATE) verwenden; optional WHERE BOOKING_DATE IS NOT NULL; für Performance ggf. berechnete/spaltenindizierte Jahr-Spalte nutzen.",
+    "_source_file": "case1.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 31.841
+}
