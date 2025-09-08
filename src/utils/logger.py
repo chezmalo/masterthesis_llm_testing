@@ -2,7 +2,7 @@ import os, logging
 from rich.console import Console
 from rich.logging import RichHandler
 
-LOG_FILE = "outputs/llm_tests.log"
+LOG_FILE = "outputs/log/llm_tests.log"
 
 def setup(level: str = "INFO", write_file: bool = True) -> logging.Logger:
     lvl = getattr(logging, level.upper(), logging.INFO)
