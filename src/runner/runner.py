@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 from utils.utils import now_stamp, write_json, load_cases, add_metadata_to_row, normalize_model_name
 from src.utils.logger import setup
-from src.llm_runner import async_prompt_llm, ping_llm, parse_answer, build_user_prompt
+from src.runner.llm_runner import async_prompt_llm, ping_llm, parse_answer, build_user_prompt
 from src.llm_schema_prompts.model_prompts import SYSTEM_PROMPT
 from src.test_statistics import print_model_statistics, init_stats
 
@@ -80,11 +80,11 @@ async def _run_async(
                 stats[model]["durations"].append(row["_duration_seconds"])
 
                 # Output-Dateinamen mit Case-Name und Modell generieren
-                case_name = Path(case["_file"]).stem
+                case_name: str = Path(case["_file"]).stem
                 
                 # Remove uncessary parts from model name for filename
-                model_name = normalize_model_name(model)
-                out_file = out_dir / f"results_{model_name.capitalize()}_{case_name.capitalize()}_REPEAT{str(repeatcount)}_{now_stamp()}.json"
+                model_name: str = normalize_model_name(model)
+                out_file = out_dir / f"RESULTS_{model_name.upper()}_{case_name.upper()}_REPEAT{str(repeatcount)}_{now_stamp()}.json"
                 write_json(out_file, row)
                 logger.info(f"[OK] {case['id']} -> gespeichert in {out_file} "
                             f"({row['_duration_seconds']}s, {row['_response_char_count']} Zeichen)")
@@ -92,7 +92,7 @@ async def _run_async(
                 # Fehler speichern (z.B. Fehler der YAML-Datei, JSON-Parsing-Fehler, Validierungsfehler)
                 duration = round(time.perf_counter() - t0, 3)
                 logger.error(f"Fehler bei Fall {case.get('id')}: {e} (nach {duration}s)")
-                out_file = out_dir / f"results_{case.get('id', 'unknown')}_{model}_{now_stamp()}.json"
+                out_file = out_dir / f"error_results_{case.get('id', 'unknown')}_{model}_{now_stamp()}.json"
                 write_json(out_file, {"case_id": case.get("id"), "error": str(e)})
 
     # Run all cases for all models and repeat as many times as specified

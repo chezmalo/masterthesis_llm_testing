@@ -1,0 +1,74 @@
+{
+    "case_id": "CASE-001",
+    "task_understanding": "Summiere AMOUNT_EUR je CUSTOMER_ID und Kalenderjahr (aus BOOKING_DATE). Prüfe Group-By, Genauigkeit/Skalierung und mögliche Rundungs-/Überlaufprobleme.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> TARGET_AGG.CUSTOMER_ID",
+        "TRANSACTIONS.BOOKING_DATE -> TARGET_AGG.YEAR (YEAR(BOOKING_DATE))",
+        "TRANSACTIONS.AMOUNT_EUR -> TARGET_AGG.SUM_AMOUNT_EUR (SUM)"
+    ],
+    "transformations": [
+        {
+            "step": 1,
+            "description": "Gruppierungsschlüssel bilden",
+            "formula": "GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE)",
+            "notes": "Kalenderjahr aus BOOKING_DATE"
+        },
+        {
+            "step": 2,
+            "description": "Aggregation berechnen",
+            "formula": "SUM(AMOUNT_EUR)",
+            "notes": "NULL-Werte werden von SUM ignoriert"
+        },
+        {
+            "step": 3,
+            "description": "Ziel schreiben",
+            "formula": "INSERT INTO TARGET_AGG (CUSTOMER_ID, YEAR, SUM_AMOUNT_EUR) SELECT CUSTOMER_ID, YEAR(BOOKING_DATE), SUM(AMOUNT_EUR) FROM TRANSACTIONS GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE)",
+            "notes": "Spaltenabbildung 1:1 bzw. per Funktion/Aggregat"
+        }
+    ],
+    "computations_valid": true,
+    "computation_details": "Logik erfüllt die Anforderung: Summe pro Kunde und Jahr via GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE). Mit DECIMAL-Eingaben entstehen keine binären Rundungsfehler; SUM preserviert Dezimalgenauigkeit. Ergebnis-Skala bleibt 2; Endergebnis entspricht DECIMAL(14,2) im Ziel.",
+    "risks_or_errors": [
+        {
+            "id": "F-001",
+            "severity": "medium",
+            "message": "YEAR() ist nicht ANSI-SQL; Dialektabhängigkeit möglich.",
+            "source": "YEAR(BOOKING_DATE)"
+        },
+        {
+            "id": "F-002",
+            "severity": "medium",
+            "message": "Summenüberlauf möglich: SUM(DECIMAL(12,2)) kann Werte > DECIMAL(12,2) erzeugen; Ziel ist DECIMAL(14,2), aber Zwischentyp kann je nach DB zu eng sein.",
+            "source": "SUM(AMOUNT_EUR)"
+        },
+        {
+            "id": "F-003",
+            "severity": "medium",
+            "message": "BOOKING_DATE NULL führt zu YEAR=NULL; Insert in INT-Spalte YEAR kann fehlschlagen oder unerwartete Gruppen erzeugen.",
+            "source": "YEAR(BOOKING_DATE)"
+        },
+        {
+            "id": "F-004",
+            "severity": "low",
+            "message": "Identifier YEAR kann reserviert sein; ggf. Quoting erforderlich.",
+            "source": "TARGET_AGG.YEAR Alias YEAR"
+        },
+        {
+            "id": "F-005",
+            "severity": "low",
+            "message": "Funktionsbasierte Gruppierung verhindert Indexnutzung auf BOOKING_DATE.",
+            "source": "GROUP BY YEAR(BOOKING_DATE)"
+        },
+        {
+            "id": "F-006",
+            "severity": "info",
+            "message": "Eingabe-Schema JSON für DECIMAL ist fehlerhaft formatiert (\"DECIMAL(12\", \"2)\": null).",
+            "source": "Input-Metadaten"
+        }
+    ],
+    "final_answer": "Die Aggregation je Kunde und Kalenderjahr ist fachlich korrekt. Verbesserungen ohne Ergebnisänderung: ANSI-kompatibel EXTRACT(YEAR FROM BOOKING_DATE) bzw. Dialektäquivalent verwenden; YEAR-Spalte/Alias quoten oder in BOOKING_YEAR umbenennen; NULL-Daten filtern (WHERE BOOKING_DATE IS NOT NULL) oder COALESCE/YEAR-Validierung; Überlaufrisiko minimieren durch CAST(AMOUNT_EUR AS DECIMAL(18,2)) im SUM oder Zieltyp auf DECIMAL(18,2) erhöhen; Performance verbessern durch berechnete YEAR-Spalte/Index auf (CUSTOMER_ID, BOOKING_DATE) bzw. (CUSTOMER_ID, BOOKING_YEAR). Insgesamt funktionsfähig mit genannten Vorsichtsmaßnahmen.",
+    "_source_file": "case1.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 120.53,
+    "_response_char_count": 3406
+}

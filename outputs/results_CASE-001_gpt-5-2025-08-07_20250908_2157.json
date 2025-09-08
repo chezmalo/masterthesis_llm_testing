@@ -1,0 +1,4 @@
+{
+    "case_id": "CASE-001",
+    "error": "'NoneType' object has no attribute 'capitalize'"
+}

@@ -7,4 +7,4 @@ python -m pip install --upgrade pip
 # install dependencies
 pip install -e .
 clear
-python run_tests.py --model "gpt" --cases "src/cases" --out "outputs" --limit 1
+python run_tests.py --model "google" --cases "src/cases" --out "outputs" --limit 1

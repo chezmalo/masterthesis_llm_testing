@@ -68,4 +68,5 @@ def add_metadata_to_row(row, case, model, t0, raw):
 
 def normalize_model_name(model_name: str) -> str:
     # Entfernt Versionsnummern und unerwünschte Zeichen aus dem Modellnamen für Dateinamen
-    re.sub(r'[-_](\d{4,}([-.]\d{2,})*)$', '', model_name)
+    normalized_model_name = re.sub(r'[-_](\d{4,}([-.]\d{2,})*)$', '', model_name)
+    return normalized_model_name

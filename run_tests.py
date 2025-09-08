@@ -1,7 +1,7 @@
 import typer
 import asyncio
 from src import config
-from src.runner import _run_async
+from src.runner.runner import _run_async
 from src.utils.utils import get_model_list
 
 
@@ -24,7 +24,7 @@ def run(
     """ 
 
     # Split and map short names to full model IDs from MODEL_ALIASES
-    model_list = get_model_list()
+    model_list = get_model_list(model)
 
     asyncio.run(_run_async(ping, model_list, cases, limit, out, loglevel, logfile, concurrency, repeat))
 
