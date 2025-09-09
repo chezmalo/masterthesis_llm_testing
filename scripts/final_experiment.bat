@@ -19,6 +19,6 @@ rem Konsole clearn
 cls
 
 rem Tests starten
-python run_tests.py --model gpt,claude,google --cases src\cases --out output\final_experiment --loglevel INFO --logfile --concurrency 8 --repeat 3
+python run_experiments.py --model gpt,claude,google --input inputs --output output\final_experiment --loglevel INFO --logfile --concurrency 8 --repeat 3
 
 endlocal

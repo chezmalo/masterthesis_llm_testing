@@ -19,6 +19,6 @@ rem Konsole clearn
 cls
 
 rem Tests starten
-python run_tests.py --model gpt --cases src/cases --out outputs --limit 1
+python run_experiments.py --model gpt --input inputs --output outputs --limit 1
 
 endlocal

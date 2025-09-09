@@ -1,0 +1,75 @@
+{
+    "case_id": "CASE-000",
+    "task_understanding": "Abonnementpreise vom Kontostand subtrahieren.",
+    "data_lineage": [
+        "Input: ACCOUNTS.BALANCE (DECIMAL(14,2) erwartet)",
+        "Input: ACCOUNTS_SUBSCRIPTION.SUBSCRIPTION_PRICE (DECIMAL(14,2) erwartet)",
+        "Transform: total_subscription_sum = SUM(ACCOUNTS_SUBSCRIPTION.SUBSCRIPTION_PRICE)",
+        "Output: ACCOUNTS.BALANCE := ACCOUNTS.BALANCE - total_subscription_sum"
+    ],
+    "transformations": [
+        {
+            "step": 1,
+            "description": "Aggregation aller Abonnementpreise",
+            "formula": "total_subscription_sum = SUM(SUBSCRIPTION_PRICE)",
+            "notes": "Globale, unkorrelierte Aggregation über ACCOUNTS_SUBSCRIPTION"
+        },
+        {
+            "step": 2,
+            "description": "Update aller Konten um die aggregierte Summe",
+            "formula": "BALANCE_new = BALANCE_old - total_subscription_sum",
+            "notes": "Wird auf jede Zeile in ACCOUNTS angewendet"
+        },
+        {
+            "step": 3,
+            "description": "Persistieren der aktualisierten Kontostände",
+            "formula": null,
+            "notes": null
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Logik zieht die globale SUM(SUBSCRIPTION_PRICE) von jedem einzelnen Kontostand ab. Es fehlt der Konto-Bezug (z. B. über ACCOUNT_ID). SUM kann NULL liefern, wodurch BALANCE zu NULL wird. Datentypen sind als DECIMAL(14,2) zu interpretieren.",
+    "risks_or_errors": [
+        {
+            "id": "F1",
+            "severity": "critical",
+            "message": "Fehlende Korrelation pro Konto: Alle Konten werden um dieselbe Gesamtsumme reduziert statt um ihre eigenen Abos.",
+            "source": "SQL-Transformation"
+        },
+        {
+            "id": "F2",
+            "severity": "high",
+            "message": "SUM kann NULL ergeben (leere Tabelle/Filter), dadurch wird BALANCE = BALANCE - NULL -> NULL.",
+            "source": "SQL-Transformation"
+        },
+        {
+            "id": "F3",
+            "severity": "medium",
+            "message": "Nicht idempotent: erneute Ausführung subtrahiert erneut.",
+            "source": "Prozess"
+        },
+        {
+            "id": "F4",
+            "severity": "medium",
+            "message": "Mögliche Über-/Unterläufe oder Negativsalden beim Cast auf DECIMAL(14,2).",
+            "source": "Datentypen"
+        },
+        {
+            "id": "F5",
+            "severity": "low",
+            "message": "Schemametadaten wirken fehlerhaft formatiert (\"DECIMAL(14\", \"2)\"), erwartbar DECIMAL(14,2).",
+            "source": "Eingabetabellen"
+        },
+        {
+            "id": "F6",
+            "severity": "info",
+            "message": "Subquery kann als konstante Teilmenge einmal materialisiert werden (CTE/Derived Table), um Ausführung zu optimieren, ohne das Ergebnis zu verändern.",
+            "source": "SQL-Transformation"
+        }
+    ],
+    "final_answer": "Die Transformation zieht die globale Summe aller Abonnementpreise von jedem Kontostand ab. Das verfehlt den Konto-Bezug und kann BALANCE auf NULL setzen. Korrektur: korrelierte Aggregation pro Konto (JOIN/CTE mit GROUP BY ACCOUNT_ID) und COALESCE(...,0); zusätzlich Idempotenz-Strategie und Grenzen/Validierung für DECIMAL(14,2) prüfen. Ergebnisneutrale Optimierung: globale Summe einmal berechnen/materialisieren.",
+    "_source_file": "case1.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 236.923,
+    "_response_char_count": 3077
+}

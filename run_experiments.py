@@ -11,9 +11,9 @@ app = typer.Typer(help="LLM Runner für Datentransformationsfluss-Testfälle")
 def run(
     ping: bool = typer.Option(False, help="Ping den LLM-Dienst an und beende das Programm"),
     model: str = typer.Option(config.DEFAULT_MODEL, help="Komma-separierte Liste von Modell-Kurzbezeichnungen (z.B. gpt,claude,google)"),
-    cases: str = typer.Option("src/cases", help="Ordner mit .yaml Testfällen"),
+    input: str = typer.Option("inputs", help="Ordner mit .yaml Testfällen"),
     limit: int = typer.Option(None, help="Limitiere die Anzahl der zu testenden Fälle"),
-    out: str = typer.Option("outputs", help="Ausgabeordner"),
+    output: str = typer.Option("outputs", help="Ausgabeordner"),
     loglevel: str = typer.Option("INFO", help="Logging Level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"),
     logfile: bool = typer.Option(True, help="Soll ein Logfile geschrieben werden? (default: True)"),
     concurrency: int = typer.Option(8, help="Max. gleichzeitige LLM-Requests"),
@@ -26,7 +26,7 @@ def run(
     # Split and map short names to full model IDs from MODEL_ALIASES
     model_list = get_model_list(model)
 
-    asyncio.run(_run_async(ping, model_list, cases, limit, out, loglevel, logfile, concurrency, repeat))
+    asyncio.run(_run_async(ping, model_list, input, limit, output, loglevel, logfile, concurrency, repeat))
 
 if __name__ == "__main__":
     app()

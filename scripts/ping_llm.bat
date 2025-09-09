@@ -19,6 +19,6 @@ rem Konsole clearn
 cls
 
 rem Tests starten
-python run_tests.py --ping
+python run_experiments.py --ping
 
 endlocal

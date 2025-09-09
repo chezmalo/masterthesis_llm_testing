@@ -6,7 +6,7 @@ import json
 class TraceStep(BaseModel):
     step: int
     description: str
-    formula: Optional[str] = None
+    sqlformula: Optional[str] = None
     notes: Optional[str] = None
 
 # einzelne Findings (Risiken, Fehler, Verbesserungsvorschläge)
