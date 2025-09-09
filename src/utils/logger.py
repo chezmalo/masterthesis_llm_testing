@@ -4,11 +4,12 @@ from rich.logging import RichHandler
 
 LOG_FILE = "outputs/log/llm_tests.log"
 
+console = Console()
+
 def setup(level: str = "INFO", write_file: bool = True) -> logging.Logger:
     lvl = getattr(logging, level.upper(), logging.INFO)
 
     # Konsole mit Rich
-    console = Console()
     handlers = [RichHandler(console=console, show_time=True, markup=True)]
 
     # Optional zusätzlich Datei-Log (Append = Standard)
@@ -22,5 +23,9 @@ def setup(level: str = "INFO", write_file: bool = True) -> logging.Logger:
     # Einmalig am Programmanfang aufrufen
     logging.basicConfig(level=lvl, format="%(message)s", handlers=handlers)
     return logging.getLogger("llm_tests")
+
+def section(title: str):
+    # Trennlinie für Konsolenausgabe
+    console.rule(f"[bold]{title}[/]")
 
 logger = setup()
