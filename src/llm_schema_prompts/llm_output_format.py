@@ -3,14 +3,14 @@ from pydantic import BaseModel, Field
 import json
 
 # beschreibung jedes transformationsschrittes
-class TraceStep(BaseModel):
+class TransformationStep(BaseModel):
     step: int
     description: str
-    sqlformula: Optional[str] = None
+    formula: Optional[str] = None
     notes: Optional[str] = None
 
 # einzelne Findings (Risiken, Fehler, Verbesserungsvorschläge)
-class Finding(BaseModel):
+class Risks(BaseModel):
     id: str
     severity: Literal["info", "low", "medium", "high", "critical"]
     message: str
@@ -21,10 +21,10 @@ class LLMAnswer(BaseModel):
     case_id: str = Field(..., description="ID des Testfalls")
     task_understanding: str
     data_lineage: List[str] = Field(default_factory=list)
-    transformations: List[TraceStep] = Field(default_factory=list)
+    transformations: List[TransformationStep] = Field(default_factory=list)
     computations_valid: bool
     computation_details: Optional[str] = None
-    risks_or_errors: List[Finding] = Field(default_factory=list)
+    risks_or_errors: List[Risks] = Field(default_factory=list)
     final_answer: str
 
     @classmethod
