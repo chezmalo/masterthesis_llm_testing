@@ -27,3 +27,13 @@ SQL-Transformation:
 Gib die Antwort ausschließlich als JSON entsprechend des folgenden Schemas aus:
 {schema_json}
 """
+
+FIX_JSON_PROMPT = """
+Die vorherige Antwort entsprach nicht dem geforderten JSON-Schema.
+Bitte korrigiere die Antwort und stelle sicher, dass sie dem JSON-Schema entspricht.
+Hier ist die fehlerhafte Antwort:
+{raw_response}
+
+Das erwartete JSON-Schema ist:
+{schema_json}
+"""

@@ -2,10 +2,11 @@ import asyncio
 import time
 import re
 from pathlib import Path
+from llm_schema_prompts.llm_output_format import LLMAnswer
 from utils.utils import now_stamp, write_json, load_cases, add_metadata_to_row, normalize_model_name
 from src.utils.logger import setup
 from src.runner.llm_runner import async_prompt_llm, ping_llm, parse_answer, build_user_prompt
-from src.llm_schema_prompts.model_prompts import SYSTEM_PROMPT
+from src.llm_schema_prompts.model_prompts import SYSTEM_PROMPT, FIX_JSON_PROMPT
 from src.test_statistics import print_model_statistics, init_stats
 
 async def _run_async(
@@ -68,13 +69,25 @@ async def _run_async(
                 logger.debug(f"User-Prompt erstellt für Fall {case.get('id', 'unbekannt')}.")
                 raw = await async_prompt_llm(model, SYSTEM_PROMPT, user_prompt)
                 logger.debug(f"Rohantwort vom LLM erhalten für Fall {case.get('id', 'unbekannt')}.")
-                parsed = parse_answer(raw)
-                logger.debug(f"Antwort geparst und validiert für Fall {case.get('id', 'unbekannt')}.")
-
-                # Ergebnis + Quelldatei speichern
-                row = parsed.model_dump()
-                row = add_metadata_to_row(row, case, model, t0, raw)
-                
+                try:
+                    parsed = parse_answer(raw)
+                    logger.debug(f"Antwort geparst und validiert für Fall {case.get('id', 'unbekannt')}.")
+                    # Ergebnis + Quelldatei speichern
+                    row = parsed.model_dump()
+                    row = add_metadata_to_row(row, case, model, t0, raw)
+                except Exception as e:
+                    # Versuche, die Antwort mit einem Korrektur-Prompt zu reparieren
+                    fix_prompt = FIX_JSON_PROMPT.format(raw_response=raw, schema_json=LLMAnswer.json_schema_str())
+                    logger.info(f"Versuche, die Antwort mit einem Korrektur-Prompt zu reparieren für Fall {case.get('id', 'unbekannt')}.")
+                    # Korrektur-Prompt an LLM senden
+                    raw_fixed = await async_prompt_llm(model, SYSTEM_PROMPT, fix_prompt)
+                    parsed = parse_answer(raw_fixed)
+                    logger.debug(f"Reparierte Antwort geparst und validiert für Fall {case.get('id', 'unbekannt')}.")
+                    # Ergebnis + Quelldatei speichern
+                    row = parsed.model_dump()
+                    row["_correction_attempted"] = True
+                    row = add_metadata_to_row(row, case, model, t0, raw)
+                    
                 # Statistikdaten sammeln
                 stats[model]["char_counts"].append(row["_response_char_count"])
                 stats[model]["durations"].append(row["_duration_seconds"])
