@@ -1,0 +1,22 @@
+id: CASE-006
+input_tables:
+  PRODUCTS_RAW:
+    columns:
+      - {name: PRODUCT_ID, type: INT, nullable: false}
+      - {name: SOURCE_CATEGORY_CODE, type: ENUM('A','B','C','D'), nullable: true} 
+  CATEGORY_MAPPING:
+    columns:
+      - {name: SOURCE_CATEGORY_CODE, type: VARCHAR(50), nullable: true}
+      - {name: TARGET_CATEGORY, type: VARCHAR(100), nullable: true}
+  PRODUCTS_NORM:
+    columns:
+      - {name: PRODUCT_ID, type: INT, nullable: false}
+      - {name: TARGET_CATEGORY, type: VARCHAR(20), nullable: false}
+sql_script: |
+  INSERT INTO PRODUCTS_NORM (PRODUCT_ID, TARGET_CATEGORY)
+  SELECT
+    PROD_ID,
+    COALESCE(m.TARGET_CATEGORY, '') AS TARGET_CATEGORY
+  FROM PRODUCTS_RAW p
+  LEFT JOIN CATEGORY_MAPPING m
+    ON m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE;

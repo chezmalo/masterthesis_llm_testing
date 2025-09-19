@@ -1,24 +1,22 @@
 id: CASE-001
-description: >
-  Summiere Beträge aus TRANSACTIONS je Kunde und Jahr. Prüfe, ob die Aggregation korrekt ist
-  und beschreibe die Datenherkunft (Quelle->Ziel).
 input_tables:
   TRANSACTIONS:
     columns:
-      - {name: CUSTOMER_ID, type: INT}
-      - {name: AMOUNT_EUR, type: DECIMAL(12,2)}
-      - {name: BOOKING_DATE, type: DATE}
-  TARGET_AGG:
+      - {name: CUSTOMER_ID, type: INT, nullable: false}
+      - {name: AMOUNT_EUR, type: FLOAT, nullable: false}
+      - {name: BOOKING_DATE, type: DATE, nullable: false}
+  TARGET_AGG_MONTH:
     columns:
-      - {name: CUSTOMER_ID, type: INT}
-      - {name: YEAR, type: INT}
-      - {name: SUM_AMOUNT_EUR, type: DECIMAL(14,2)}
+      - {name: CUSTOMER_ID, type: INT, nullable: false}
+      - {name: YEAR, type: INT, nullable: false}
+      - {name: MONTH, type: INT, nullable: false}
+      - {name: SUM_AMOUNT_EUR, type: FLOAT, nullable: false}
 sql_script: |
-  INSERT INTO TARGET_AGG (CUSTOMER_ID, YEAR, SUM_AMOUNT_EUR)
+  INSERT INTO TARGET_AGG_MONTH (CUSTOMER_ID, YEAR, MONTH, SUM_AMOUNT_EUR)
   SELECT
     CUSTOMER_ID,
-    YEAR(BOOKING_DATE) AS YEAR,
-    SUM(AMOUNT_EUR) AS SUM_AMOUNT_EUR
+    YEAR(BOOKING_DATE)  AS MONTH,
+    MONTH(BOOKIN_DATE) AS YEAR, 
+    SUM(AMOUNT_EUR)     AS SUM_AMOUNT_EUR
   FROM TRANSACTIONS
-  GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE);
-focus: "Aggregation, Group-By YEAR(BOOKING_DATE), Rundungsfehler"
+  GROUP BY AMOUNT_EUR, YEAR(BOOKIN_DATE), MONTH(BOOKIN_DATE);

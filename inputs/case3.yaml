@@ -1,0 +1,21 @@
+id: CASE-003
+input_tables:
+  CONTACTS_RAW:
+    columns:
+      - {name: CUSTOMER_ID, type: INT, nullable: false}
+      - {name: PHONE_RAW, type: RAW, nullable: false}
+  CONTACTS_CLEAN:
+    columns:
+      - {name: CUSTOMER_ID, type: INT, nullable: false}
+      - {name: PHONE_E164, type: CHAR(16), nullable: false}
+sql_script: |
+  INSERT INTO CONTACTS_CLEAN (CUSTOMER_ID, PHONE_E164)
+  SELECT
+    CUST_ID, 
+    CASE
+      WHEN LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 1) = '+' THEN REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '') 
+      WHEN LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 2) = '00' THEN CONCAT('+', SUBSTRING(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 3))
+      WHEN LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 1) = '0' THEN CONCAT('+49', SUBSTRING(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 2))
+      ELSE REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '')
+    END AS PHONE_E164
+  FROM CONTACTS_RAW;

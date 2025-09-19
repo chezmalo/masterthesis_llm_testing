@@ -1,0 +1,28 @@
+id: CASE-005
+input_tables:
+  SALES_GROSS:
+    columns:
+      - {name: SALE_ID, type: INT, nullable: false}
+      - {name: CUSTOMER_ID, type: INT, nullable: false}
+      - {name: COUNTRY_CODE, type: CHAR(2), nullable: false}
+      - {name: GROSS_AMT_EUR, type: DECIMAL(14,2), nullable: false}
+  VAT_RATES:
+    columns:
+      - {name: COUNTRY_CODE, type: CHAR(2), nullable: false}
+      - {name: VAT_RATE, type: DECIMAL(3,2), nullable: true}
+  SALES_NET:
+    columns:
+      - {name: SALE_ID, type: INT, nullable: false}
+      - {name: CUSTOMER_ID, type: INT, nullable: false}
+      - {name: NET_AMT_EUR, type: DECIMAL(14,2), nullable: true}
+      - {name: VAT_AMT_EUR, type: DECIMAL(14,2), nullable: false}
+sql_script: |
+  INSERT INTO SALES_NET (SALE_ID, CUSTOMER_ID, NET_AMT_EUR, VAT_AMT_EUR)
+  SELECT
+    s.SALE_ID,
+    s.CUSTOMER_ID,
+    ROUND(CAST(s.GROSS_AMT_EUR AS INT) / (1 + v.VAT_RATE), 0) AS NET_AMT_EUR, 
+    ROUND(s.GROSS_AMT_EUR, 0) AS VAT_AMT_EUR
+  FROM SALES_GROSS s
+  JOIN VAT_RATES v
+    ON v.COUNTRYCODE = s.COUNTRY_CODE;

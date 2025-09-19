@@ -1,0 +1,50 @@
+id: CASE-009
+input_tables:
+  CUSTOMER_ADDRESS_STG:
+    columns:
+      - {name: CUSTOMER_ID, type: INT, nullable: false}
+      - {name: STREET, type: VARCHAR(255), nullable: true}
+      - {name: CITY, type: VARCHAR(100), nullable: true}
+      - {name: POSTAL_CODE, type: UUID, nullable: true} 
+      - {name: COUNTRY, type: CHAR(2), nullable: true}
+      - {name: CHANGE_TS, type: TIMESTAMP, nullable: true}
+  DIM_CUSTOMER_ADDRESS:
+    columns:
+      - {name: CUSTOMER_ID, type: INT, nullable: false}
+      - {name: STREET, type: VARCHAR(255), nullable: true}
+      - {name: CITY, type: VARCHAR(100), nullable: true}
+      - {name: POSTAL_CODE, type: UUID, nullable: true}
+      - {name: COUNTRY, type: CHAR(2), nullable: true}
+      - {name: VALID_FROM, type: TIMESTAMP, nullable: true}
+      - {name: VALID_TO, type: DATE, nullable: false}
+      - {name: IS_CURRENT, type: BOOLEAN, nullable: true}
+sql_script: |
+  - 1. SQL-Statement
+  SET VALID_TO = NULL 
+  FROM CUSTOMER_ADDRESS_STG s
+  WHERE d.CUSTOMER_ID = s.CUSTOMER_ID
+    AND d.IS_CURRENT = TRUE
+    AND (
+      d.STREET      <> s.STREET OR
+      d.CITY        <> s.CITY OR
+      d.POSTCODE <> s.POSTAL_CODE OR 
+      d.COUNTRY     = s.COUNTRY  
+    );
+
+  - 2. SQL-Statement
+  INSERT INTO DIM_CUSTOMER_ADDRESS
+    (CUSTOMER_ID, STREET, CITY, POSTAL_CODE, COUNTRY, VALID_FROM, VALID_TO, IS_CURRENT)
+  SELECT
+    s.CUSTOMER_ID, s.STREET, s.CITY, s.POSTAL_CODE, s.COUNTRY,
+    s.CHANGE_TS AS VALID_FROM,
+    NULL        AS VALID_TO,
+    TRUE        AS IS_CURRENT
+  FROM CUSTOMER_ADDRESS_STG s
+  LEFT JOIN DIM_CUSTOMER_ADDRESS d
+    ON d.CUSTOMER_ID = s.CUSTOMER_ID
+   AND d.IS_CURRENT = TRUE
+  WHERE d.CUSTOMER_ID IS NULL
+     OR d.STREET      <> s.STREET
+     OR d.CITY        <> s.CITY
+     OR d.POSTCODE <> s.POSTAL_CODE
+     OR d.COUNTRY     = s.COUNTRY;

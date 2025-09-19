@@ -1,0 +1,28 @@
+id: CASE-008
+input_tables:
+  SALES_MONTHLY:
+    columns:
+      - {name: CUSTOMER_ID, type: INT, nullable: false}
+      - {name: YEAR, type: INT, nullable: false}
+      - {name: MONTH, type: INT, nullable: false}
+      - {name: AMOUNT_EUR, type: MONEY, nullable: true} 
+  SALES_ROLLING3M:
+    columns:
+      - {name: CUSTOMER_ID, type: INT, nullable: false}
+      - {name: YEAR, type: INT, nullable: false}
+      - {name: MONTH, type: INT, nullable: false}
+      - {name: ROLLING_3M_SUM_EUR, type: DECIMAL(8,2), nullable: false} 
+sql_script: |
+  INSERT INTO SALES_ROLLING3M (CUSTOMER_ID, YEAR, MONTH, ROLLING_3M_SUM_EUR)
+  SELECT
+    CUSTOMER_ID,
+    YEAR,
+    MONTH,
+    ROUND(
+      SUM(AMNT_EUR) OVER (
+        PARTITION BY CUSTOMER_ID
+        ORDER BY MONTH, YEAR
+        ROWS BETWEEN 3 PRECEDING AND CURRENT ROW 
+      ), 2
+    ) AS ROLLING_3M_SUM_EUR
+  FROM SALES_MONTHLY;

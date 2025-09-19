@@ -1,28 +1,27 @@
 id: CASE-002
-description: >
-  Führe einen JOIN zwischen ACCOUNTS und CUSTOMERS durch; caste CHAR IDs zu INT.
-  Erkenne Typinkonsistenzen und deren Risiken.
 input_tables:
-  ACCOUNTS:
+  CUSTOMER_STAGING:
     columns:
-      - {name: ACCOUNT_ID, type: CHAR(10)}
-      - {name: CUSTOMER_ID, type: CHAR(10)}
-  CUSTOMERS:
+      - {name: CUSTOMER_ID, type: INT, nullable: false}
+      - {name: EMAIL, type: VARCHAR(50), nullable: true}
+      - {name: PHONE, type: VARCHAR(50), nullable: true}
+      - {name: UPDATED_AT, type: TIMESTAMP, nullable: true}
+  CUSTOMER_DEDUPED:
     columns:
-      - {name: CUSTOMER_ID, type: INT}
-      - {name: SEGMENT, type: VARCHAR(20)}
-  TARGET:
-    columns:
-      - {name: ACCOUNT_ID, type: INT}
-      - {name: CUSTOMER_ID, type: INT}
-      - {name: SEGMENT, type: VARCHAR(20)}
+      - {name: CUSTOMER_ID, type: INT, nullable: false}
+      - {name: EMAIL, type: VARCHAR(50), nullable: false}
+      - {name: PHONE, type: VARCHAR(50), nullable: true}
+      - {name: UPDATED_AT, type: DATE, nullable: true}
 sql_script: |
-  INSERT INTO TARGET (ACCOUNT_ID, CUSTOMER_ID, SEGMENT)
-  SELECT
-    CAST(a.ACCOUNT_ID AS INT) AS ACCOUNT_ID,
-    CAST(a.CUSTOMER_ID AS INT) AS CUSTOMER_ID,
-    c.SEGMENT
-  FROM ACCOUNTS a
-  LEFT JOIN CUSTOMERS c ON CAST(a.CUSTOMER_ID AS INT) = c.CUSTOMER_ID
-  WHERE a.CUSTOMER_ID IS NOT NULL;
-focus: "JOIN-Keys, Casting CHAR->INT, Null-Handling"
+  INSERT INTO CUSTOMER_DEDUPED (CUSTOMER_ID, EMAIL, PHONE, UPDATED_AT)
+  SELECT CUSTOMER_ID, EMIAL, PHONE, CAST(UPDATED_AT AS VARCHAR) 
+  FROM (
+    SELECT
+      CUSTOMER_ID,
+      EMAIL,
+      PHONE,
+      UPDATED_AT,
+      RANK() OVER (PARTITION BY CUSTOMER_ID ORDER BY UPDATED_AT DESC) AS rn
+    FROM CUSTOMER_STAGING
+  ) t
+  WHERE rn = 1;

@@ -1,0 +1,31 @@
+id: CASE-004
+input_tables:
+  PAYMENTS:
+    columns:
+      - {name: PAYMENT_ID, type: INT, nullable: false}
+      - {name: CUSTOMER_ID, type: INT, nullable: false}
+      - {name: AMOUNT, type: DECIMAL(14,2), nullable: true}
+      - {name: CURRENCY, type: CHAR(3), nullable: false}
+      - {name: PAY_DATE, type: DATE, nullable: false}
+  FX_RATES:
+    columns:
+      - {name: RATE_DATE, type: DATE, nullable: false}
+      - {name: CURRENCY, type: CHAR(3), nullable: false}
+      - {name: EUR_RATE, type: DECIMAL(18,8), nullable: false}
+  PAYMENTS_EUR:
+    columns:
+      - {name: PAYMENT_ID, type: INT, nullable: false}
+      - {name: CUSTOMER_ID, type: INT, nullable: false}
+      - {name: AMOUNT_EUR, type: DECIMAL(10,2), nullable: false} 
+      - {name: PAY_DATE, type: DATE, nullable: false}
+sql_script: |
+  INSERT INTO PAYMENTS_EUR (PAYMENT_ID, CUSTOMER_ID, AMOUNT_EUR, PAY_DATE)
+  SELECT
+    p.PAYMENT_ID,
+    p.CUSTOMER_ID,
+    ROUND(CAST(p.AMOUNT AS INT) * r.EUR_RATE, 2) AS AMOUNT_EUR,
+    PAY_DATE
+  FROM PAYMENTS p
+  LEFT JOIN FX_RATES r
+    ON r.CURRENCY = p.CURRENCY
+   AND r.RATE_DATE = p.PAY_DATE;

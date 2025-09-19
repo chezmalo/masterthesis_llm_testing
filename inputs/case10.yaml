@@ -1,0 +1,33 @@
+id: CASE-010
+input_tables:
+  CLAIMS:
+    columns:
+      - {name: CLAIM_ID, type: INT, nullable: false}
+      - {name: POLICY_ID, type: INT, nullable: false}
+      - {name: LINE_OF_BUSINESS, type: VARCHAR(50), nullable: false}
+      - {name: REPORTED_AMT, type: CLOB, nullable: true}
+      - {name: PAID_AMT, type: DECIMAL(16,2), nullable: true}
+      - {name: DEDUCTIBLE_AMT, type: DECIMAL(16,2), nullable: true}
+      - {name: COVER_LIMIT_AMT, type: DECIMAL(16,2), nullable: true}
+  LOB_RESERVE_CAP:
+    columns:
+      - {name: LINE_OF_BUSINESS, type: VARCHAR(50), nullable: false}
+      - {name: MAX_RESERVE_AMT, type: DECIMAL(8,2), nullable: false}
+  CLAIM_RESERVES:
+    columns:
+      - {name: CLAIM_ID, type: INT, nullable: false}
+      - {name: CALC_RESERVE_AMT, type: DECIMAL(16,2), nullable: true}
+sql_script: |
+  INSERT INTO CLAIM_RESERVES (CLAIM_ID, CALC_RESERVE_AMT)
+  SELECT
+    CLM_ID,
+    MIN(
+      cap.MAX_RESERVE_AMT,
+      GREATEST(
+        0,
+        MIN(c.COVER_LIMIT_AMT, (c.REPORTED_AMT - c.PAID_AMT)) 
+      )
+    ) AS CALC_RESERVE_AMT
+  FROM CLAIMS c
+  LEFT JOIN LOB_RESERVE_CAP cap
+    ON cap.LINE_BUSINESS = c.LINE_OF_BUSINESS;
