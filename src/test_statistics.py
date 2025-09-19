@@ -1,10 +1,15 @@
+import json
+from pathlib import Path
+from utils.utils import write_json
+
 def init_stats(model_list):
      # Initialisiert das Statistik-Dictionary für die Modelle
     return {model: {"char_counts": [], "durations": []} for model in model_list}
 
-def print_model_statistics(model_list, stats):
+def print_model_statistics(model_list, stats, output_dir=None):
     # Statistik pro Modell berechnen und ausgeben
     print("\n=== Modell-Statistiken ===")
+    stats_out = {}
     for model in model_list:
         char_counts = stats[model]["char_counts"]
         durations = stats[model]["durations"]
@@ -19,3 +24,13 @@ def print_model_statistics(model_list, stats):
         print(f"  Durchschnittliche Zeit pro 100 Zeichen (Sekunden): {chars_per_second}")
         print(f"  Anzahl Antworten: {len(char_counts)}")
         print("")
+        stats_out[model] = {
+            "average_char_count": avg_chars,
+            "average_duration_seconds": avg_duration,
+            "chars_per_second": chars_per_second,
+            "num_answers": len(char_counts),
+        }
+    # Schreibe Statistiken als JSON-Datei, falls output_dir angegeben
+    if output_dir is not None:
+        out_path = Path(output_dir) / "model_statistics.json"
+        write_json(out_path, stats_out)

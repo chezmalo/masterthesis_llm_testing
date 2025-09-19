@@ -130,4 +130,4 @@ async def _run_async(
 
     await asyncio.gather(*tasks)
 
-    print_model_statistics(model_list, stats)
+    print_model_statistics(model_list, stats, out_dir)
