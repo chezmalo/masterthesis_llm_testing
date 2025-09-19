@@ -37,6 +37,14 @@ async def _run_async(
     out_dir = Path(out)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    # Create output folders for each model
+    model_output_dirs = {}
+    for model in model_list:
+        model_name = normalize_model_name(model)
+        model_folder = out_dir / model_name
+        model_folder.mkdir(parents=True, exist_ok=True)
+        model_output_dirs[model] = model_folder
+
     logger.info("Starte Verarbeitung der Testfälle...")
 
     # Fälle laden und nacheinander verarbeiten
@@ -94,10 +102,12 @@ async def _run_async(
 
                 # Output-Dateinamen mit Case-Name und Modell generieren
                 case_name: str = Path(case["_file"]).stem
-                
+
                 # Remove uncessary parts from model name for filename
                 model_name: str = normalize_model_name(model)
-                out_file = out_dir / f"RESULTS_{model_name.upper()}_{case_name.upper()}_REPEAT{str(repeatcount)}_{now_stamp()}.json"
+                # Use model-specific output folder
+                model_folder = model_output_dirs[model]
+                out_file = model_folder / f"RESULTS_{model_name.upper()}_{case_name.upper()}_REPEAT{str(repeatcount)}_{now_stamp()}.json"
                 write_json(out_file, row)
                 logger.info(f"[OK] {case['id']} -> gespeichert in {out_file} "
                             f"({row['_duration_seconds']}s, {row['_response_char_count']} Zeichen)")
@@ -105,7 +115,9 @@ async def _run_async(
                 # Fehler speichern (z.B. Fehler der YAML-Datei, JSON-Parsing-Fehler, Validierungsfehler)
                 duration = round(time.perf_counter() - t0, 3)
                 logger.error(f"Fehler bei Fall {case.get('id')}: {e} (nach {duration}s)")
-                out_file = out_dir / f"error_results_{case.get('id', 'unknown')}_{model}_{now_stamp()}.json"
+                # Use model-specific output folder for errors as well
+                model_folder = model_output_dirs.get(model, out_dir)
+                out_file = model_folder / f"error_results_{case.get('id', 'unknown')}_{model}_{now_stamp()}.json"
                 write_json(out_file, {"case_id": case.get("id"), "error": str(e)})
 
     # Run all cases for all models and repeat as many times as specified
