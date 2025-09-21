@@ -9,24 +9,23 @@ from llm_schema_prompts.model_prompts import USER_PROMPT_TEMPLATE
 
 logger = logging.getLogger(__name__)
 
-def build_user_prompt(case: dict) -> str:
-    logger.debug(f"Building user prompt for case: {case.get('id', 'unknown')}")
+def build_user_prompt(case: dict, user_prompt: str) -> str:
+    # Creates user prompt
+    logger.debug(f"Building changed user prompt for case: {case.get('id', 'unknown')}")
     case_id = case["id"]
-    desc = case["description"]
     inputs = case["input_tables"]
     sql_transformation = case["sql_script"]
-    focus = case.get("focus", "Datentypen, Transformationen, Rechenlogik")
+    focus = case.get("focus", "Datentypen, Transformationen, Rechenlogik + Performance")
     schema_json = LLMAnswer.json_schema_str()
 
-    prompt = USER_PROMPT_TEMPLATE.format(
+    prompt = user_prompt.format(
         case_id=case_id,
-        desc=desc,
         inputs=json.dumps(inputs, ensure_ascii=False),
         sql_transformation=sql_transformation,
         focus=focus,
         schema_json=schema_json
     )
-    logger.debug(f"User prompt built: {prompt[:200]}...")  # Log only the first 200 chars
+    logger.debug(f"Changed user prompt built: {prompt[:200]}...")  # Log only the first 200 chars
     return prompt
 
 # Aufruf der OpenAI-kompatiblen API (llm-stats.com mit api_key)

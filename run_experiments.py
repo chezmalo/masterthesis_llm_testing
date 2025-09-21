@@ -3,6 +3,7 @@ import asyncio
 from src import config
 from src.runner.runner import _run_async
 from src.utils.utils import get_model_list
+from src.llm_schema_prompts.model_prompts import SYSTEM_PROMPT, SYSTEM_PROMPT_ROBUST, USER_PROMPT_TEMPLATE, USER_PROMPT_TEMPLATE_ROBUST
 
 
 app = typer.Typer(help="LLM Runner für Datentransformationsfluss-Testfälle")
@@ -26,7 +27,16 @@ def run(
     # Split and map short names to full model IDs from MODEL_ALIASES
     model_list = get_model_list(model)
 
-    asyncio.run(_run_async(ping, model_list, input, limit, output, loglevel, logfile, concurrency, repeat))
+    # Define prompt configs: two initial, one robust
+    prompt_configs = [
+        {"system_prompt": SYSTEM_PROMPT, "user_prompt_builder": USER_PROMPT_TEMPLATE},
+        {"system_prompt": SYSTEM_PROMPT, "user_prompt_builder": USER_PROMPT_TEMPLATE},
+        {"system_prompt": SYSTEM_PROMPT_ROBUST, "user_prompt_builder": USER_PROMPT_TEMPLATE_ROBUST},
+    ]
+
+    asyncio.run(_run_async(
+        ping, model_list, input, limit, output, loglevel, logfile, concurrency, repeat, prompt_configs
+    ))
 
 if __name__ == "__main__":
     app()
