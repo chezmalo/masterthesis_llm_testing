@@ -1,0 +1,91 @@
+{
+    "transformation_understanding": "Für jede Claim-Zeile wird ein Reservenbetrag berechnet: outstanding = REPORTED_AMT - PAID_AMT; dann wird zunächst der COVER_LIMIT_AMT als Obergrenze angewandt (LEAST), anschließend ein Floor bei 0 (GREATEST), und zuletzt der LOB-spezifische Maximal-Reserve-Cap (LEAST gegen MAX_RESERVE_AMT). Ergebnis wird mit CLAIM_ID in CLAIM_RESERVES geladen.",
+    "data_lineage": [
+        "CLAIMS.CLAIM_ID -> CLAIM_RESERVES.CLAIM_ID",
+        "CLAIMS.REPORTED_AMT, CLAIMS.PAID_AMT -> Zwischenwert outstanding (REPORTED_AMT - PAID_AMT)",
+        "CLAIMS.COVER_LIMIT_AMT + outstanding -> Zwischenwert base_reserve (LEAST)",
+        "base_reserve -> Zwischenwert nonneg_reserve (GREATEST mit 0)",
+        "LOB_RESERVE_CAP.MAX_RESERVE_AMT + nonneg_reserve -> CLAIM_RESERVES.CALC_RESERVE_AMT (LEAST)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Join der Sparten-Cap-Tabelle auf Claims",
+            "formula": "FROM CLAIMS c LEFT JOIN LOB_RESERVE_CAP cap ON cap.LINE_OF_BUSINESS = c.LINE_OF_BUSINESS",
+            "improvement": "Index auf CLAIMS.LINE_OF_BUSINESS und LOB_RESERVE_CAP.LINE_OF_BUSINESS; sicherstellen, dass Werte normalisiert (Case/Trim) sind."
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung outstanding",
+            "formula": "CAST(c.REPORTED_AMT AS DECIMAL(16,2)) - c.PAID_AMT",
+            "improvement": "Explizites CAST der CLOB-Spalte verhindert implizite Konvertierungen zur Laufzeit."
+        },
+        {
+            "step_count": 3,
+            "description": "Anwendung der Deckungssumme",
+            "formula": "LEAST(c.COVER_LIMIT_AMT, outstanding)",
+            "improvement": "Kein Funktionsaufruf auf Join-Spalten; Funktionsaufrufe nur auf ausgewählten Feldern."
+        },
+        {
+            "step_count": 4,
+            "description": "Nichtnegative Reserve erzwingen",
+            "formula": "GREATEST(CAST(0 AS DECIMAL(16,2)), base_reserve)",
+            "improvement": "Einheitliche Numerik (DECIMAL(16,2)) vermeiden Typkonflikte."
+        },
+        {
+            "step_count": 5,
+            "description": "LOB-Cap anwenden und Ergebnis schreiben",
+            "formula": "LEAST(CAST(cap.MAX_RESERVE_AMT AS DECIMAL(16,2)), nonneg_reserve) -> CLAIM_RESERVES.CALC_RESERVE_AMT",
+            "improvement": "Optional: CHECK-Constraint auf CLAIM_RESERVES.CALC_RESERVE_AMT >= 0 und passende Skala/Präzision."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die vorliegende SQL ist nicht lauffähig: 1) Falscher Spaltenname CLM_ID statt CLAIM_ID. 2) Falscher Join-Attributname cap.LINE_BUSINESS statt LINE_OF_BUSINESS. 3) MIN() wird als Skalarfunktion verwendet und kollidiert ohne GROUP BY mit dem nicht aggregierten CLAIM_ID; beabsichtigt war LEAST(). 4) REPORTED_AMT ist CLOB und wird arithmetisch verwendet; explizites CAST fehlt. Damit schlägt die Ausführung je nach DB ab oder verhält sich inkonsistent.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falscher Spaltenname im SELECT: CLM_ID existiert nicht (CLAIMS hat CLAIM_ID).",
+            "fix_suggestion": "CLM_ID durch c.CLAIM_ID ersetzen."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Join-Bedingung nutzt nicht existierende Spalte cap.LINE_BUSINESS.",
+            "fix_suggestion": "Join auf cap.LINE_OF_BUSINESS = c.LINE_OF_BUSINESS korrigieren."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "MIN() als Skalar statt Aggregat genutzt; zusätzlich Aggregat mit nicht aggregierter Spalte ohne GROUP BY.",
+            "fix_suggestion": "MIN(…) durch LEAST(…) ersetzen (oder CASE-Logik); ausschließlich Skalarfunktionen verwenden, keine Aggregation."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Arithmetik mit CLOB (c.REPORTED_AMT - c.PAID_AMT) kann zu Laufzeitfehlern oder Implicit Casts führen.",
+            "fix_suggestion": "REPORTED_AMT vor Nutzung explizit in DECIMAL(16,2) casten; Datenqualität (nur numerische Werte) sicherstellen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Propagation: Fehlende Cap-Zeile oder NULL in Beträgen ergibt gesamthaft NULL-Reserve.",
+            "fix_suggestion": "Geschäftslogik festlegen: z.B. COALESCE für Beträge oder COALESCE(cap.MAX_RESERVE_AMT, 9.99e18) nutzen; andernfalls NULL bewusst zulassen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Mischung DECIMAL(8,2) (Cap) und DECIMAL(16,2) kann Typanpassungen/Truncation verursachen.",
+            "fix_suggestion": "Cap auf DECIMAL(16,2) casten oder Spaltendefinition harmonisieren."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Portabilität: LEAST/GREATEST sind nicht in allen Dialekten vorhanden.",
+            "fix_suggestion": "Mit CASE-Ausdrücken implementieren (z.B. CASE WHEN a<b THEN a ELSE b END)."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Performance: Vollscan der CLAIMS; Cast auf großer Spalte; String-Join ohne Index.",
+            "fix_suggestion": "Indizes auf LINE_OF_BUSINESS; REPORTED_AMT möglichst als numerischer Typ speichern oder vorab in Stage-Tabelle konvertieren."
+        }
+    ],
+    "final_feedback": "Die intendierte Logik ist fachlich konsistent (Reserve = min(LOB-Cap, max(0, min(Cover-Limit, Reported - Paid)))). Die aktuelle SQL ist jedoch aufgrund mehrerer Syntax-/Typfehler nicht ausführbar. Korrigierter, semantisch äquivalenter Vorschlag (ohne Änderung der Null-Logik):\n\nINSERT INTO CLAIM_RESERVES (CLAIM_ID, CALC_RESERVE_AMT)\nSELECT\n  c.CLAIM_ID,\n  LEAST(\n    CAST(cap.MAX_RESERVE_AMT AS DECIMAL(16,2)),\n    GREATEST(CAST(0 AS DECIMAL(16,2)),\n      LEAST(c.COVER_LIMIT_AMT,\n            CAST(c.REPORTED_AMT AS DECIMAL(16,2)) - c.PAID_AMT)\n    )\n  ) AS CALC_RESERVE_AMT\nFROM CLAIMS c\nLEFT JOIN LOB_RESERVE_CAP cap\n  ON cap.LINE_OF_BUSINESS = c.LINE_OF_BUSINESS;\n\nZusätzlich: Indizes auf die Join-Spalten, konsistente Numerik (DECIMAL(16,2)), und optional CASE statt LEAST/GREATEST für bessere Dialektkompatibilität.",
+    "_source_file": "case10.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 117.837,
+    "_response_char_count": 5848
+}

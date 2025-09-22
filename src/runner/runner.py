@@ -89,8 +89,9 @@ async def _run_async(
                         parsed = parse_answer(raw)
                         logger.debug(f"Antwort geparst und validiert für Fall {case.get('id', 'unbekannt')}.")
                         # Ergebnis + Quelldatei speichern
+                        duration = round(time.perf_counter() - t0, 3)
                         row = parsed.model_dump()
-                        row = add_metadata_to_row(row, case, model, t0, raw)
+                        row = add_metadata_to_row(row, case, model, duration, raw)
                     except Exception as e:
                         # Versuche, die Antwort mit einem Korrektur-Prompt zu reparieren
                         fix_prompt = FIX_JSON_PROMPT.format(raw_response=raw, schema_json=LLMAnswer.json_schema_str())
@@ -99,11 +100,11 @@ async def _run_async(
                         raw_fixed = await async_prompt_llm(model, system_prompt, fix_prompt, stream=stream)
                         parsed = parse_answer(raw_fixed)
                         logger.debug(f"Reparierte Antwort geparst und validiert für Fall {case.get('id', 'unbekannt')}.")
+                        duration = round(time.perf_counter() - t0, 3)
                         # Ergebnis + Quelldatei speichern
                         row = parsed.model_dump()
                         row["_correction_attempted"] = True
-                        row = add_metadata_to_row(row, case, model, t0, raw)
-                        
+                        row = add_metadata_to_row(row, case, model, duration, raw)
                     # Statistikdaten sammeln
                     stats[model]["char_counts"].append(row["_response_char_count"])
                     stats[model]["durations"].append(row["_duration_seconds"])

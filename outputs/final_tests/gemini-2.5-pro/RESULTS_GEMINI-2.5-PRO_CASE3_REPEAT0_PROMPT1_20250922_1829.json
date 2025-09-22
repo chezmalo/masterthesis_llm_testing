@@ -1,0 +1,50 @@
+{
+    "transformation_understanding": "Der ETL-Prozess extrahiert Kundendaten aus der Quelltabelle CONTACTS_RAW. Die Kunden-ID wird übernommen und die Telefonnummer wird bereinigt, indem nicht-numerische Zeichen entfernt werden. Anschließend wird die bereinigte Nummer mittels einer CASE-Anweisung in das E.164-Format konvertiert, wobei verschiedene Präfixe (z.B. '00', '0') behandelt werden. Das Ergebnis wird in die Zieltabelle CONTACTS_CLEAN geladen.",
+    "data_lineage": [
+        "CONTACTS_RAW.CUSTOMER_ID -> CONTACTS_CLEAN.CUSTOMER_ID",
+        "CONTACTS_RAW.PHONE_RAW -> CONTACTS_CLEAN.PHONE_E164"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Übernahme der Kunden-ID aus der Quelltabelle.",
+            "formula": "CUST_ID",
+            "improvement": null
+        },
+        {
+            "step_count": 2,
+            "description": "Bereinigung und Formatierung der Telefonnummer in das E.164-Format.",
+            "formula": "CASE WHEN LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 1) = '+' THEN REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '') WHEN LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 2) = '00' THEN CONCAT('+', SUBSTRING(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 3)) WHEN LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 1) = '0' THEN CONCAT('+49', SUBSTRING(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 2)) ELSE REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '') END",
+            "improvement": "Die mehrfache Ausführung von REGEXP_REPLACE ist ineffizient. Die Bereinigung sollte einmalig in einer vorgeschalteten Stufe (z.B. CTE oder Subquery) erfolgen, um die Performance zu verbessern."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die SQL-Transformation ist nicht ausführbar. In der Quelltabelle CONTACTS_RAW existiert die Spalte 'CUSTOMER_ID', im SELECT-Statement wird jedoch auf die nicht existierende Spalte 'CUST_ID' zugegriffen. Zudem ist die Transformationslogik fehlerhaft.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "SELECT CUST_ID FROM CONTACTS_RAW",
+            "fix_suggestion": "Verwendung des korrekten Spaltennamens 'CUSTOMER_ID' aus der Quelltabelle CONTACTS_RAW."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Annahme, dass alle mit '0' beginnenden Nummern deutsche Nummern sind und mit '+49' ersetzt werden.",
+            "fix_suggestion": "Implementierung einer validen Ländercode-Logik anstelle einer statischen Ersetzung, da dies zu fehlerhaften Telefonnummern für nicht-deutsche Datensätze führt."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Die Bedingung `LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 1) = '+'` ist unerreichbar, da der reguläre Ausdruck das '+' Zeichen zuvor entfernt.",
+            "fix_suggestion": "Anpassung des regulären Ausdrucks zu `[^0-9+]`, um das Pluszeichen zu erhalten, oder Prüfung der Rohdaten `PHONE_RAW` vor der Bereinigung."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Ineffiziente, mehrfache Ausführung von `REGEXP_REPLACE` für dieselbe Spalte innerhalb der CASE-Anweisung.",
+            "fix_suggestion": "Einmalige Ausführung der Bereinigung in einer Common Table Expression (CTE) oder Subquery vor der CASE-Anweisung zur Steigerung der Performance."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist aufgrund eines Spaltennamen-Fehlers nicht lauffähig. Die Kernlogik zur Transformation der Telefonnummern ist zudem fehlerhaft und basiert auf falschen Annahmen, was zu inkonsistenten und falschen Daten führen würde. Eine grundlegende Überarbeitung der SQL-Transformation ist zwingend erforderlich.",
+    "_source_file": "case3.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 896.741,
+    "_response_char_count": 3511
+}

@@ -1,0 +1,79 @@
+{
+    "transformation_understanding": "Zahlungen (PAYMENTS) werden tagegenau mit FX_RATES per CURRENCY und PAY_DATE verknüpft und in EUR umgerechnet. Das Ergebnis (Betrag in EUR, 2 Dezimalstellen) wird nach PAYMENTS_EUR geschrieben.",
+    "data_lineage": [
+        "PAYMENTS_EUR.PAYMENT_ID <- PAYMENTS.PAYMENT_ID",
+        "PAYMENTS_EUR.CUSTOMER_ID <- PAYMENTS.CUSTOMER_ID",
+        "PAYMENTS_EUR.PAY_DATE <- PAYMENTS.PAY_DATE",
+        "PAYMENTS_EUR.AMOUNT_EUR <- ROUND(CAST(PAYMENTS.AMOUNT AS INT) * FX_RATES.EUR_RATE, 2)",
+        "JOIN: PAYMENTS (CURRENCY, PAY_DATE) LEFT JOIN FX_RATES (CURRENCY, RATE_DATE)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Left Join der Zahlungen auf FX-Raten anhand Währung und Datum",
+            "formula": "FROM PAYMENTS p LEFT JOIN FX_RATES r ON r.CURRENCY = p.CURRENCY AND r.RATE_DATE = p.PAY_DATE",
+            "improvement": "Für valide Inserts INNER JOIN oder Filter WHERE r.EUR_RATE IS NOT NULL AND p.AMOUNT IS NOT NULL; Indexe: FX_RATES(CURRENCY, RATE_DATE), PAYMENTS(CURRENCY, PAY_DATE)."
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung des EUR-Betrags",
+            "formula": "ROUND(CAST(p.AMOUNT AS INT) * r.EUR_RATE, 2)",
+            "improvement": "Kein INT-Cast: ROUND(CAST(p.AMOUNT AS DECIMAL(18,4)) * r.EUR_RATE, 2). Optional: CAST(... AS DECIMAL(18,2)) für Zielschema."
+        },
+        {
+            "step_count": 3,
+            "description": "Projektion und Insert ins Zielschema",
+            "formula": "INSERT INTO PAYMENTS_EUR (PAYMENT_ID, CUSTOMER_ID, AMOUNT_EUR, PAY_DATE) SELECT p.PAYMENT_ID, p.CUSTOMER_ID, <calc>, p.PAY_DATE",
+            "improvement": "Spalten qualifizieren (p.PAY_DATE). Zielspalte AMOUNT_EUR ggf. auf DECIMAL(18,2) erhöhen, um Überläufe zu vermeiden."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Fachlich inkorrekte Umrechnung: CAST(AMOUNT AS INT) verwirft Nachkommastellen. Technisch riskant: LEFT JOIN kann r.EUR_RATE = NULL liefern; zusammen mit p.AMOUNT NULL führt dies zu NULL in AMOUNT_EUR und verletzt NOT NULL in PAYMENTS_EUR. Zusätzlich besteht Risiko von Zahlenüberlauf in DECIMAL(10,2) nach Multiplikation.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "LEFT JOIN und nullable p.AMOUNT führen zu NULL in AMOUNT_EUR; Zieltabelle verlangt NOT NULL.",
+            "fix_suggestion": "INNER JOIN verwenden oder WHERE r.EUR_RATE IS NOT NULL AND p.AMOUNT IS NOT NULL. Alternativ Fehler-Staging für fehlende Raten/Amounts."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "CAST(p.AMOUNT AS INT) kappt Cent-Beträge und verfälscht Umrechnung.",
+            "fix_suggestion": "Kein INT-Cast. Mit DECIMAL rechnen: ROUND(CAST(p.AMOUNT AS DECIMAL(18,4)) * r.EUR_RATE, 2)."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "AMOUNT_EUR DECIMAL(10,2) kann nach Multiplikation mit EUR_RATE überlaufen.",
+            "fix_suggestion": "Zielspalte auf DECIMAL(18,2) erhöhen oder vor Insert CAST/VALIDATE; Obergrenzen fachlich prüfen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "FX_RATES möglicherweise nicht eindeutig pro (CURRENCY, RATE_DATE) -> Duplikate in Inserts.",
+            "fix_suggestion": "Unique-Constraint/Index auf FX_RATES(CURRENCY, RATE_DATE) oder Dedup via ROW_NUMBER() = 1."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Kein Fallback für Wochenenden/Feiertage ohne Kurs; Join findet keine Zeile.",
+            "fix_suggestion": "Last-known-rate-Logik: Kurs mit RATE_DATE <= PAY_DATE (TOP 1 ORDER BY RATE_DATE DESC) verwenden."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Performance: Join über zwei Spalten ohne geeignete Indexe.",
+            "fix_suggestion": "Composite Indexe anlegen: FX_RATES(CURRENCY, RATE_DATE), PAYMENTS(CURRENCY, PAY_DATE)."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Unqualifizierte Spalte PAY_DATE im SELECT kann bei späteren Schemaänderungen zu Ambiguität führen.",
+            "fix_suggestion": "Spalten vollständig qualifizieren (p.PAY_DATE)."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Rundungsregeln nicht explizit dokumentiert; DB-spezifische Unterschiede möglich.",
+            "fix_suggestion": "Rundungsstrategie fachlich festlegen und testen; ROUND(..., 2) konsistent einsetzen und ggf. per Tests verifizieren."
+        }
+    ],
+    "final_feedback": "Der ETL ist fachlich/technisch nicht valide: Der INT-Cast verfälscht Beträge und der LEFT JOIN kann NOT-NULL-Verstöße erzeugen. Beheben Sie dies mit INNER JOIN bzw. Null-Filter, rechnen Sie durchgängig in DECIMAL und runden erst nach der Multiplikation. Erhöhen Sie die Zielpräzision, sichern Sie FX_RATES auf Eindeutigkeit und legen Sie passende Indexe an. Optional Last-known-rate-Logik implementieren.",
+    "_source_file": "case4.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 293.019,
+    "_response_char_count": 4711
+}

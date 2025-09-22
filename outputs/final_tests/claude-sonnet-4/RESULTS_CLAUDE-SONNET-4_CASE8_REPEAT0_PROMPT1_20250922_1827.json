@@ -1,0 +1,55 @@
+{
+    "transformation_understanding": "ETL-Prozess zur Berechnung rollierender 3-Monats-Summen aus monatlichen Verkaufsdaten. Transformation von SALES_MONTHLY zu SALES_ROLLING3M mit Window-Function zur Aggregation der letzten 3 Monate pro Kunde.",
+    "data_lineage": [
+        "SALES_MONTHLY -> SALES_ROLLING3M"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Selektion aller Spalten aus SALES_MONTHLY",
+            "formula": "SELECT CUSTOMER_ID, YEAR, MONTH FROM SALES_MONTHLY",
+            "improvement": null
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung rollierender 3-Monats-Summe mit Window-Function",
+            "formula": "SUM(AMNT_EUR) OVER (PARTITION BY CUSTOMER_ID ORDER BY MONTH, YEAR ROWS BETWEEN 3 PRECEDING AND CURRENT ROW)",
+            "improvement": "ORDER BY YEAR, MONTH für korrekte chronologische Sortierung"
+        },
+        {
+            "step_count": 3,
+            "description": "Rundung auf 2 Dezimalstellen und Insert in Zieltabelle",
+            "formula": "ROUND(..., 2) AS ROLLING_3M_SUM_EUR",
+            "improvement": null
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Window-Function verwendet falsche Sortierung (MONTH, YEAR statt YEAR, MONTH), wodurch chronologische Reihenfolge nicht gewährleistet ist. Spaltenname AMNT_EUR existiert nicht in Quelltabelle (korrekt: AMOUNT_EUR). ROWS BETWEEN 3 PRECEDING berechnet 4-Monats- statt 3-Monats-Fenster.",
+    "error_risks": [
+        {
+            "severity": "high",
+            "source_of_risk": "Falsche Sortierung in Window-Function: ORDER BY MONTH, YEAR führt zu inkorrekte chronologischer Reihenfolge",
+            "fix_suggestion": "ORDER BY YEAR, MONTH verwenden für korrekte zeitliche Sortierung"
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Spaltenname AMNT_EUR existiert nicht in SALES_MONTHLY (korrekt: AMOUNT_EUR)",
+            "fix_suggestion": "Spaltenname zu AMOUNT_EUR korrigieren"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "ROWS BETWEEN 3 PRECEDING AND CURRENT ROW berechnet 4-Monats-Fenster statt 3-Monats-Fenster",
+            "fix_suggestion": "ROWS BETWEEN 2 PRECEDING AND CURRENT ROW für 3-Monats-Fenster verwenden"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Werte in AMOUNT_EUR werden in SUM() ignoriert, können zu unerwarteten Ergebnissen führen",
+            "fix_suggestion": "COALESCE(AMOUNT_EUR, 0) verwenden oder explizite NULL-Behandlung implementieren"
+        }
+    ],
+    "final_feedback": "Transformation enthält kritische Fehler: falscher Spaltenname, inkorrekte Sortierung und falsches Window-Fenster. Nach Korrektur der Fehler ist die Logik grundsätzlich funktionsfähig. Performance-Optimierung durch Index auf (CUSTOMER_ID, YEAR, MONTH) empfohlen.",
+    "_source_file": "case8.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 749.778,
+    "_response_char_count": 2675
+}

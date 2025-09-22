@@ -1,0 +1,4 @@
+{
+    "case_id": "CASE-001",
+    "error": "Async LLM request timed out or failed."
+}

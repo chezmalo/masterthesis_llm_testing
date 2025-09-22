@@ -1,0 +1,66 @@
+{
+    "transformation_understanding": "Der ETL-Prozess implementiert ein Slowly Changing Dimension Type 2 (SCD2) Muster zur Historisierung von Kundenadressen. In einem ersten Schritt sollen geänderte, aktuell gültige Datensätze in der Zieltabelle 'DIM_CUSTOMER_ADDRESS' durch Setzen eines Gültigkeitsdatums historisiert werden. Im zweiten Schritt werden neue oder geänderte Adressdatensätze aus der Staging-Tabelle 'CUSTOMER_ADDRESS_STG' als neuer, aktuell gültiger Datensatz in die Zieltabelle eingefügt.",
+    "data_lineage": [
+        "CUSTOMER_ADDRESS_STG.CUSTOMER_ID -> DIM_CUSTOMER_ADDRESS.CUSTOMER_ID",
+        "CUSTOMER_ADDRESS_STG.STREET -> DIM_CUSTOMER_ADDRESS.STREET",
+        "CUSTOMER_ADDRESS_STG.CITY -> DIM_CUSTOMER_ADDRESS.CITY",
+        "CUSTOMER_ADDRESS_STG.POSTAL_CODE -> DIM_CUSTOMER_ADDRESS.POSTAL_CODE",
+        "CUSTOMER_ADDRESS_STG.COUNTRY -> DIM_CUSTOMER_ADDRESS.COUNTRY",
+        "CUSTOMER_ADDRESS_STG.CHANGE_TS -> DIM_CUSTOMER_ADDRESS.VALID_FROM",
+        "(Hardcoded) -> DIM_CUSTOMER_ADDRESS.VALID_TO",
+        "(Hardcoded) -> DIM_CUSTOMER_ADDRESS.IS_CURRENT"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Identifiziert geänderte, aktuell gültige Adressdatensätze in der Zieltabelle und versucht, diese zu historisieren. Die Syntax ist jedoch invalide und die Logik fehlerhaft.",
+            "formula": "SET VALID_TO = NULL FROM CUSTOMER_ADDRESS_STG s WHERE d.CUSTOMER_ID = s.CUSTOMER_ID AND d.IS_CURRENT = TRUE AND (d.STREET <> s.STREET OR d.CITY <> s.CITY OR d.POSTCODE <> s.POSTAL_CODE OR d.COUNTRY = s.COUNTRY);",
+            "improvement": "Die Logik zur Änderungserkennung ist fehlerhaft (z.B. `d.COUNTRY = s.COUNTRY`). Die SCD2-Aktualisierungslogik ist unvollständig (`IS_CURRENT` wird nicht auf `FALSE` gesetzt, `VALID_TO` sollte das `CHANGE_TS` sein). Die SQL-Syntax ist invalide."
+        },
+        {
+            "step_count": 2,
+            "description": "Fügt neue oder geänderte Adressdatensätze aus der Staging-Tabelle als neuen, aktuell gültigen Datensatz in die Zieltabelle ein.",
+            "formula": "INSERT INTO DIM_CUSTOMER_ADDRESS (CUSTOMER_ID, STREET, CITY, POSTAL_CODE, COUNTRY, VALID_FROM, VALID_TO, IS_CURRENT) SELECT s.CUSTOMER_ID, s.STREET, s.CITY, s.POSTAL_CODE, s.COUNTRY, s.CHANGE_TS AS VALID_FROM, NULL AS VALID_TO, TRUE AS IS_CURRENT FROM CUSTOMER_ADDRESS_STG s LEFT JOIN DIM_CUSTOMER_ADDRESS d ON d.CUSTOMER_ID = s.CUSTOMER_ID AND d.IS_CURRENT = TRUE WHERE d.CUSTOMER_ID IS NULL OR d.STREET <> s.STREET OR d.CITY <> s.CITY OR d.POSTCODE <> s.POSTAL_CODE OR d.COUNTRY = s.COUNTRY;",
+            "improvement": "Die Logik zur Änderungserkennung ist identisch zum ersten Schritt und somit fehlerhaft. Die Verwendung von zwei separaten Statements mit redundanter Logik ist ineffizient. Ein `MERGE`-Statement wäre performanter und wartbarer."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Der Prozess ist nicht lauffähig. Er enthält Syntaxfehler (z.B. 'POSTCODE' statt 'POSTAL_CODE', invalide UPDATE-Syntax) und schwere logische Fehler in der Änderungslogik (`d.COUNTRY = s.COUNTRY`). Zudem werden `NOT NULL`-Constraints verletzt (`VALID_TO`) und die SCD2-Logik ist unvollständig implementiert (z.B. `IS_CURRENT` wird nicht aktualisiert).",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "In beiden SQL-Statements wird auf die nicht existierende Spalte 'd.POSTCODE' zugegriffen. Der korrekte Spaltenname lautet 'POSTAL_CODE'. Dies führt zu einem Syntaxfehler.",
+            "fix_suggestion": "Ersetze 'd.POSTCODE' durch 'd.POSTAL_CODE' in beiden Statements."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Die Bedingung `d.COUNTRY = s.COUNTRY` in der `WHERE`-Klausel beider Statements ist logisch falsch für eine Änderungserkennung. Dies führt zu inkonsistenten Daten, da Änderungen nicht korrekt identifiziert werden.",
+            "fix_suggestion": "Ändere die Bedingung zu `d.COUNTRY <> s.COUNTRY` und stelle sicher, dass alle Vergleichsbedingungen mit `OR` verknüpft sind."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Die Zieltabelle `DIM_CUSTOMER_ADDRESS` definiert die Spalte `VALID_TO` als `NOT NULL`. Beide SQL-Statements versuchen, `NULL` in diese Spalte zu schreiben, was zu einem Constraint-Verstoß führt.",
+            "fix_suggestion": "Für den aktuellen Datensatz (INSERT) sollte `VALID_TO` auf einen festen Maximalwert (z.B. '9999-12-31') gesetzt werden. Für zu historisierende Datensätze (UPDATE) sollte `VALID_TO` auf das `CHANGE_TS` des neuen Datensatzes gesetzt werden."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Die SCD2-Logik ist unvollständig. Beim Historisieren eines Datensatzes (Statement 1) wird der `IS_CURRENT`-Flag nicht auf `FALSE` gesetzt. Dies führt zu mehreren aktiven Datensätzen pro Kunde.",
+            "fix_suggestion": "Ergänze im UPDATE-Statement die Anweisung `SET IS_CURRENT = FALSE`."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Der Prozess verwendet zwei separate Statements mit identischer, fehleranfälliger Logik zur Änderungserkennung. Dies ist ineffizient und schwer zu warten.",
+            "fix_suggestion": "Fasse die Logik in einem einzigen `MERGE`-Statement (UPSERT) zusammen. Dies verbessert die Lesbarkeit, Wartbarkeit und Performance."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Der Vergleich `d.COLUMN <> s.COLUMN` behandelt `NULL`-Werte nicht korrekt. Wenn ein alter oder neuer Wert `NULL` ist, wird die Ungleichheit als `UNKNOWN` ausgewertet und die Änderung nicht erkannt.",
+            "fix_suggestion": "Verwende eine `NULL`-sichere Vergleichslogik, z.B. `(d.COLUMN IS DISTINCT FROM s.COLUMN)`."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner jetzigen Form aufgrund kritischer Syntax- und Logikfehler nicht funktionsfähig und würde zu Laufzeitfehlern sowie schweren Dateninkonsistenzen führen. Eine grundlegende Überarbeitung der SCD2-Logik, der Fehlerbehebung und der Struktur (z.B. durch Nutzung eines `MERGE`-Statements) ist zwingend erforderlich.",
+    "_source_file": "case9.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 1103.925,
+    "_response_char_count": 5965
+}

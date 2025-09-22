@@ -1,0 +1,63 @@
+{
+    "transformation_understanding": "Der ETL-Prozess berechnet die Schadenreserve für jeden Schadensfall. Die Berechnung erfolgt, indem vom gemeldeten Betrag der bereits gezahlte Betrag abgezogen wird. Dieses Ergebnis wird nacheinander durch das Deckungslimit der Police und ein spartenabhängiges Reservelimit nach oben begrenzt. Ein negativer Wert wird ausgeschlossen. Die berechneten Reserven werden zusammen mit der Schadenfall-ID in die Zieltabelle 'CLAIM_RESERVES' eingefügt.",
+    "data_lineage": [
+        "CLAIMS.CLAIM_ID -> CLAIM_RESERVES.CLAIM_ID",
+        "{CLAIMS.REPORTED_AMT, CLAIMS.PAID_AMT, CLAIMS.COVER_LIMIT_AMT, LOB_RESERVE_CAP.MAX_RESERVE_AMT} -> CLAIM_RESERVES.CALC_RESERVE_AMT"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Verknüpfung der Tabellen 'CLAIMS' und 'LOB_RESERVE_CAP' über die Sparte (Line of Business), um das maximale Reservelimit pro Schadensfall zu ermitteln.",
+            "formula": "FROM CLAIMS c LEFT JOIN LOB_RESERVE_CAP cap ON cap.LINE_BUSINESS = c.LINE_OF_BUSINESS",
+            "improvement": "Ein INNER JOIN könnte performanter sein und die Datenintegrität sicherstellen, falls Schadensfälle ohne zugehöriges Reservelimit nicht verarbeitet werden sollen."
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung des ausstehenden Betrags, gedeckelt durch das policespezifische Deckungslimit.",
+            "formula": "MIN(c.COVER_LIMIT_AMT, (c.REPORTED_AMT - c.PAID_AMT))",
+            "improvement": null
+        },
+        {
+            "step_count": 3,
+            "description": "Sicherstellung eines nicht-negativen Reservewerts durch Anwendung eines Minimalwerts von 0.",
+            "formula": "GREATEST(0, ...)",
+            "improvement": null
+        },
+        {
+            "step_count": 4,
+            "description": "Anwendung des spartenabhängigen, maximalen Reservelimits auf den berechneten Wert.",
+            "formula": "MIN(cap.MAX_RESERVE_AMT, ...)",
+            "improvement": null
+        },
+        {
+            "step_count": 5,
+            "description": "Einfügen der resultierenden Schadenfall-ID und des berechneten Reservebetrags in die Zieltabelle.",
+            "formula": "INSERT INTO CLAIM_RESERVES (CLAIM_ID, CALC_RESERVE_AMT) SELECT ...",
+            "improvement": null
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist nicht valide und wird bei der Ausführung fehlschlagen. Hauptgründe sind die Verwendung von inkorrekten Spaltennamen ('CLM_ID' statt 'CLAIM_ID'; 'LINE_BUSINESS' statt 'LINE_OF_BUSINESS') und eine unzulässige arithmetische Operation auf einem CLOB-Datentyp ('REPORTED_AMT').",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Die Abfrage referenziert die Spalten 'CLM_ID' und 'LINE_BUSINESS', welche in den Quelltabellen nicht existieren. Die korrekten Namen sind 'CLAIM_ID' und 'LINE_OF_BUSINESS'.",
+            "fix_suggestion": "Korrigieren Sie die Spaltennamen in der SELECT-Klausel zu 'c.CLAIM_ID' und in der JOIN-Bedingung zu 'cap.LINE_OF_BUSINESS'."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Die Spalte 'REPORTED_AMT' vom Typ CLOB wird in einer arithmetischen Subtraktion verwendet. Dies führt zu einem Typkonvertierungsfehler und zum Scheitern der Abfrage.",
+            "fix_suggestion": "Konvertieren Sie 'REPORTED_AMT' explizit in einen numerischen Datentyp mittels CAST(c.REPORTED_AMT AS DECIMAL(16,2)), bevor die Subtraktion durchgeführt wird."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Durch den LEFT JOIN kann 'cap.MAX_RESERVE_AMT' NULL sein. Die MIN-Funktion behandelt NULL-Werte implizit, was dazu führt, dass in diesen Fällen kein Capping durch das spartenabhängige Limit erfolgt.",
+            "fix_suggestion": "Verwenden Sie COALESCE, um NULL-Werte explizit zu behandeln und die Geschäftslogik zu verdeutlichen, z.B. COALESCE(cap.MAX_RESERVE_AMT, c.COVER_LIMIT_AMT), falls das Deckungslimit als Fallback dienen soll."
+        }
+    ],
+    "final_feedback": "Die Transformation ist in der vorliegenden Form aufgrund kritischer Fehler in den Spaltenreferenzen und der Datentypverwendung nicht lauffähig. Nach Behebung dieser Fehler ist die implementierte Geschäftslogik zur Reservenberechnung schlüssig. Die Robustheit kann durch explizites Handling von NULL-Werten aus dem LEFT JOIN weiter verbessert werden.",
+    "_source_file": "case10.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 838.305,
+    "_response_char_count": 4133
+}

@@ -1,0 +1,97 @@
+{
+    "transformation_understanding": "Bruttoumsätze aus SALES_GROSS werden mit länderspezifischen MwSt.-Sätzen aus VAT_RATES verknüpft und als Netto- und MwSt.-Beträge in SALES_NET geschrieben. Aktuell: NET = ROUND(CAST(GROSS AS INT)/(1+VAT_RATE),0); VAT = ROUND(GROSS,0).",
+    "data_lineage": [
+        "SALES_GROSS.SALE_ID -> SALES_NET.SALE_ID (identisch)",
+        "SALES_GROSS.CUSTOMER_ID -> SALES_NET.CUSTOMER_ID (identisch)",
+        "SALES_GROSS.COUNTRY_CODE <-> VAT_RATES.COUNTRY_CODE (Join-Schlüssel)",
+        "SALES_GROSS.GROSS_AMT_EUR + VAT_RATES.VAT_RATE -> SALES_NET.NET_AMT_EUR via ROUND(CAST(GROSS AS INT)/(1+RATE),0)",
+        "SALES_GROSS.GROSS_AMT_EUR -> SALES_NET.VAT_AMT_EUR via ROUND(GROSS,0)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Join SALES_GROSS mit VAT_RATES über Land",
+            "formula": "JOIN VAT_RATES v ON v.COUNTRYCODE = s.COUNTRY_CODE",
+            "improvement": "Korrekt: JOIN VAT_RATES v ON v.COUNTRY_CODE = s.COUNTRY_CODE; optional LEFT JOIN mit Null-Handling."
+        },
+        {
+            "step_count": 2,
+            "description": "Mapping SALE_ID",
+            "formula": "s.SALE_ID",
+            "improvement": null
+        },
+        {
+            "step_count": 3,
+            "description": "Mapping CUSTOMER_ID",
+            "formula": "s.CUSTOMER_ID",
+            "improvement": null
+        },
+        {
+            "step_count": 4,
+            "description": "Berechnung NET_AMT_EUR",
+            "formula": "ROUND(CAST(s.GROSS_AMT_EUR AS INT) / (1 + v.VAT_RATE), 0)",
+            "improvement": "Vermeide CAST auf INT und runde auf 2 Nachkommastellen: ROUND(s.GROSS_AMT_EUR / (1 + v.VAT_RATE), 2)"
+        },
+        {
+            "step_count": 5,
+            "description": "Berechnung VAT_AMT_EUR",
+            "formula": "ROUND(s.GROSS_AMT_EUR, 0)",
+            "improvement": "Korrekt: ROUND(s.GROSS_AMT_EUR - ROUND(s.GROSS_AMT_EUR / (1 + v.VAT_RATE), 2), 2)"
+        },
+        {
+            "step_count": 6,
+            "description": "Insert in SALES_NET",
+            "formula": "INSERT INTO SALES_NET (SALE_ID, CUSTOMER_ID, NET_AMT_EUR, VAT_AMT_EUR) SELECT ...",
+            "improvement": "Datentypkompatibilität sicherstellen (DECIMAL(14,2)), fehlerhafte/fehlende VAT_RATE behandeln (z.B. Filtern, Error-Queue)."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Der Join referenziert eine nicht existierende Spalte (v.COUNTRYCODE statt v.COUNTRY_CODE) und schlägt zur Laufzeit fehl. Die Nettoformel schneidet Cents ab (CAST auf INT) und rundet auf 0 Nachkommastellen; das widerspricht DECIMAL(14,2) und führt zu massiv falschen Werten. Die MwSt. wird fälschlich als gerundeter Bruttobetrag befüllt statt als Differenz aus Brutto und Netto bzw. GROSS*RATE/(1+RATE). NULL in VAT_RATE führt zu NULL im Netto; per INNER JOIN gehen zudem Verkäufe ohne Rate verloren.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Join verwendet v.COUNTRYCODE; vorhandene Spalte heißt VAT_RATES.COUNTRY_CODE. SQL-Fehler oder leeres Resultset.",
+            "fix_suggestion": "Join-Schlüssel korrigieren: v.COUNTRY_CODE = s.COUNTRY_CODE."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "VAT_AMT_EUR wird als gerundeter Bruttobetrag befüllt (fachlich falsch).",
+            "fix_suggestion": "MwSt. korrekt berechnen: ROUND(s.GROSS_AMT_EUR - ROUND(s.GROSS_AMT_EUR/(1+v.VAT_RATE),2), 2) oder ROUND(s.GROSS_AMT_EUR*v.VAT_RATE/(1+v.VAT_RATE),2)."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "NET_AMT_EUR: CAST auf INT + Rundung auf 0 führt zu starkem Präzisionsverlust und falschen Geldbeträgen.",
+            "fix_suggestion": "Nur DECIMAL-Arithmetik nutzen und auf 2 Stellen runden: ROUND(s.GROSS_AMT_EUR/(1+v.VAT_RATE), 2)."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "INNER JOIN verwirft Verkäufe ohne passende VAT_RATES-Zeile (Datenverlust).",
+            "fix_suggestion": "LEFT JOIN verwenden und fehlende Raten explizit behandeln (Filtern, Default, Error-Tabelle)."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "VAT_RATES.VAT_RATE ist NULL-fähig; Division durch (1+NULL) ergibt NULL im Netto.",
+            "fix_suggestion": "VAT_RATE auf NOT NULL erzwingen oder WHERE v.VAT_RATE IS NOT NULL; alternativ COALESCE mit definierter Fehlerbehandlung."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Mögliche 1:n-Beziehung in VAT_RATES pro Land erzeugt Duplikate.",
+            "fix_suggestion": "Eindeutigkeit per UNIQUE-Constraint auf COUNTRY_CODE sicherstellen oder per QUALIFY/ROW_NUMBER genau einen Satz je Land wählen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Performance: fehlende Indizes auf COUNTRY_CODE und Funktionen auf Messwerten.",
+            "fix_suggestion": "Indizes auf SALES_GROSS(COUNTRY_CODE) und VAT_RATES(COUNTRY_CODE) anlegen; nur auf berechneten Feldern runden, nicht im Join."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Rundungsmodus nicht definiert; finanzielle Berechnungen könnten je DB unterschiedlich ausfallen.",
+            "fix_suggestion": "ROUND mit 2 Dezimalstellen konsequent verwenden und ggf. ROUND_HALF_UP/Banker’s Rounding verbindlich festlegen."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist aktuell nicht funktionsfähig (falscher Join-Spaltenname) und enthält fachlich fehlerhafte Berechnungen. Für korrekte und performante Ergebnisse: Join auf COUNTRY_CODE korrigieren, Netto als ROUND(GROSS/(1+RATE),2) berechnen, MwSt. als Differenz GROSS−NETTO (oder GROSS*RATE/(1+RATE)) mit 2 Dezimalstellen bestimmen, fehlende oder doppelte Raten behandeln und geeignete Indizes auf COUNTRY_CODE setzen. Danach sind Datentypen und Rundung konsistent zu DECIMAL(14,2).",
+    "_source_file": "case5.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 346.074,
+    "_response_char_count": 5547
+}
