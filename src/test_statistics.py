@@ -21,7 +21,7 @@ def print_model_statistics(model_list, stats, output_dir=None):
         print(f"Modell: {model}")
         print(f"  Durchschnittliche Zeichenanzahl: {avg_chars}")
         print(f"  Durchschnittliche Dauer (Sekunden): {avg_duration}")
-        print(f"  Durchschnittliche Zeit pro 100 Zeichen (Sekunden): {chars_per_second}")
+        print(f"  Zeichen pro Sekunde: {chars_per_second}")
         print(f"  Anzahl Antworten: {len(char_counts)}")
         print("")
         stats_out[model] = {
