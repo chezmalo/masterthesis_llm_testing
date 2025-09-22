@@ -80,9 +80,9 @@ async def _run_async(
                 try:
                     # Build prompt, call LLM, parse and validate response
                     logger.debug(f"Verarbeite Fall: {case.get('id', 'unbekannt')} mit Modell: {model}")
-                    user_prompt = build_user_prompt(case, user_prompt)  # use builder from config
+                    built_user_prompt = build_user_prompt(case, user_prompt)  # use builder from config
                     logger.debug(f"User-Prompt erstellt für Fall {case.get('id', 'unbekannt')}.")
-                    raw = await async_prompt_llm(model, system_prompt, user_prompt)
+                    raw = await async_prompt_llm(model, system_prompt, built_user_prompt)
                     logger.debug(f"Rohantwort vom LLM erhalten für Fall {case.get('id', 'unbekannt')}.")
                     try:
                         parsed = parse_answer(raw)

@@ -2,10 +2,12 @@ import json
 import re
 from pydantic import ValidationError
 from openai import AsyncOpenAI, OpenAI
+from openai import OpenAIError
+import httpx
+
 from src import config
 from utils.logger import logging
 from llm_schema_prompts.llm_output_format import LLMAnswer
-from llm_schema_prompts.model_prompts import USER_PROMPT_TEMPLATE
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +71,9 @@ def prompt_llm(model: str, system_prompt: str, user_prompt: str) -> str:
         logger.debug(f"LLM response: {resp.choices[0].message.content[:200]}...")
         # return raw output text
         return resp.choices[0].message.content
+    except (httpx.TimeoutException, OpenAIError) as e:
+        logger.error(f"Timeout or OpenAI error during LLM prompt: {e}")
+        raise TimeoutError("LLM request timed out or failed.") from e
     except Exception as e:
         logger.error(f"Error during LLM prompt: {e}")
         raise
@@ -92,6 +97,9 @@ async def async_prompt_llm(model: str, system_prompt: str, user_prompt: str) -> 
         logger.debug(f"LLM response: {resp.choices[0].message.content[:200]}...")
         # return raw output text
         return resp.choices[0].message.content
+    except (httpx.TimeoutException, OpenAIError) as e:
+        logger.error(f"Timeout or OpenAI error during async LLM prompt: {e}")
+        raise TimeoutError("Async LLM request timed out or failed.") from e
     except Exception as e:
         logger.error(f"Error during LLM prompt: {e}")
         raise

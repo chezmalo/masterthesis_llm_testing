@@ -7,4 +7,4 @@ python -m pip install --upgrade pip
 # install dependencies
 pip install -e .
 clear
-python3 run_experiments.py --model gpt,claude,google --input inputs --output outputs/final_experiment --loglevel INFO --logfile --concurrency 1 --repeat 1
+python3 run_experiments.py --model gpt --input inputs/single_exec --output outputs/final_experiment --loglevel INFO --logfile --concurrency 1 --repeat 1
