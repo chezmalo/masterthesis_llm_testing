@@ -11,7 +11,7 @@ input_tables:
       - {name: CUSTOMER_ID, type: INT, nullable: false}
       - {name: YEAR, type: INT, nullable: false}
       - {name: MONTH, type: INT, nullable: false}
-      - {name: ROLLING_3M_SUM_EUR, type: DECIMAL(8,2), nullable: false} 
+      - {name: ROLLING_3M_SUM_EUR, type: "DECIMAL(8,2)", nullable: false}
 sql_script: |
   INSERT INTO SALES_ROLLING3M (CUSTOMER_ID, YEAR, MONTH, ROLLING_3M_SUM_EUR)
   SELECT

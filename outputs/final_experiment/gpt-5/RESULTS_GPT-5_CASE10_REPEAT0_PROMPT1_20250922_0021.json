@@ -1,0 +1,85 @@
+{
+    "transformation_understanding": "Pro Claim wird ein Reservebetrag berechnet als: min(LOB-spezifische Reserveobergrenze, max(0, min(Cover-Limit, Reported - Paid))) und in CLAIM_RESERVES geschrieben. Quelle ist CLAIMS, Cap kommt aus LOB_RESERVE_CAP über LINE_OF_BUSINESS.",
+    "data_lineage": [
+        "CLAIMS.CLAIM_ID -> CLAIM_RESERVES.CLAIM_ID",
+        "CLAIMS.LINE_OF_BUSINESS -> JOIN -> LOB_RESERVE_CAP.LINE_OF_BUSINESS",
+        "CLAIMS.REPORTED_AMT, CLAIMS.PAID_AMT, CLAIMS.COVER_LIMIT_AMT, LOB_RESERVE_CAP.MAX_RESERVE_AMT -> CLAIM_RESERVES.CALC_RESERVE_AMT"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Join CLAIMS mit LOB_RESERVE_CAP über Line of Business.",
+            "formula": "FROM CLAIMS c LEFT JOIN LOB_RESERVE_CAP cap ON cap.LINE_OF_BUSINESS = c.LINE_OF_BUSINESS",
+            "improvement": "Indexe auf c.LINE_OF_BUSINESS und cap.LINE_OF_BUSINESS; korrekter Spaltenname in ON-Bedingung."
+        },
+        {
+            "step_count": 2,
+            "description": "Reported- und Paid-Betrag zu Basisbedarf verrechnen.",
+            "formula": "base_amt = (c.REPORTED_AMT - c.PAID_AMT)",
+            "improvement": "REPORTED_AMT ist CLOB: numerisch casten und Nulls behandeln, z.B. base_amt = COALESCE(TO_NUMBER(c.REPORTED_AMT),0) - COALESCE(c.PAID_AMT,0)."
+        },
+        {
+            "step_count": 3,
+            "description": "Auf Cover-Limit begrenzen.",
+            "formula": "min_cover = MIN(c.COVER_LIMIT_AMT, base_amt)",
+            "improvement": "LEAST statt MIN (Aggregat). Nulls abfangen: LEAST(COALESCE(c.COVER_LIMIT_AMT, 9.9e14), base_amt)."
+        },
+        {
+            "step_count": 4,
+            "description": "Nicht-negativ machen.",
+            "formula": "non_negative = GREATEST(0, min_cover)",
+            "improvement": "COALESCE vor GREATEST, da NULL zu NULL führt: GREATEST(0, COALESCE(min_cover,0))."
+        },
+        {
+            "step_count": 5,
+            "description": "LOB-Cap anwenden.",
+            "formula": "calc_reserve = MIN(cap.MAX_RESERVE_AMT, non_negative)",
+            "improvement": "LEAST statt MIN. Fehlenden Cap als ‚unbegrenzt‘ behandeln: LEAST(COALESCE(cap.MAX_RESERVE_AMT, 9.9e14), non_negative)."
+        },
+        {
+            "step_count": 6,
+            "description": "Ergebnis in CLAIM_RESERVES schreiben.",
+            "formula": "INSERT INTO CLAIM_RESERVES (CLAIM_ID, CALC_RESERVE_AMT) SELECT c.CLAIM_ID, calc_reserve",
+            "improvement": "MERGE/UPSERT gegen CLAIM_ID zur Duplikatsvermeidung; NOT NULL/CHK Constraint auf CALC_RESERVE_AMT >= 0."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Der SQL-Ausdruck ist aktuell nicht lauffähig: falsche Spaltennamen (CLM_ID, LINE_BUSINESS) und falsche Verwendung von MIN als Aggregat führen ohne GROUP BY zu Fehlern. Zusätzlich ist REPORTED_AMT als CLOB arithmetisch nicht nutzbar. Korrektur (dialektneutral skizziert): SELECT c.CLAIM_ID, LEAST(COALESCE(cap.MAX_RESERVE_AMT, 9.9e14), GREATEST(0, LEAST(COALESCE(c.COVER_LIMIT_AMT, 9.9e14), COALESCE(TO_NUMBER(c.REPORTED_AMT),0) - COALESCE(c.PAID_AMT,0)))) FROM CLAIMS c LEFT JOIN LOB_RESERVE_CAP cap ON cap.LINE_OF_BUSINESS = c.LINE_OF_BUSINESS.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falsche Spaltennamen: CLM_ID (statt CLAIM_ID) und LINE_BUSINESS (statt LINE_OF_BUSINESS).",
+            "fix_suggestion": "SELECT c.CLAIM_ID ... JOIN ... ON cap.LINE_OF_BUSINESS = c.LINE_OF_BUSINESS."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "MIN als Aggregatfunktion für Skalarvergleich verwendet; kein GROUP BY vorhanden.",
+            "fix_suggestion": "LEAST für Skalar-Min verwenden und alle Aggregat-MIN entfernen; kein GROUP BY nötig."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "REPORTED_AMT ist CLOB und wird arithmetisch verwendet.",
+            "fix_suggestion": "Vor der Berechnung sicher in DECIMAL casten (z.B. TO_NUMBER/TRY_CAST) und Fehlerfälle/Non-Numeric auf 0 oder NULL mappen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Propagation in GREATEST/LEAST führt zu NULL-Reserve bei fehlenden Beträgen oder fehlendem Cap.",
+            "fix_suggestion": "COALESCE für REPORTED_AMT, PAID_AMT, COVER_LIMIT_AMT und MAX_RESERVE_AMT einsetzen; fehlenden Cap als ‚unbegrenzt‘ interpretieren."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Wiederholtes INSERT ohne Deduplizierung kann Dubletten in CLAIM_RESERVES erzeugen.",
+            "fix_suggestion": "MERGE/UPSERT nach CLAIM_ID oder UNIQUE-Constraint auf CLAIM_RESERVES.CLAIM_ID."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Join ohne passende Indexe kann zu Full Scans führen.",
+            "fix_suggestion": "Indexe auf CLAIMS.LINE_OF_BUSINESS und LOB_RESERVE_CAP.LINE_OF_BUSINESS anlegen."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist fachlich nachvollziehbar, aber in der aktuellen Form nicht funktionsfähig. Hauptprobleme: falsche Spaltennamen und Aggregatverwendung von MIN statt LEAST; zudem Typkonflikt durch CLOB und unzureichende NULL-Behandlung. Nach Korrektur dieser Punkte funktioniert die Berechnung wie beabsichtigt. Optimieren Sie zusätzlich Casting/Null-Handling, fügen Sie einen UPSERT/Unique-Constraint für CLAIM_RESERVES hinzu und stellen Sie Indexe auf den Join-Spalten bereit.",
+    "_source_file": "case10.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 174.621,
+    "_response_char_count": 5142
+}

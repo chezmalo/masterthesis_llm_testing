@@ -1,0 +1,88 @@
+{
+    "transformation_understanding": "Aggregiert TRANSACTIONS je CUSTOMER_ID, schreibt LAST_TX_DATE als MIN(BOOKING_DATE) und setzt IS_INACTIVE auf 'TRUE', wenn DATEDIFF(CURRENT_DATE, MIN(BOOKING_DATE)) > 180, sonst NULL. Ergebnis wird in CUSTOMER_CHURN eingefügt.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> CUSTOMER_CHURN.CUSTOMER_ID",
+        "TRANSACTIONS.BOOKING_DATE (MIN) -> CUSTOMER_CHURN.LAST_TX_DATE",
+        "TRANSACTIONS.BOOKING_DATE (MIN, DATEDIFF, CASE) -> CUSTOMER_CHURN.IS_INACTIVE"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Quellauswahl",
+            "formula": "SELECT t.CUSTOMER_ID, t.BOOKING_DATE FROM TRANSACTIONS t",
+            "improvement": "Spalten immer qualifizieren (t.CUSTOMER_ID) für Lesbarkeit und Fehlerprävention."
+        },
+        {
+            "step_count": 2,
+            "description": "Aggregation des Transaktionsdatums pro Kunde",
+            "formula": "MIN(t.BOOKING_DATE) AS LAST_TX_DATE",
+            "improvement": "Für letzte Transaktion MAX(t.BOOKING_DATE) verwenden; WHERE t.BOOKING_DATE IS NOT NULL hinzufügen."
+        },
+        {
+            "step_count": 3,
+            "description": "Berechnung Inaktivitäts-Flag",
+            "formula": "CASE WHEN DATEDIFF(day, CURRENT_DATE, MIN(t.BOOKING_DATE)) > 180 THEN 'TRUE' ELSE NULL END",
+            "improvement": "Argumentreihenfolge korrigieren und auf MAX basieren: CASE WHEN DATEDIFF(day, MAX(t.BOOKING_DATE), CURRENT_DATE) > 180 THEN 'TRUE' ELSE 'FALSE' END (NOT NULL einhalten)."
+        },
+        {
+            "step_count": 4,
+            "description": "Laden ins Ziel",
+            "formula": "INSERT INTO CUSTOMER_CHURN (CUSTOMER_ID, LAST_TX_DATE, IS_INACTIVE) SELECT ... GROUP BY t.CUSTOMER_ID",
+            "improvement": "MERGE/UPSERT oder vorher TRUNCATE nutzen; UNIQUE-Constraint auf CUSTOMER_ID setzen, um Duplikate zu verhindern."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Fehler: LAST_TX_DATE nutzt MIN statt MAX; DATEDIFF-Argumentreihenfolge invertiert (liefert negative Werte); IS_INACTIVE setzt NULL, obwohl NOT NULL. Korrekturvorschlag: INSERT INTO CUSTOMER_CHURN (CUSTOMER_ID, LAST_TX_DATE, IS_INACTIVE)\nSELECT t.CUSTOMER_ID,\n       MAX(t.BOOKING_DATE) AS LAST_TX_DATE,\n       CASE WHEN DATEDIFF(day, MAX(t.BOOKING_DATE), CURRENT_DATE) > 180 THEN 'TRUE' ELSE 'FALSE' END AS IS_INACTIVE\nFROM TRANSACTIONS t\nWHERE t.BOOKING_DATE IS NOT NULL\nGROUP BY t.CUSTOMER_ID;",
+    "error_risks": [
+        {
+            "severity": "high",
+            "source_of_risk": "LAST_TX_DATE wird mit MIN(BOOKING_DATE) berechnet, wodurch das älteste statt das letzte Datum geladen wird.",
+            "fix_suggestion": "MAX(t.BOOKING_DATE) als LAST_TX_DATE verwenden."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "DATEDIFF-Argumentreihenfolge ist vertauscht: DATEDIFF(day, CURRENT_DATE, MIN(BOOKING_DATE)) ergibt meist negative Werte; Bedingung > 180 trifft nicht.",
+            "fix_suggestion": "DATEDIFF(day, MAX(t.BOOKING_DATE), CURRENT_DATE) verwenden (oder CURRENT_DATE - MAX(...) > 180 je nach Dialekt)."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "IS_INACTIVE ist NOT NULL, CASE liefert im ELSE-Zweig NULL; Insert kann fehlschlagen.",
+            "fix_suggestion": "Im ELSE-Zweig 'FALSE' liefern; Spalte stets befüllen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "INSERT ohne Deduplizierung/MERGE kann bei wiederholter Ausführung Duplikate oder Constraint-Verstöße erzeugen.",
+            "fix_suggestion": "MERGE/UPSERT verwenden oder Ziel vorher TRUNCATE; UNIQUE-Constraint auf CUSTOMER_ID."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Kunden mit ausschließlich NULL-BOOKING_DATE führen zu LAST_TX_DATE=NULL und ggf. IS_INACTIVE=NULL.",
+            "fix_suggestion": "WHERE t.BOOKING_DATE IS NOT NULL; optional COALESCE im CASE sicherstellen ('FALSE')."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Zukünftige BOOKING_DATE-Werte könnten fälschlich Inaktivität beeinflussen.",
+            "fix_suggestion": "Nur Transaktionen bis CURRENT_DATE berücksichtigen: WHERE t.BOOKING_DATE <= CURRENT_DATE."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "DATEDIFF ist nicht in allen Dialekten identisch verfügbar/parametrisiert.",
+            "fix_suggestion": "Dialektsichere Datumsarithmetik nutzen (z. B. CURRENT_DATE - MAX(BOOKING_DATE) oder DATEADD/ADD_DAYS)."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Fehlende/ungeeignete Indizes auf TRANSACTIONS(CUSTOMER_ID, BOOKING_DATE) verschlechtern Aggregations-Performance.",
+            "fix_suggestion": "Index/Cluster/Partition auf (CUSTOMER_ID, BOOKING_DATE) anlegen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Unqualifizierte Spaltenreferenz SELECT CUSTOMER_ID kann bei Joins/Erweiterungen zu Ambiguitäten führen.",
+            "fix_suggestion": "Spalten immer mit TabellenaLIAS referenzieren (t.CUSTOMER_ID)."
+        }
+    ],
+    "final_feedback": "Der ETL ist in der aktuellen Form fachlich und technisch nicht funktionsfähig: falsches Aggregat für LAST_TX_DATE, invertierte DATEDIFF-Parameter und NOT-NULL-Verstoß bei IS_INACTIVE. Korrigiere auf MAX(BOOKING_DATE), DATEDIFF(day, MAX(BOOKING_DATE), CURRENT_DATE) und setze ELSE 'FALSE'. Ergänze WHERE BOOKING_DATE IS NOT NULL und optional <= CURRENT_DATE. Für Stabilität: MERGE/UPSERT statt reinem INSERT, UNIQUE auf CUSTOMER_ID sowie Index auf (CUSTOMER_ID, BOOKING_DATE). Dadurch bleibt das Ergebnis fachlich korrekt und der Lauf performant.",
+    "_source_file": "case7.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 859.479,
+    "_response_char_count": 5413
+}

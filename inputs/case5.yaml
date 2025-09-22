@@ -5,17 +5,17 @@ input_tables:
       - {name: SALE_ID, type: INT, nullable: false}
       - {name: CUSTOMER_ID, type: INT, nullable: false}
       - {name: COUNTRY_CODE, type: CHAR(2), nullable: false}
-      - {name: GROSS_AMT_EUR, type: DECIMAL(14,2), nullable: false}
+      - {name: GROSS_AMT_EUR, type: "DECIMAL(14,2)", nullable: false}
   VAT_RATES:
     columns:
       - {name: COUNTRY_CODE, type: CHAR(2), nullable: false}
-      - {name: VAT_RATE, type: DECIMAL(3,2), nullable: true}
+      - {name: VAT_RATE, type: "DECIMAL(3,2)", nullable: true}
   SALES_NET:
     columns:
       - {name: SALE_ID, type: INT, nullable: false}
       - {name: CUSTOMER_ID, type: INT, nullable: false}
-      - {name: NET_AMT_EUR, type: DECIMAL(14,2), nullable: true}
-      - {name: VAT_AMT_EUR, type: DECIMAL(14,2), nullable: false}
+      - {name: NET_AMT_EUR, type: "DECIMAL(14,2)", nullable: true}
+      - {name: VAT_AMT_EUR, type: "DECIMAL(14,2)", nullable: false}
 sql_script: |
   INSERT INTO SALES_NET (SALE_ID, CUSTOMER_ID, NET_AMT_EUR, VAT_AMT_EUR)
   SELECT

@@ -1,0 +1,79 @@
+{
+    "transformation_understanding": "Ziel: Produkte aus PRODUCTS_RAW in PRODUCTS_NORM laden und Quellkategorien via CATEGORY_MAPPING auf Zielkategorien abbilden. Implementiert ist ein LEFT JOIN, der eine TARGET_CATEGORY je Produkt ermitteln und bei fehlender Zuordnung '' einsetzen soll. Aktuell sind Join-Bedingung und Spaltenauswahl fehlerhaft.",
+    "data_lineage": [
+        "PRODUCTS_NORM.PRODUCT_ID <- PRODUCTS_RAW.PROD_ID (INT) [Fehler: Spalte existiert nicht, erwartet PRODUCTS_RAW.PRODUCT_ID]",
+        "PRODUCTS_NORM.TARGET_CATEGORY <- COALESCE(CATEGORY_MAPPING.TARGET_CATEGORY, '') via LEFT JOIN",
+        "JOIN: CATEGORY_MAPPING.TARGET_CATEGORY (VARCHAR(100)) = PRODUCTS_RAW.SOURCE_CATEGORY_CODE (ENUM('A','B','C','D')) [Semantisch falsch; soll CATEGORY_MAPPING.SOURCE_CATEGORY_CODE sein]",
+        "Längen-/Typfluss: CATEGORY_MAPPING.TARGET_CATEGORY (VARCHAR(100)) -> PRODUCTS_NORM.TARGET_CATEGORY (VARCHAR(20)) [Trunkations-/Fehlergefahr]"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "LEFT JOIN der Rohdaten mit der Mapping-Tabelle",
+            "formula": "FROM PRODUCTS_RAW p LEFT JOIN CATEGORY_MAPPING m ON m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE",
+            "improvement": "Indexempfehlung für Performance: INDEX on CATEGORY_MAPPING(SOURCE_CATEGORY_CODE), INDEX on PRODUCTS_RAW(SOURCE_CATEGORY_CODE)"
+        },
+        {
+            "step_count": 2,
+            "description": "Auswahl Produkt-ID",
+            "formula": "SELECT PROD_ID",
+            "improvement": "Spalten explizit und korrekt qualifizieren (p.PRODUCT_ID AS PRODUCT_ID), um Ambiguitäten zu vermeiden"
+        },
+        {
+            "step_count": 3,
+            "description": "Ermittlung Zielkategorie inkl. Fallback",
+            "formula": "COALESCE(m.TARGET_CATEGORY, '') AS TARGET_CATEGORY",
+            "improvement": "Explizite Typanpassung (z.B. CAST(... AS VARCHAR(20))) zur frühzeitigen Erkennung von Überlängen; Logging/Validierung vor Insert"
+        },
+        {
+            "step_count": 4,
+            "description": "Insert in Zieltabelle",
+            "formula": "INSERT INTO PRODUCTS_NORM (PRODUCT_ID, TARGET_CATEGORY) SELECT ...",
+            "improvement": "Nur benötigte Spalten projizieren; optional in Transaktionen/Batches für bessere Durchsätze"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Abfrage schlägt fehl, da PROD_ID nicht existiert (korrekt ist p.PRODUCT_ID). Zusätzlich ist die JOIN-Bedingung semantisch falsch (m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE statt m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE). Selbst bei Korrektur drohen Trunkation (100 -> 20) und DB-spezifische Probleme mit '' (z.B. in Oracle als NULL interpretiert).",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falscher Spaltenname in SELECT: PROD_ID existiert nicht in PRODUCTS_RAW",
+            "fix_suggestion": "Spalte korrigieren: SELECT p.PRODUCT_ID AS PRODUCT_ID"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falscher Join-Key: m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE; semantisch korrekt ist die Zuordnung über m.SOURCE_CATEGORY_CODE",
+            "fix_suggestion": "JOIN-Bedingung ändern: ON m.SOURCE_CATEGORY_CODE = CAST(p.SOURCE_CATEGORY_CODE AS VARCHAR(50))"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Längenmismatch: CATEGORY_MAPPING.TARGET_CATEGORY (VARCHAR(100)) in PRODUCTS_NORM.TARGET_CATEGORY (VARCHAR(20)) kann zu Trunkation/Fehlern führen",
+            "fix_suggestion": "Mappingwerte auf Länge <=20 begrenzen/validieren; optional SUBSTRING(m.TARGET_CATEGORY,1,20) oder Datenqualitätsregel erzwingen"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "COALESCE auf '': In Oracle wird '' als NULL behandelt -> NOT NULL-Verletzung in PRODUCTS_NORM.TARGET_CATEGORY",
+            "fix_suggestion": "DB-kompatiblen Default nutzen (z.B. 'UNKNOWN') oder NOT NULL durch valide Standardkategorie sicherstellen"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Datentyp-/Kollationsunterschiede im Join (ENUM vs. VARCHAR) können zu Fehl- oder Nicht-Treffern führen",
+            "fix_suggestion": "Explizit casten und normalisieren (z.B. CAST(p.SOURCE_CATEGORY_CODE AS VARCHAR(50)), TRIM/UPPER) und Kollation konsistent halten"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Duplikate in CATEGORY_MAPPING für einen SOURCE_CATEGORY_CODE führen zu vervielfachten Zeilen im Ziel",
+            "fix_suggestion": "Eindeutigkeit erzwingen (UNIQUE-Constraint/Index auf SOURCE_CATEGORY_CODE) oder Aggregation/DEDUP im SELECT"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Fehlende Indizes auf Join-Spalten beeinträchtigen Performance bei größeren Datenmengen",
+            "fix_suggestion": "Indizes auf PRODUCTS_RAW(SOURCE_CATEGORY_CODE) und CATEGORY_MAPPING(SOURCE_CATEGORY_CODE) anlegen"
+        }
+    ],
+    "final_feedback": "Der ETL ist aktuell nicht funktionsfähig (falscher Spaltenname PROD_ID; falscher Join-Key). Nach Korrektur auf p.PRODUCT_ID und JOIN über m.SOURCE_CATEGORY_CODE ist die Logik plausibel, jedoch bestehen Risiken bzgl. Längenmismatch (100 -> 20) und DB-Verhalten von '' bei NOT NULL. Empfohlen: korrekten Join und Spaltennamen verwenden, Längen validieren/trunkieren oder Mapping harmonisieren, robusten Default statt '' wählen (DB-abhängig), Indizes auf Join-Spalten setzen. So wird sowohl Korrektheit als auch Performance sichergestellt.",
+    "_source_file": "case6.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 1259.801,
+    "_response_char_count": 5304
+}

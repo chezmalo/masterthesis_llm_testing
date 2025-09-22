@@ -1,0 +1,72 @@
+{
+    "transformation_understanding": "Aggregiert TRANSACTIONS nach CUSTOMER_ID, ermittelt pro Kunde MIN(BOOKING_DATE) als LAST_TX_DATE und setzt IS_INACTIVE auf 'TRUE', wenn DATEDIFF(day, CURRENT_DATE, MIN(BOOKING_DATE)) > 180; anschließend Insert in CUSTOMER_CHURN.",
+    "data_lineage": [
+        "CUSTOMER_CHURN.CUSTOMER_ID <- TRANSACTIONS.CUSTOMER_ID (GROUP BY)",
+        "CUSTOMER_CHURN.LAST_TX_DATE <- MIN(TRANSACTIONS.BOOKING_DATE)",
+        "CUSTOMER_CHURN.IS_INACTIVE <- CASE WHEN DATEDIFF(day, CURRENT_DATE, MIN(BOOKING_DATE)) > 180 THEN 'TRUE' ELSE NULL END"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Aggregation der Transaktionen je Kunde und Ermittlung eines Datumsfeldes.",
+            "formula": "SELECT t.CUSTOMER_ID, MIN(t.BOOKING_DATE) AS LAST_TX_DATE FROM TRANSACTIONS t GROUP BY t.CUSTOMER_ID",
+            "improvement": "Aggregat einmal in einer CTE/Subquery berechnen und mehrfach referenzieren, um doppelte MIN()-Berechnungen zu vermeiden."
+        },
+        {
+            "step_count": 2,
+            "description": "Ableitung IS_INACTIVE anhand der Differenz zwischen aktuellem Datum und dem aggregierten Datum.",
+            "formula": "CASE WHEN DATEDIFF(day, CURRENT_DATE, MIN(t.BOOKING_DATE)) > 180 THEN 'TRUE' ELSE NULL END",
+            "improvement": "Die bereits aggregierte Spalte (z. B. last_tx_date) referenzieren, statt die Aggregatfunktion im CASE erneut auszuführen."
+        },
+        {
+            "step_count": 3,
+            "description": "Insert der berechneten Felder in CUSTOMER_CHURN.",
+            "formula": "INSERT INTO CUSTOMER_CHURN (CUSTOMER_ID, LAST_TX_DATE, IS_INACTIVE) SELECT ...",
+            "improvement": "Für Idempotenz MERGE oder DELETE-INSERT/TRUNCATE-INSERT nutzen; ändert das Ergebnis einer Einzelausführung nicht, verhindert aber Duplikate bei Wiederholungen."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Berechnung ist fachlich und technisch fehlerhaft: LAST_TX_DATE nutzt MIN statt MAX (liefert frühestes statt letztes Datum). DATEDIFF-Argumentreihenfolge führt zu negativen Werten, Bedingung >180 wird i. d. R. nie erfüllt. IS_INACTIVE ist NOT NULL, es wird aber NULL eingefügt (INSERT-Fehler). Zusätzlich mögliche Dialektprobleme (CURRENT_DATE, DATEDIFF-Signatur) und fehlende Idempotenz.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "IS_INACTIVE ist NOT NULL, CASE liefert im ELSE-Zweig NULL -> INSERT schlägt fehl.",
+            "fix_suggestion": "ELSE 'FALSE' setzen oder DEFAULT 'FALSE' definieren und CASE im ELSE weglassen; zusätzlich COALESCE anwenden, falls DATEDIFF NULL wird."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "LAST_TX_DATE verwendet MIN(BOOKING_DATE); fachlich müsste letzter Beleg MAX(BOOKING_DATE) sein.",
+            "fix_suggestion": "MAX(BOOKING_DATE) als LAST_TX_DATE verwenden."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "DATEDIFF mit Argumentreihenfolge (CURRENT_DATE, MIN(BOOKING_DATE)) ergibt negative Differenzen; Bedingung > 180 greift nicht.",
+            "fix_suggestion": "DATEDIFF korrekt anwenden: Differenz = DATEDIFF(day, last_tx_date, CURRENT_DATE) > 180."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "SQL-Dialektinkonsistenz (CURRENT_DATE, DATEDIFF-Signatur und Literal 'day').",
+            "fix_suggestion": "Auf Zieldialekt anpassen: z. B. Snowflake DATEDIFF('day', start, end) und CURRENT_DATE(), SQL Server DATEDIFF(day, start, end) und GETDATE()."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "INSERT ohne Upsert-Logik ist nicht idempotent; erneute Ausführung erzeugt Duplikate.",
+            "fix_suggestion": "MERGE/UPSERT verwenden oder Zieltabelle vor Insert leeren; Unique-Index auf CUSTOMER_ID setzen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Nullwerte in BOOKING_DATE: Aggregation kann NULL liefern; DATEDIFF mit NULL -> NULL; kollidiert mit NOT NULL von IS_INACTIVE.",
+            "fix_suggestion": "Nur nicht-null BOOKING_DATE aggregieren (WHERE BOOKING_DATE IS NOT NULL) oder COALESCE/Filterlogik ergänzen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Aggregation über große Tabelle ohne geeigneten Index kann langsam sein.",
+            "fix_suggestion": "Index auf (CUSTOMER_ID, BOOKING_DATE) bzw. Clustering/Partitionierung nach CUSTOMER_ID anlegen."
+        }
+    ],
+    "final_feedback": "Der ETL ist in der aktuellen Form nicht funktionsfähig (NOT NULL-Verstoß) und fachlich falsch (MIN statt MAX, verkehrte DATEDIFF-Reihenfolge). Korrigieren Sie die Aggregation auf MAX(BOOKING_DATE), berechnen Sie die Differenz als DATEDIFF(day, LAST_TX_DATE, CURRENT_DATE) und liefern Sie im ELSE-Zweig 'FALSE' (oder setzen Sie einen DEFAULT). Passen Sie die Funktionen an den Zieldialekt an und machen Sie den Load idempotent (MERGE). Für Performance einen Index auf (CUSTOMER_ID, BOOKING_DATE) setzen.",
+    "_source_file": "case7.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 1439.166,
+    "_response_char_count": 4816
+}

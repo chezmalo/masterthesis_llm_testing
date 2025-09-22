@@ -1,0 +1,79 @@
+{
+    "transformation_understanding": "Aus PAYMENTS werden Zahlungen je PAY_DATE und CURRENCY mit FX_RATES per (CURRENCY, RATE_DATE) verknüpft. AMOUNT wird mit dem EUR_RATE multipliziert und auf 2 Dezimalstellen gerundet, danach als AMOUNT_EUR in PAYMENTS_EUR eingefügt.",
+    "data_lineage": [
+        "PAYMENTS_EUR.PAYMENT_ID <= PAYMENTS.PAYMENT_ID",
+        "PAYMENTS_EUR.CUSTOMER_ID <= PAYMENTS.CUSTOMER_ID",
+        "PAYMENTS_EUR.PAY_DATE <= PAYMENTS.PAY_DATE",
+        "PAYMENTS_EUR.AMOUNT_EUR <= ROUND(PAYMENTS.AMOUNT * FX_RATES.EUR_RATE, 2)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Quelle lesen",
+            "formula": "SELECT p.PAYMENT_ID, p.CUSTOMER_ID, p.AMOUNT, p.CURRENCY, p.PAY_DATE FROM PAYMENTS p",
+            "improvement": "Nur valide Datensätze laden (z. B. p.AMOUNT IS NOT NULL, p.CURRENCY IS NOT NULL)."
+        },
+        {
+            "step_count": 2,
+            "description": "Wechselkurszuordnung",
+            "formula": "LEFT JOIN FX_RATES r ON r.CURRENCY = p.CURRENCY AND r.RATE_DATE = p.PAY_DATE",
+            "improvement": "INNER JOIN verwenden oder fehlende Kurse behandeln (Default/Reject-Logik). Eindeutigkeit von (CURRENCY, RATE_DATE) sicherstellen; Index auf FX_RATES(CURRENCY, RATE_DATE) und PAYMENTS(CURRENCY, PAY_DATE)."
+        },
+        {
+            "step_count": 3,
+            "description": "Betrag in EUR berechnen",
+            "formula": "ROUND(CAST(p.AMOUNT AS INT) * r.EUR_RATE, 2)",
+            "improvement": "Kein INT-Cast: ROUND(CAST(p.AMOUNT AS DECIMAL(18,6)) * r.EUR_RATE, 2). NULL-Handling definieren (z. B. WHERE p.AMOUNT IS NOT NULL)."
+        },
+        {
+            "step_count": 4,
+            "description": "Ziel laden",
+            "formula": "INSERT INTO PAYMENTS_EUR (PAYMENT_ID, CUSTOMER_ID, AMOUNT_EUR, PAY_DATE) SELECT ...",
+            "improvement": "Idempotent laden (MERGE/UPSERT) und Unique Key auf PAYMENTS_EUR(PAYMENT_ID). Zieltyp ggf. auf DECIMAL(18,2) anheben."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die arithmetische Logik ist fachlich intendiert (AMOUNT * EUR_RATE, Rundung 2), aber technisch fehleranfällig: INT-Cast entfernt Nachkommastellen und kann überlaufen; LEFT JOIN kann bei fehlendem Kurs oder NULL-AMOUNT zu NULL in AMOUNT_EUR führen, was mit NOT NULL der Zieltabelle kollidiert; Zielpräzision DECIMAL(10,2) ist kleiner als Quellbetrag * Kurs und kann überlaufen.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "LEFT JOIN auf FX_RATES und NULL-fähiges PAYMENTS.AMOUNT erzeugen NULL in AMOUNT_EUR; Zielspalte ist NOT NULL -> Insert-Abbruch/Fehler.",
+            "fix_suggestion": "INNER JOIN nutzen oder fehlende Kurse/NULL-AMOUNT explizit behandeln (WHERE r.EUR_RATE IS NOT NULL AND p.AMOUNT IS NOT NULL; bzw. Reject/Default definieren)."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "CAST(p.AMOUNT AS INT) entfernt Nachkommastellen (Datenverlust) und kann bei großen Beträgen zu Überlauf führen.",
+            "fix_suggestion": "Kein INT-Cast; stattdessen DECIMAL-Kette: ROUND(CAST(p.AMOUNT AS DECIMAL(18,6)) * r.EUR_RATE, 2)."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Zieltyp AMOUNT_EUR DECIMAL(10,2) ist zu klein für AMOUNT DECIMAL(14,2) * EUR_RATE DECIMAL(18,8) -> Überlauf/Abschneiden möglich.",
+            "fix_suggestion": "Zielspalte auf DECIMAL(18,2) (oder größer, konsistent zur Fachanforderung) erweitern."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "FX_RATES kann Mehrfachtreffer pro (CURRENCY, RATE_DATE) enthalten -> duplizierte Zielzeilen.",
+            "fix_suggestion": "Unique Constraint/Index auf FX_RATES(CURRENCY, RATE_DATE) oder vorgelagerte Aggregation (z. B. MAX(RATE) GROUP BY)."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Nicht-idempotentes INSERT: erneute Läufe erzeugen Duplikate in PAYMENTS_EUR.",
+            "fix_suggestion": "MERGE/UPSERT verwenden oder Unique Key auf PAYMENTS_EUR(PAYMENT_ID) und ON CONFLICT/ON DUPLICATE KEY-Strategie."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Join auf CHAR(3) kann bei abweichender Groß-/Kleinschreibung/Collation fehlschlagen.",
+            "fix_suggestion": "Werte normalisieren (UPPER(TRIM(...))) und konsistente Collation; ggf. CHECK-Constraint auf gültige ISO-4217 Codes."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Fehlende Indizes auf Join-Spalten beeinträchtigen Performance bei großen Datenmengen.",
+            "fix_suggestion": "Indizes auf PAYMENTS(CURRENCY, PAY_DATE) und FX_RATES(CURRENCY, RATE_DATE) anlegen."
+        }
+    ],
+    "final_feedback": "Der ETL ist fachlich klar (EUR-Konvertierung), aber in der aktuellen Form nicht robust. Hauptprobleme: INT-Cast (Datenverlust/Überlauf), LEFT JOIN mit NOT NULL-Ziel (Insert-Fehler), zu kleine Zielpräzision und potenzielle Duplikate. Empfohlen: INNER JOIN oder definierte Fehlfallbehandlung, reine DECIMAL-Rechnung mit ROUND(...,2), Zielspalte auf DECIMAL(18,2) erhöhen, Eindeutigkeit/Index auf FX_RATES(CURRENCY, RATE_DATE), idempotentes Laden (MERGE) und Unique Key auf PAYMENT_ID. Diese Anpassungen verbessern Korrektheit und Performance ohne das fachliche Ergebnis (2-stellige EUR-Beträge) zu verändern.",
+    "_source_file": "case4.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 128.235,
+    "_response_char_count": 4487
+}

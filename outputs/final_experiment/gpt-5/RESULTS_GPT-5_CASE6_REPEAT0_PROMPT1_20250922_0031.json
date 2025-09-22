@@ -1,0 +1,73 @@
+{
+    "transformation_understanding": "Produkt-IDs und Quell-Kategoriecodes aus PRODUCTS_RAW werden per LEFT JOIN mit CATEGORY_MAPPING zu Zielkategorien gemappt und nach PRODUCTS_NORM geladen. Nicht gemappte Werte werden auf leeren String gesetzt.",
+    "data_lineage": [
+        "PRODUCTS_RAW.PRODUCT_ID -> PRODUCTS_NORM.PRODUCT_ID",
+        "PRODUCTS_RAW.SOURCE_CATEGORY_CODE -> CATEGORY_MAPPING.SOURCE_CATEGORY_CODE (JOIN)",
+        "CATEGORY_MAPPING.TARGET_CATEGORY -> PRODUCTS_NORM.TARGET_CATEGORY (COALESCE-Default)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Selektion der Produkt-ID für die Zieltabelle",
+            "formula": "SELECT p.PRODUCT_ID AS PRODUCT_ID",
+            "improvement": "Spaltenname im SELECT korrigieren (p.PRODUCT_ID statt PROD_ID); Alias konsistent zu Zielspalte halten."
+        },
+        {
+            "step_count": 2,
+            "description": "Mapping-Join zwischen Quellkategorie und Mapping-Tabelle",
+            "formula": "LEFT JOIN CATEGORY_MAPPING m ON m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE",
+            "improvement": "Join-Bedingung korrigieren: m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE; Typ/Kollation vereinheitlichen und indizieren."
+        },
+        {
+            "step_count": 3,
+            "description": "Ermittlung der Zielkategorie mit Fallback",
+            "formula": "COALESCE(m.TARGET_CATEGORY, '')",
+            "improvement": "Aussagekräftigen Default verwenden (z. B. 'UNMAPPED'); Länge absichern: SUBSTRING(m.TARGET_CATEGORY,1,20)."
+        },
+        {
+            "step_count": 4,
+            "description": "Insert in PRODUCTS_NORM",
+            "formula": "INSERT INTO PRODUCTS_NORM (PRODUCT_ID, TARGET_CATEGORY) SELECT ...",
+            "improvement": "Vor dem Insert Datenlängen prüfen; Transaktion und Fehlerbehandlung aktivieren (STRICT_MODE)."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist nicht lauffähig: (1) Nicht vorhandene Spalte PROD_ID im SELECT. (2) Falsche Join-Bedingung (m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE) verhindert korrekte Zuordnung. Zusätzlich besteht Trunkationsgefahr (VARCHAR(100) -> VARCHAR(20)) und problematische Defaults ('').",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falscher Spaltenname im SELECT: PROD_ID existiert nicht in PRODUCTS_RAW.",
+            "fix_suggestion": "p.PRODUCT_ID im SELECT verwenden und als PRODUCT_ID ausgeben."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Falsche Join-Bedingung: m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE führt zu keiner bzw. zufälliger Zuordnung.",
+            "fix_suggestion": "Join auf m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE ändern; Werte ggf. TRIM/UPPER normalisieren."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Längeninkompatibilität: CATEGORY_MAPPING.TARGET_CATEGORY VARCHAR(100) -> PRODUCTS_NORM.TARGET_CATEGORY VARCHAR(20); mögliche Abschneidung/Fehler.",
+            "fix_suggestion": "Zielspalte auf VARCHAR(100) anheben oder SUBSTRING(m.TARGET_CATEGORY,1,20) bzw. Validierung vor dem Insert."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Typunterschied im Join (ENUM in PRODUCTS_RAW vs. VARCHAR in CATEGORY_MAPPING) kann zu impliziten Konvertierungen und schlechter Performance führen.",
+            "fix_suggestion": "Beide Seiten auf denselben Typ bringen (z. B. VARCHAR(1)); Indizes auf p.SOURCE_CATEGORY_CODE und m.SOURCE_CATEGORY_CODE anlegen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Fallback auf leeren String mindert Datenqualität und erschwert spätere Auswertungen.",
+            "fix_suggestion": "Statt '' einen klaren Default wie 'UNMAPPED' verwenden oder unmappbare Datensätze in eine Reject-Tabelle schreiben."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Fehlende Constraints in CATEGORY_MAPPING (NULL/Mehrfachzuordnungen) können Mehrdeutigkeiten erzeugen.",
+            "fix_suggestion": "NOT NULL + UNIQUE auf CATEGORY_MAPPING.SOURCE_CATEGORY_CODE; optional CHECKs auf zulässige Codes."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist aktuell fehlerhaft (falscher Spaltenname, falscher Join). Nach Korrektur des SELECT (p.PRODUCT_ID) und des Joins (m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE) funktioniert das Mapping fachlich. Zur Robustheit: Datentypen vereinheitlichen, Indizes auf Join-Spalten, sinnvollen Default für unmappbare Codes verwenden und Längenvalidierung für TARGET_CATEGORY sicherstellen bzw. Zielschema anpassen.",
+    "_source_file": "case6.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 750.009,
+    "_response_char_count": 4412
+}

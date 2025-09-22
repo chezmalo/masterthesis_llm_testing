@@ -1,0 +1,55 @@
+{
+    "transformation_understanding": "ETL-Prozess zur Normalisierung von Telefonnummern aus CONTACTS_RAW in das E.164-Format in CONTACTS_CLEAN. Rohdaten werden bereinigt und je nach Format (mit +, 00-Präfix, 0-Präfix oder ohne Präfix) in standardisiertes internationales Format konvertiert.",
+    "data_lineage": [
+        "CONTACTS_RAW.CUSTOMER_ID -> CONTACTS_CLEAN.CUSTOMER_ID",
+        "CONTACTS_RAW.PHONE_RAW -> CONTACTS_CLEAN.PHONE_E164"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Mapping der Kunden-ID",
+            "formula": "CUST_ID",
+            "improvement": "Spaltenname sollte CUSTOMER_ID sein, nicht CUST_ID"
+        },
+        {
+            "step_count": 2,
+            "description": "Bereinigung und Normalisierung der Telefonnummer in E.164-Format",
+            "formula": "CASE WHEN LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 1) = '+' THEN REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '') WHEN LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 2) = '00' THEN CONCAT('+', SUBSTRING(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 3)) WHEN LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 1) = '0' THEN CONCAT('+49', SUBSTRING(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 2)) ELSE REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '') END",
+            "improvement": "REGEXP_REPLACE mehrfach ausgeführt - sollte in CTE oder Variable zwischengespeichert werden für bessere Performance"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation enthält logische Fehler: Nach REGEXP_REPLACE('[^0-9]', '') können keine '+'-Zeichen mehr vorhanden sein, da diese entfernt wurden. Die erste CASE-Bedingung ist daher nie erfüllbar.",
+    "error_risks": [
+        {
+            "severity": "high",
+            "source_of_risk": "Spaltenname CUST_ID existiert nicht in Quelltabelle CONTACTS_RAW (erwartet: CUSTOMER_ID)",
+            "fix_suggestion": "CUST_ID durch CUSTOMER_ID ersetzen"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Logikfehler in CASE-Bedingungen: Nach REGEXP_REPLACE('[^0-9]', '') sind keine '+'-Zeichen mehr vorhanden",
+            "fix_suggestion": "Prüfung auf '+' vor der Bereinigung durchführen oder separate Logik für bereits bereinigte Nummern"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Mehrfache Ausführung von REGEXP_REPLACE in verschiedenen CASE-Bedingungen führt zu Performance-Problemen",
+            "fix_suggestion": "REGEXP_REPLACE-Ergebnis in CTE oder Subquery zwischenspeichern"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Keine Validierung der resultierenden E.164-Nummernlänge (max. 15 Zeichen)",
+            "fix_suggestion": "LENGTH-Prüfung hinzufügen und ungültige Nummern behandeln"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Hardcodierte deutsche Ländervorwahl (+49) ohne Konfigurierbarkeit",
+            "fix_suggestion": "Ländervorwahl als Parameter oder aus Konfigurationstabelle laden"
+        }
+    ],
+    "final_feedback": "Die Transformation ist nicht funktionsfähig aufgrund von Spaltenname-Mismatch und logischen Fehlern in der CASE-Logik. Die Bereinigungslogik entfernt '+'-Zeichen vor der Prüfung darauf. Performance-Optimierung durch Zwischenspeicherung der REGEXP_REPLACE-Ergebnisse erforderlich.",
+    "_source_file": "case3.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 1032.934,
+    "_response_char_count": 3177
+}

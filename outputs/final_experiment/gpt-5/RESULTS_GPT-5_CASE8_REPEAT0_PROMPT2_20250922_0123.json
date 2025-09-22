@@ -1,0 +1,89 @@
+{
+    "transformation_understanding": "Es wird aus SALES_MONTHLY je CUSTOMER_ID, YEAR, MONTH eine rollierende 3‑Monats-Summe berechnet und in SALES_ROLLING3M geschrieben. Die Summe erfolgt per Window-Funktion über den Kunden, mit zeitlicher Sortierung und Rundung auf 2 Dezimalstellen. Ziel ist eine kumulierte 3‑Monats-Umsatzkennzahl (EUR) pro Kunde und Monat.",
+    "data_lineage": [
+        "SALES_MONTHLY.CUSTOMER_ID -> SALES_ROLLING3M.CUSTOMER_ID (1:1)",
+        "SALES_MONTHLY.YEAR -> SALES_ROLLING3M.YEAR (1:1)",
+        "SALES_MONTHLY.MONTH -> SALES_ROLLING3M.MONTH (1:1)",
+        "SALES_MONTHLY.AMOUNT_EUR -> SALES_ROLLING3M.ROLLING_3M_SUM_EUR (SUM über 3 Monate, ROUND(2))"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Auswahl der Basisattribute pro Kunde und Monat aus SALES_MONTHLY",
+            "formula": "SELECT CUSTOMER_ID, YEAR, MONTH, AMOUNT_EUR FROM SALES_MONTHLY",
+            "improvement": "Sicherstellen, dass pro CUSTOMER_ID/YEAR/MONTH höchstens eine Zeile existiert; andernfalls vorher aggregieren: SUM(AMOUNT_EUR) GROUP BY CUSTOMER_ID, YEAR, MONTH."
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung der rollierenden 3‑Monats-Summe per Window-Funktion",
+            "formula": "SUM(COALESCE(AMOUNT_EUR,0)) OVER (PARTITION BY CUSTOMER_ID ORDER BY YEAR, MONTH ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)",
+            "improvement": "Deterministische Sortierung sicherstellen (bei Duplikaten um stabile Spalte erweitern, z. B. ORDER BY YEAR, MONTH, <Surrogate>)."
+        },
+        {
+            "step_count": 3,
+            "description": "Runden und Typanpassung an Zielschema",
+            "formula": "CAST(ROUND(<rolling_sum>, 2) AS DECIMAL(8,2))",
+            "improvement": "Datentyp prüfen: bei größeren Umsätzen DECIMAL(18,2) verwenden, um Überlauf zu vermeiden."
+        },
+        {
+            "step_count": 4,
+            "description": "Schreiben der Ergebnisse nach SALES_ROLLING3M",
+            "formula": "INSERT INTO SALES_ROLLING3M (CUSTOMER_ID, YEAR, MONTH, ROLLING_3M_SUM_EUR) SELECT ...",
+            "improvement": "Bei wiederholter Beladung MERGE/UPSERT oder vorher TRUNCATE/DELETE WHERE verwenden, um Duplikate zu verhindern; Indexe für Lade- und Abfrage-Performance nutzen."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die aktuelle SQL ist nicht lauffähig und fachlich fehlerhaft: (1) Spaltenname AMNT_EUR existiert nicht (korrekt: AMOUNT_EUR). (2) ORDER BY MONTH, YEAR sortiert falsch über Jahresgrenzen (Jan 2025 vor Dez 2024); korrekt ist ORDER BY YEAR, MONTH. (3) ROWS BETWEEN 3 PRECEDING AND CURRENT ROW umfasst 4 Zeilen; für 3 Monate ist 2 PRECEDING korrekt. (4) NULL in AMOUNT_EUR kann zu NULL-Summen führen, die in eine NOT NULL-Zielspalte geschrieben werden sollen; COALESCE erforderlich. (5) MONEY -> DECIMAL(8,2) erfordert explizites CAST und kann überlaufen; Präzision prüfen. Korrigierter Kernausdruck: CAST(ROUND(SUM(COALESCE(AMOUNT_EUR,0)) OVER (PARTITION BY CUSTOMER_ID ORDER BY YEAR, MONTH ROWS BETWEEN 2 PRECEDING AND CURRENT ROW), 2) AS DECIMAL(8,2)).",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falscher Spaltenname in der Window-Summe: AMNT_EUR statt AMOUNT_EUR.",
+            "fix_suggestion": "Spaltenreferenz auf AMOUNT_EUR korrigieren."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falsche zeitliche Sortierung im Fenster: ORDER BY MONTH, YEAR verfälscht Reihenfolge über Jahreswechsel.",
+            "fix_suggestion": "ORDER BY YEAR, MONTH verwenden oder eine eindeutige Monatsdatumsspalte (z. B. FIRST_DAY_OF_MONTH) nutzen."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Fensterrahmen umfasst 4 Zeilen (3 PRECEDING + CURRENT) statt 3 Monate.",
+            "fix_suggestion": "ROWS BETWEEN 2 PRECEDING AND CURRENT ROW verwenden."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "NULL-Handling: SUM über ausschließlich NULL liefert NULL; Zielspalte ist NOT NULL.",
+            "fix_suggestion": "COALESCE(AMOUNT_EUR,0) in der SUM bzw. COALESCE um die SUM legen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Datentyp MONEY in Quelle und DECIMAL(8,2) im Ziel: implizite Konvertierung/Überlauf möglich.",
+            "fix_suggestion": "Explizit CASTen und Zielpräzision prüfen/erhöhen (z. B. DECIMAL(18,2)); Wertebereiche validieren."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Mehrere Zeilen je CUSTOMER_ID/YEAR/MONTH führen zu Doppelzählungen im Fenster.",
+            "fix_suggestion": "Vor der Window-Berechnung auf Monatsebene je Kunde aggregieren oder deduplizieren."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Fenster auf Zeilenbasis: Bei Lücken in den Monaten werden fehlende Monate nicht als 0 berücksichtigt.",
+            "fix_suggestion": "Monatskalender je Kunde materialisieren (Calendar-Join) oder fehlende Monate mit 0 auffüllen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Fehlende Indizes für Window-Operationen beeinträchtigen Performance.",
+            "fix_suggestion": "Index auf SALES_MONTHLY(CUSTOMER_ID, YEAR, MONTH) anlegen; optional Clustering/Partitionierung nach CUSTOMER_ID."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Wiederholtes Insert ohne Upsert-Logik erzeugt Duplikate im Ziel.",
+            "fix_suggestion": "MERGE/UPSERT einsetzen oder vor dem Laden zielseitig deduplizieren/überschreiben."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in der vorliegenden Form nicht funktionsfähig (falscher Spaltenname) und die Rechenlogik ist inkorrekt (Sortierung und Fenstergröße). Nach Korrektur auf AMOUNT_EUR, ORDER BY YEAR, MONTH sowie ROWS BETWEEN 2 PRECEDING AND CURRENT ROW und mit COALESCE/CAST ist die Berechnung fachlich korrekt und robust. Prüfen Sie zusätzlich die Zielpräzision (ggf. DECIMAL(18,2)), sichern Sie Eindeutigkeit pro Kunde/Monat und legen Sie geeignete Indizes an, um Performance und Stabilität zu gewährleisten.",
+    "_source_file": "case8.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 1558.312,
+    "_response_char_count": 5855
+}

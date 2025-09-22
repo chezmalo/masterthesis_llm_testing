@@ -1,0 +1,69 @@
+{
+    "transformation_understanding": "Der ETL-Prozess berechnet für jeden Kunden einen rollierenden 3-Monats-Umsatz aus der monatlichen Verkaufstabelle SALES_MONTHLY und speichert das Ergebnis in SALES_ROLLING3M. Dabei wird eine Window-Function verwendet, die für jeden Datensatz die Summe der aktuellen und der drei vorhergehenden Zeilen berechnet, partitioniert nach Kunde und sortiert nach Monat und Jahr.",
+    "data_lineage": [
+        "SALES_MONTHLY.CUSTOMER_ID → SALES_ROLLING3M.CUSTOMER_ID",
+        "SALES_MONTHLY.YEAR → SALES_ROLLING3M.YEAR",
+        "SALES_MONTHLY.MONTH → SALES_ROLLING3M.MONTH",
+        "SALES_MONTHLY.AMOUNT_EUR → Berechnung → SALES_ROLLING3M.ROLLING_3M_SUM_EUR"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Direkte Übernahme der Kundennummer ohne Transformation",
+            "formula": "CUSTOMER_ID",
+            "improvement": null
+        },
+        {
+            "step_count": 2,
+            "description": "Direkte Übernahme des Jahres ohne Transformation",
+            "formula": "YEAR",
+            "improvement": null
+        },
+        {
+            "step_count": 3,
+            "description": "Direkte Übernahme des Monats ohne Transformation",
+            "formula": "MONTH",
+            "improvement": null
+        },
+        {
+            "step_count": 4,
+            "description": "Berechnung des rollierenden 3-Monats-Umsatzes mittels Window-Function",
+            "formula": "ROUND(SUM(AMNT_EUR) OVER (PARTITION BY CUSTOMER_ID ORDER BY MONTH, YEAR ROWS BETWEEN 3 PRECEDING AND CURRENT ROW), 2)",
+            "improvement": "Sortierung nach YEAR, MONTH ändern und korrekten Spaltennamen AMOUNT_EUR verwenden"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Window-Function-Logik ist grundsätzlich korrekt, jedoch bestehen kritische Fehler: 1) Falscher Spaltenname AMNT_EUR statt AMOUNT_EUR führt zu SQL-Fehler, 2) Falsche Sortierreihenfolge MONTH, YEAR statt YEAR, MONTH führt zu inkorrekte chronologischer Ordnung, 3) ROWS BETWEEN 3 PRECEDING berechnet 4-Monats- statt 3-Monats-Summe.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Spaltenname AMNT_EUR existiert nicht in der Quelltabelle SALES_MONTHLY (korrekt: AMOUNT_EUR)",
+            "fix_suggestion": "Spaltenname von AMNT_EUR zu AMOUNT_EUR korrigieren"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Sortierung ORDER BY MONTH, YEAR ist chronologisch falsch und führt zu inkorrekten rollierenden Summen",
+            "fix_suggestion": "Sortierung zu ORDER BY YEAR, MONTH ändern"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "ROWS BETWEEN 3 PRECEDING berechnet 4-Monats-Summe (3 vorherige + aktueller Monat) statt gewünschter 3-Monats-Summe",
+            "fix_suggestion": "Window-Frame zu ROWS BETWEEN 2 PRECEDING AND CURRENT ROW ändern"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Werte in AMOUNT_EUR werden bei SUM() ignoriert, was zu unvollständigen rollierenden Summen führen kann",
+            "fix_suggestion": "COALESCE(AMOUNT_EUR, 0) verwenden oder explizite NULL-Behandlung implementieren"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Zieltabelle wird ohne vorherige Bereinigung befüllt, was zu Duplikaten bei wiederholter Ausführung führt",
+            "fix_suggestion": "TRUNCATE oder DELETE vor INSERT ausführen oder MERGE-Statement verwenden"
+        }
+    ],
+    "final_feedback": "Die Transformation ist aufgrund kritischer Syntaxfehler nicht ausführbar. Nach Korrektur der Spaltennamen, Sortierreihenfolge und Window-Frame-Definition würde der Prozess funktionieren. Die grundlegende Logik für rollierende Summen ist korrekt implementiert, jedoch müssen die identifizierten Fehler behoben werden, bevor der ETL-Prozess produktiv eingesetzt werden kann.",
+    "_source_file": "case8.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 2501.879,
+    "_response_char_count": 3617
+}

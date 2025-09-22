@@ -1,0 +1,49 @@
+{
+    "transformation_understanding": "Der ETL-Prozess implementiert eine Slowly Changing Dimension (SCD) Type 2 Logik für Kundenadressen. In einem ersten Schritt werden bestehende, aktive Datensätze historisiert, falls eine Änderung in der Staging-Tabelle erkannt wird. Im zweiten Schritt werden neue Kunden oder die geänderten Adressdaten als neuer, aktuell gültiger Datensatz in die Dimensionstabelle eingefügt.",
+    "data_lineage": [
+        "CUSTOMER_ADDRESS_STG -> DIM_CUSTOMER_ADDRESS"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Historisierung veränderter, aktiver Datensätze durch Setzen des Gültigkeitsendes. Die Änderungserkennung vergleicht die Attribute STREET, CITY, POSTAL_CODE und COUNTRY.",
+            "formula": "SET VALID_TO = NULL FROM CUSTOMER_ADDRESS_STG s WHERE d.CUSTOMER_ID = s.CUSTOMER_ID AND d.IS_CURRENT = TRUE AND (d.STREET <> s.STREET OR d.CITY <> s.CITY OR d.POSTCODE <> s.POSTAL_CODE OR d.COUNTRY = s.COUNTRY);",
+            "improvement": "Zusammenführung der beiden SQL-Statements in ein einziges MERGE-Statement zur Verbesserung der Performance und Atomarität."
+        },
+        {
+            "step_count": 2,
+            "description": "Einfügen neuer oder geänderter Adressdatensätze als neuer, aktuell gültiger Eintrag. Die Logik zur Identifizierung neuer/geänderter Datensätze ist identisch zu Schritt 1.",
+            "formula": "INSERT INTO DIM_CUSTOMER_ADDRESS (CUSTOMER_ID, STREET, CITY, POSTAL_CODE, COUNTRY, VALID_FROM, VALID_TO, IS_CURRENT) SELECT s.CUSTOMER_ID, s.STREET, s.CITY, s.POSTAL_CODE, s.COUNTRY, s.CHANGE_TS AS VALID_FROM, NULL AS VALID_TO, TRUE AS IS_CURRENT FROM CUSTOMER_ADDRESS_STG s LEFT JOIN DIM_CUSTOMER_ADDRESS d ON d.CUSTOMER_ID = s.CUSTOMER_ID AND d.IS_CURRENT = TRUE WHERE d.CUSTOMER_ID IS NULL OR d.STREET <> s.STREET OR d.CITY <> s.CITY OR d.POSTCODE <> s.POSTAL_CODE OR d.COUNTRY = s.COUNTRY;",
+            "improvement": "Die Logik zur Änderungserkennung ist redundant und sollte zentralisiert werden, idealerweise in einem CTE oder Subquery, um Fehleranfälligkeit zu reduzieren."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist nicht lauffähig. Sie enthält Syntaxfehler (falscher Spaltenname), Datentyp-Konflikte (NULL-Insert in NOT NULL Spalte) und schwere logische Fehler in der Änderungserkennung, die zu inkonsistenten Daten führen würden.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "SQL-Statement 1 und 2 versuchen, den Wert NULL in die Spalte 'VALID_TO' zu schreiben, welche als NOT NULL definiert ist. Dies führt zum sofortigen Abbruch der Transaktion.",
+            "fix_suggestion": "Für aktuell gültige Datensätze sollte 'VALID_TO' auf ein Zukunftsdatum (z.B. '9999-12-31') gesetzt werden. Beim Historisieren sollte das Datum des neuen Eintrags (z.B. `CAST(s.CHANGE_TS AS DATE) - 1`) verwendet werden."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "In beiden SQL-Statements wird auf die Spalte 'd.POSTCODE' zugegriffen. Laut Schema heißt die Spalte in 'DIM_CUSTOMER_ADDRESS' jedoch 'POSTAL_CODE'. Dies führt zu einem 'invalid identifier'-Fehler.",
+            "fix_suggestion": "Korrektur des Spaltennamens von 'd.POSTCODE' zu 'd.POSTAL_CODE' in beiden SQL-Statements."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Die Bedingung 'd.COUNTRY = s.COUNTRY' in der WHERE-Klausel beider Statements ist logisch fehlerhaft. Sie identifiziert Datensätze fälschlicherweise als geändert, wenn das Land gleich geblieben ist, und ignoriert tatsächliche Änderungen im Land-Attribut.",
+            "fix_suggestion": "Änderung der Bedingung zu 'd.COUNTRY <> s.COUNTRY', um Änderungen im Land-Attribut korrekt zu erkennen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Der Vergleichsoperator '<>' behandelt NULL-Werte inkorrekt. Ein Vergleich zwischen einem Wert und NULL ergibt 'UNKNOWN' und nicht 'TRUE', wodurch Änderungen bei NULL-Werten nicht erkannt werden.",
+            "fix_suggestion": "Verwendung von 'IS DISTINCT FROM' anstelle von '<>' für alle Spaltenvergleiche, um NULL-Werte korrekt zu behandeln und eine robuste Änderungserkennung sicherzustellen."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in der vorliegenden Form nicht funktionstüchtig. Er enthält mehrere kritische SQL-Syntaxfehler und schwere logische Fehler in der Änderungserkennung. Eine grundlegende Überarbeitung der SQL-Logik ist zwingend erforderlich, um die Funktionalität und Datenintegrität sicherzustellen.",
+    "_source_file": "case9.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 1429.836,
+    "_response_char_count": 4470
+}

@@ -1,0 +1,52 @@
+{
+    "transformation_understanding": "Der ETL-Prozess berechnet eine rollierende Summe der Umsätze pro Kunde aus der Tabelle SALES_MONTHLY und schreibt das Ergebnis in die Tabelle SALES_ROLLING3M. Die Berechnung erfolgt mittels einer Fensterfunktion.",
+    "data_lineage": [
+        "SALES_MONTHLY.CUSTOMER_ID -> SALES_ROLLING3M.CUSTOMER_ID",
+        "SALES_MONTHLY.YEAR -> SALES_ROLLING3M.YEAR",
+        "SALES_MONTHLY.MONTH -> SALES_ROLLING3M.MONTH",
+        "SALES_MONTHLY.AMOUNT_EUR -> SALES_ROLLING3M.ROLLING_3M_SUM_EUR"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Anwendung einer Fensterfunktion zur Berechnung einer rollierenden Summe über die Umsätze.",
+            "formula": "SUM(AMNT_EUR) OVER (PARTITION BY CUSTOMER_ID ORDER BY MONTH, YEAR ROWS BETWEEN 3 PRECEDING AND CURRENT ROW)",
+            "improvement": "Zur Sicherstellung der Datenintegrität bei NULL-Werten in der Quelle sollte die Aggregation mit COALESCE gekapselt werden: COALESCE(SUM(...), 0)."
+        },
+        {
+            "step_count": 2,
+            "description": "Rundung des Ergebnisses auf zwei Dezimalstellen.",
+            "formula": "ROUND(..., 2)",
+            "improvement": null
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist nicht valide. Ein Tippfehler im Spaltennamen ('AMNT_EUR') verhindert die Ausführung. Die Sortierlogik ('ORDER BY MONTH, YEAR') ist fehlerhaft und führt zu falschen Ergebnissen. Zudem berechnet das Fenster ('3 PRECEDING') eine 4-Monats-Summe anstatt einer 3-Monats-Summe.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Tippfehler im Spaltennamen 'AMNT_EUR' in der SUM-Funktion. Die Abfrage ist nicht ausführbar.",
+            "fix_suggestion": "Korrigieren des Spaltennamens zu 'AMOUNT_EUR'."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falsche Sortierreihenfolge 'ORDER BY MONTH, YEAR' in der Fensterfunktion. Dies führt zu einer nicht-chronologischen Aggregation über die Jahre hinweg.",
+            "fix_suggestion": "Ändern der Sortierung zu 'ORDER BY YEAR, MONTH', um eine korrekte chronologische Reihenfolge sicherzustellen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Das Fenster 'ROWS BETWEEN 3 PRECEDING AND CURRENT ROW' berechnet eine 4-Monats-Summe, was dem Zielspaltennamen 'ROLLING_3M_SUM_EUR' widerspricht.",
+            "fix_suggestion": "Anpassen des Fensters zu 'ROWS BETWEEN 2 PRECEDING AND CURRENT ROW' für eine korrekte 3-Monats-Summe."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Die Quellspalte 'AMOUNT_EUR' ist nullable. Eine Aggregation über ausschließlich NULL-Werte resultiert in NULL, was bei der NOT NULL-Zielspalte 'ROLLING_3M_SUM_EUR' zu einem Ladefehler führt.",
+            "fix_suggestion": "Verwendung von 'COALESCE(SUM(AMOUNT_EUR) OVER (...), 0)' zur Absicherung gegen NULL-Ergebnisse."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner aktuellen Form aufgrund mehrerer kritischer Fehler nicht funktionstüchtig und liefert logisch falsche Ergebnisse. Eine Korrektur des Spaltentippfehlers, der Sortierlogik und des Fensterrahmens ist zwingend erforderlich.",
+    "_source_file": "case8.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 2193.63,
+    "_response_char_count": 3113
+}

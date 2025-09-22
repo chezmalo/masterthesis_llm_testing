@@ -1,0 +1,54 @@
+{
+    "transformation_understanding": "Der ETL-Prozess zielt darauf ab, eine Slowly Changing Dimension (SCD) Typ 2 für Kundenadressen zu implementieren. In einem ersten Schritt sollen bestehende, als aktuell markierte Datensätze in der Zieltabelle 'DIM_CUSTOMER_ADDRESS' historisiert werden, wenn sich Daten in der Staging-Tabelle 'CUSTOMER_ADDRESS_STG' geändert haben. Im zweiten Schritt werden neue oder geänderte Datensätze aus der Staging-Tabelle in die Zieltabelle eingefügt.",
+    "data_lineage": [
+        "CUSTOMER_ADDRESS_STG -> DIM_CUSTOMER_ADDRESS"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Aktualisierung der Zieltabelle, um den Gültigkeitszeitraum für geänderte Adressdatensätze zu beenden.",
+            "formula": "SET VALID_TO = NULL FROM CUSTOMER_ADDRESS_STG s WHERE d.CUSTOMER_ID = s.CUSTOMER_ID AND d.IS_CURRENT = TRUE AND (d.STREET <> s.STREET OR d.CITY <> s.CITY OR d.POSTCODE <> s.POSTAL_CODE OR d.COUNTRY = s.COUNTRY);",
+            "improvement": "Die Logik zur Änderungserkennung ist fehlerhaft. Ein korrekter SCD-2-Prozess würde hier `IS_CURRENT` auf `FALSE` und `VALID_TO` auf das Änderungsdatum des neuen Datensatzes setzen."
+        },
+        {
+            "step_count": 2,
+            "description": "Einfügen neuer Kundenadressen oder der neuen Version einer geänderten Adresse in die Zieltabelle.",
+            "formula": "INSERT INTO DIM_CUSTOMER_ADDRESS (CUSTOMER_ID, STREET, CITY, POSTAL_CODE, COUNTRY, VALID_FROM, VALID_TO, IS_CURRENT) SELECT s.CUSTOMER_ID, s.STREET, s.CITY, s.POSTAL_CODE, s.COUNTRY, s.CHANGE_TS AS VALID_FROM, NULL AS VALID_TO, TRUE AS IS_CURRENT FROM CUSTOMER_ADDRESS_STG s LEFT JOIN DIM_CUSTOMER_ADDRESS d ON d.CUSTOMER_ID = s.CUSTOMER_ID AND d.IS_CURRENT = TRUE WHERE d.CUSTOMER_ID IS NULL OR d.STREET <> s.STREET OR d.CITY <> s.CITY OR d.POSTCODE <> s.POSTAL_CODE OR d.COUNTRY = s.COUNTRY;",
+            "improvement": "Die Zusammenführung beider Schritte in einem `MERGE`-Statement würde die Atomarität sicherstellen, die Performance verbessern und die Lesbarkeit erhöhen."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist aufgrund mehrerer kritischer Fehler nicht funktionstüchtig. Ein Syntaxfehler durch einen falschen Spaltennamen ('POSTCODE' statt 'POSTAL_CODE') verhindert die Ausführung. Ein schwerwiegender Logikfehler in der `WHERE`-Klausel (`d.COUNTRY = s.COUNTRY`) führt zu einer fehlerhaften Änderungserkennung und würde zu massiver Datenvervielfältigung führen. Zudem wird versucht, `NULL` in eine `NOT NULL`-Spalte (`VALID_TO`) zu schreiben, was einen Constraint-Verstoß auslöst. Die SCD-Typ-2-Logik ist grundsätzlich falsch implementiert.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "In beiden SQL-Statements wird auf die Spalte `d.POSTCODE` verwiesen, die in der Tabelle `DIM_CUSTOMER_ADDRESS` nicht existiert. Der korrekte Spaltenname lautet `POSTAL_CODE`.",
+            "fix_suggestion": "Korrigieren des Spaltennamens von `d.POSTCODE` zu `d.POSTAL_CODE` in beiden SQL-Abfragen."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Die Bedingung `d.COUNTRY = s.COUNTRY` in der `WHERE`-Klausel beider Statements ist logisch fehlerhaft. Sie führt dazu, dass bei bestehenden Kunden fälschlicherweise immer ein neuer Datensatz erzeugt wird, anstatt nur bei Änderungen.",
+            "fix_suggestion": "Die Bedingung muss zu `d.COUNTRY <> s.COUNTRY` geändert und mit `OR` verknüpft werden, um eine korrekte Änderungserkennung zu gewährleisten."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Die Spalte `DIM_CUSTOMER_ADDRESS.VALID_TO` ist als `NOT NULL` definiert. Beide SQL-Statements versuchen, `NULL` in diese Spalte zu schreiben, was zu einem Constraint-Verstoß führt.",
+            "fix_suggestion": "Für den jeweils aktuellen Datensatz sollte `VALID_TO` auf ein festes Zukunftsdatum (z.B. '9999-12-31') gesetzt werden. Beim Historisieren eines Datensatzes sollte `VALID_TO` auf das `CHANGE_TS` des neuen Datensatzes gesetzt werden."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Die SCD-Typ-2-Logik ist unvollständig. Das `UPDATE`-Statement aktualisiert nur `VALID_TO`, setzt aber nicht `IS_CURRENT` auf `FALSE`, was zu mehreren aktiven Datensätzen pro Kunde führen würde.",
+            "fix_suggestion": "Das `UPDATE`-Statement muss erweitert werden, um `IS_CURRENT = FALSE` zu setzen und `VALID_TO` mit einem korrekten Datum zu versehen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Der Vergleich von Spalten mit `<>` behandelt `NULL`-Werte nicht korrekt. Eine Änderung von einem Wert zu `NULL` oder umgekehrt wird nicht als Änderung erkannt.",
+            "fix_suggestion": "NULL-sichere Vergleichsoperatoren verwenden, z.B. `IS DISTINCT FROM`, oder die Logik explizit um `IS NULL`-Prüfungen erweitern."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner jetzigen Form nicht lauffähig und logisch fehlerhaft. Er enthält Syntaxfehler, `NOT NULL`-Verletzungen und eine falsche Logik zur Änderungserkennung, die zu inkonsistenten und fehlerhaften Daten führen würde. Eine vollständige Überarbeitung der SQL-Logik, vorzugsweise durch die Implementierung eines einzigen `MERGE`-Statements mit korrekter SCD-2-Logik und NULL-sicherem Spaltenvergleich, ist zwingend erforderlich.",
+    "_source_file": "case9.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 2228.544,
+    "_response_char_count": 5274
+}

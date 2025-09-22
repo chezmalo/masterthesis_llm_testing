@@ -1,0 +1,74 @@
+{
+    "transformation_understanding": "Zahlungen werden mit Tages-FX-Kursen je Währung und Datum verknüpft. Für jede Zahlung wird ein EUR-Betrag berechnet und zusammen mit Payment-ID, Customer-ID und Zahldatum in PAYMENTS_EUR geladen.",
+    "data_lineage": [
+        "PAYMENTS.PAYMENT_ID -> PAYMENTS_EUR.PAYMENT_ID",
+        "PAYMENTS.CUSTOMER_ID -> PAYMENTS_EUR.CUSTOMER_ID",
+        "PAYMENTS.AMOUNT × FX_RATES.EUR_RATE (mit ROUND und CAST) -> PAYMENTS_EUR.AMOUNT_EUR",
+        "PAYMENTS.PAY_DATE -> PAYMENTS_EUR.PAY_DATE",
+        "Join-Key: PAYMENTS.(CURRENCY, PAY_DATE) ~ FX_RATES.(CURRENCY, RATE_DATE)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Quelltabellen lesen und nach Währung/Datum verknüpfen (LEFT JOIN).",
+            "formula": "FROM PAYMENTS p LEFT JOIN FX_RATES r ON r.CURRENCY = p.CURRENCY AND r.RATE_DATE = p.PAY_DATE",
+            "improvement": "Indexe auf FX_RATES(CURRENCY, RATE_DATE) und PAYMENTS(CURRENCY, PAY_DATE) zur Beschleunigung."
+        },
+        {
+            "step_count": 2,
+            "description": "EUR-Betrag berechnen.",
+            "formula": "ROUND(CAST(p.AMOUNT AS INT) * r.EUR_RATE, 2) AS AMOUNT_EUR",
+            "improvement": "Spalten mit Tabellenalias referenzieren (z. B. p.PAY_DATE) für Klarheit; Kommentare zur Rundungslogik."
+        },
+        {
+            "step_count": 3,
+            "description": "Zieltabellen-Ladevorgang.",
+            "formula": "INSERT INTO PAYMENTS_EUR (PAYMENT_ID, CUSTOMER_ID, AMOUNT_EUR, PAY_DATE) SELECT ...",
+            "improvement": "Transaktion verwenden und Ladebatch-Größe steuern; Unique-Constraint/PK auf PAYMENTS_EUR(PAYMENT_ID) für Idempotenz."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Cast-zu-INT-Operation verwirft Nachkommastellen vor der Multiplikation; dadurch entstehen systematische Fehlbeträge. LEFT JOIN kann zu NULL in EUR_RATE führen; AMOUNT ist ebenfalls NULL-able, während AMOUNT_EUR NOT NULL ist. Das kann Inserts fehlschlagen lassen. Zudem kann DECIMAL(10,2) bei großen Beträgen oder hohen Kursen überlaufen.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "LEFT JOIN ohne Kurs-Treffer (oder NULL in PAYMENTS.AMOUNT) erzeugt NULL für AMOUNT_EUR, Zielspalte ist NOT NULL.",
+            "fix_suggestion": "INNER JOIN verwenden oder WHERE p.AMOUNT IS NOT NULL AND r.EUR_RATE IS NOT NULL filtern; alternativ robuste Default-/Fallback-Logik definieren."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "CAST(p.AMOUNT AS INT) kappt Nachkommastellen vor der Umrechnung; systematischer Präzisionsverlust.",
+            "fix_suggestion": "Mit Dezimalarithmetik rechnen, z. B. ROUND(p.AMOUNT * r.EUR_RATE, 2) bzw. CAST zu DECIMAL mit ausreichender Präzision."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Zieltyp DECIMAL(10,2) kann bei großen Zahlungen × FX-Rate überlaufen.",
+            "fix_suggestion": "Ziel auf DECIMAL(18,2) (oder passend zur Maximalerwartung) erhöhen; Eingabebereiche validieren."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Mehrere FX_RATES-Zeilen je (CURRENCY, RATE_DATE) führen zu Duplikaten je Zahlung.",
+            "fix_suggestion": "Unique-Constraint/Index auf FX_RATES(CURRENCY, RATE_DATE) erzwingen oder per QUALIFY/ROW_NUMBER genau eine Rate wählen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Job ist nicht idempotent; erneutes INSERT erzeugt Duplikate in PAYMENTS_EUR.",
+            "fix_suggestion": "Primärschlüssel/Unique-Constraint auf PAYMENTS_EUR(PAYMENT_ID) und MERGE/UPSERT nutzen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "CURRENCY als CHAR(3) kann bei inkonsistenter Großschreibung/Whitespace zu Join-Mismatches führen.",
+            "fix_suggestion": "Domänenstandard festlegen (z. B. uppercase, trim) und per CHECK-Constraint oder Referenzdimension absichern."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Rundungsmodus ist implizit; Banker's Rounding vs. kommerzielle Rundung kann abweichen.",
+            "fix_suggestion": "Rundungsanforderung fachlich festlegen; Funktion/Modus entsprechend wählen und dokumentieren."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist fachlich klar, aber in der vorliegenden Form nicht robust: Präzisionsverlust durch INT-Cast, potentielle NOT-NULL-Verstöße wegen LEFT JOIN/NULL-Werten und mögliches Ziel-Overflow gefährden Lauf und Ergebnis. Empfohlen sind: Umstellung auf Dezimalarithmetik, Konsistenzprüfung der FX-Daten (Eindeutigkeit), Anhebung der Zielpräzision, Idempotenz durch PK/MERGE und geeignete Indexe auf Join-Schlüsseln. Diese Maßnahmen stellen korrekte Beträge sicher und verbessern Performance sowie Stabilität.",
+    "_source_file": "case4.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 115.451,
+    "_response_char_count": 3988
+}

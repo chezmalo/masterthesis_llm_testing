@@ -1,0 +1,85 @@
+{
+    "transformation_understanding": "Bruttoumsätze aus SALES_GROSS werden per Ländercode mit VAT_RATES verknüpft. Daraus wird ein Nettobetrag via Division durch (1+MwSt.-Satz) berechnet und eine MwSt.-Komponente bestimmt. Die Ergebnisse werden in SALES_NET geschrieben.",
+    "data_lineage": [
+        "SALES_GROSS.SALE_ID -> SALES_NET.SALE_ID (1:1 Mapping)",
+        "SALES_GROSS.CUSTOMER_ID -> SALES_NET.CUSTOMER_ID (1:1 Mapping)",
+        "SALES_GROSS.GROSS_AMT_EUR + VAT_RATES.VAT_RATE -> SALES_NET.NET_AMT_EUR (Berechnung: GROSS/(1+VAT_RATE))",
+        "SALES_GROSS.GROSS_AMT_EUR -> SALES_NET.VAT_AMT_EUR (aktuell: fälschlich direkt gerundet)",
+        "Join: SALES_GROSS.COUNTRY_CODE -> VAT_RATES.COUNTRY_CODE"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Join SALES_GROSS mit VAT_RATES über Ländercode",
+            "formula": "JOIN VAT_RATES v ON v.COUNTRYCODE = s.COUNTRY_CODE",
+            "improvement": "Spaltenname korrigieren: v.COUNTRY_CODE. Indexe auf SALES_GROSS(COUNTRY_CODE) und VAT_RATES(COUNTRY_CODE). Optional: LEFT JOIN + Validierung bei fehlenden Raten."
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung NET_AMT_EUR aus GROSS und MwSt.-Satz",
+            "formula": "ROUND(CAST(s.GROSS_AMT_EUR AS INT) / (1 + v.VAT_RATE), 0)",
+            "improvement": "Ohne INT-Cast und mit 2 Nachkommastellen rechnen: ROUND(s.GROSS_AMT_EUR / (1 + v.VAT_RATE), 2). Vorab VAT_RATE validieren (NOT NULL, 0 ≤ VAT_RATE < 1)."
+        },
+        {
+            "step_count": 3,
+            "description": "Berechnung VAT_AMT_EUR",
+            "formula": "ROUND(s.GROSS_AMT_EUR, 0)",
+            "improvement": "MwSt. korrekt ableiten: ROUND(s.GROSS_AMT_EUR - ROUND(s.GROSS_AMT_EUR/(1+v.VAT_RATE), 2), 2). Nur einmal final runden, um Rundungsfehler zu minimieren."
+        },
+        {
+            "step_count": 4,
+            "description": "Insert in SALES_NET",
+            "formula": "INSERT INTO SALES_NET(SALE_ID, CUSTOMER_ID, NET_AMT_EUR, VAT_AMT_EUR) SELECT ...",
+            "improvement": "Eindeutigkeit sicherstellen (z.B. PK/Unique auf SALE_ID). Bei Wiederholungen MERGE/UPSERT statt blindem INSERT."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Join-Bedingung referenziert eine nicht existierende Spalte (v.COUNTRYCODE), was zu einem Fehler führt. NET_AMT_EUR wird durch CAST auf INT und Rundung auf 0 Nachkommastellen verfälscht; zudem droht INT-Überlauf bei großen Beträgen. VAT_AMT_EUR wird fälschlich aus dem gerundeten Bruttobetrag abgeleitet statt aus (GROSS − NET). Null- oder ungültige VAT_RATE-Werte führen zu NULL bzw. Division durch 0. Empfohlen: korrekter Join, Rechnen in DECIMAL mit ROUND(...,2), VAT als Differenz GROSS − NET, Validierungen/Constraints auf VAT_RATES.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falscher Spaltenname im Join (v.COUNTRYCODE statt v.COUNTRY_CODE) verursacht Laufzeitfehler bzw. leeres Resultat.",
+            "fix_suggestion": "Join-Bedingung korrigieren: ON v.COUNTRY_CODE = s.COUNTRY_CODE."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Präzisionsverlust und möglicher Überlauf durch CAST(GROSS_AMT_EUR AS INT) und Rundung auf 0 Nachkommastellen.",
+            "fix_suggestion": "Ohne INT-Cast rechnen und auf 2 Nachkommastellen runden: ROUND(s.GROSS_AMT_EUR/(1+v.VAT_RATE), 2)."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "VAT_AMT_EUR wird als gerundeter Bruttobetrag befüllt und ist fachlich falsch.",
+            "fix_suggestion": "VAT korrekt berechnen: VAT = ROUND(GROSS_AMT_EUR - NET_AMT_EUR, 2) bzw. konsistent aus GROSS und Satz ableiten."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "VAT_RATES.VAT_RATE ist NULL-abel; Division mit (1+NULL) erzeugt NULL für NET_AMT_EUR.",
+            "fix_suggestion": "NOT NULL-Constraint/Check auf VAT_RATE oder COALESCE mit fachlich korrektem Default und fehlende Raten separat behandeln."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Division durch 0 möglich, falls VAT_RATE = -1.00 (1+VAT_RATE=0) oder ungültige Werte.",
+            "fix_suggestion": "CHECK-Constraint auf gültigen Bereich (z.B. 0 ≤ VAT_RATE < 1) und Datenqualität prüfen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Mehrere Sätze je COUNTRY_CODE in VAT_RATES führen zu Duplikaten in SALES_NET.",
+            "fix_suggestion": "Eindeutigkeit per PK/Unique auf VAT_RATES(COUNTRY_CODE) sicherstellen oder per ROW_NUMBER deduplizieren."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Inner Join entfernt SALES_GROSS-Zeilen ohne passende MwSt.-Rate (Datenverlust).",
+            "fix_suggestion": "LEFT JOIN verwenden und fehlende Raten loggen/flaggen; alternativ referentielle Integrität/Default-Sätze."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Leistungseinbußen ohne Indexe auf Join-Keys.",
+            "fix_suggestion": "Indexe auf SALES_GROSS(COUNTRY_CODE) und VAT_RATES(COUNTRY_CODE) anlegen."
+        }
+    ],
+    "final_feedback": "Der ETL ist derzeit fachlich und technisch nicht funktionsfähig: Der Join referenziert eine falsche Spalte, die Nettoberechnung verliert Präzision und die MwSt.-Berechnung ist inhaltlich falsch. Korrigiere den Join auf COUNTRY_CODE, rechne durchgängig in DECIMAL und runde auf 2 Nachkommastellen, leite VAT als GROSS − NET ab und sichere VAT_RATES per Constraints/Index ab. Optional LEFT JOIN mit Validierung verhindert Datenverlust und verbessert Robustheit sowie Performance.",
+    "_source_file": "case5.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 707.914,
+    "_response_char_count": 5387
+}

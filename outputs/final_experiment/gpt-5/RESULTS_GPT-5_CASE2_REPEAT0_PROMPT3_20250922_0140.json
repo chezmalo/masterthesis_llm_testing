@@ -1,0 +1,80 @@
+{
+    "transformation_understanding": "Aus CUSTOMER_STAGING sollen pro CUSTOMER_ID die aktuellsten Datensätze ermittelt und in CUSTOMER_DEDUPED geladen werden. Dazu wird per Window-Function je CUSTOMER_ID ein Rang nach UPDATED_AT vergeben und die Zeilen mit Rang 1 in die Zieltabelle geschrieben.",
+    "data_lineage": [
+        "Filter: pro CUSTOMER_ID wird der 'neueste' Datensatz anhand UPDATED_AT per Window-Funktion ermittelt (RANK() OVER (PARTITION BY CUSTOMER_ID ORDER BY UPDATED_AT DESC)).",
+        "Projection: CUSTOMER_ID -> CUSTOMER_DEDUPED.CUSTOMER_ID (unverändert).",
+        "Projection: EMAIL -> CUSTOMER_DEDUPED.EMAIL (in SQL fälschlich als EMIAL referenziert).",
+        "Projection: PHONE -> CUSTOMER_DEDUPED.PHONE (unverändert).",
+        "Typkonvertierung: UPDATED_AT (TIMESTAMP) -> CUSTOMER_DEDUPED.UPDATED_AT (DATE); in SQL aktuell CAST(UPDATED_AT AS VARCHAR), was nicht zur Zieldatentypik passt."
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Ranking der Zeilen pro CUSTOMER_ID nach UPDATED_AT absteigend.",
+            "formula": "RANK() OVER (PARTITION BY CUSTOMER_ID ORDER BY UPDATED_AT DESC) AS rn",
+            "improvement": "Statt RANK() ROW_NUMBER() verwenden, um bei Zeitgleichheit nur eine Zeile zu wählen; zusätzlich NULLS LAST und deterministischen Tie-Breaker ergänzen."
+        },
+        {
+            "step_count": 2,
+            "description": "Filtern auf den als aktuell identifizierten Datensatz.",
+            "formula": "WHERE rn = 1",
+            "improvement": "Mit ROW_NUMBER(): WHERE rn = 1. Außerdem ORDER BY UPDATED_AT DESC NULLS LAST, optional zusätzlicher Tie-Breaker (z. B. PHONE, EMAIL) für Determinismus."
+        },
+        {
+            "step_count": 3,
+            "description": "Projektion der Zielspalten inklusive Typumwandlung für UPDATED_AT.",
+            "formula": "SELECT CUSTOMER_ID, EMIAL, PHONE, CAST(UPDATED_AT AS VARCHAR)",
+            "improvement": "Spaltenname korrigieren: EMAIL. Typumwandlung korrekt ausführen: CAST(UPDATED_AT AS DATE)."
+        },
+        {
+            "step_count": 4,
+            "description": "Insert in CUSTOMER_DEDUPED.",
+            "formula": "INSERT INTO CUSTOMER_DEDUPED (CUSTOMER_ID, EMAIL, PHONE, UPDATED_AT) ...",
+            "improvement": "NOT-NULL-Anforderung für EMAIL beachten: entweder vorher auf EMAIL IS NOT NULL filtern oder Ranking priorisiert nicht-null EMAIL setzen."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die aktuelle SQL-Anweisung ist nicht lauffähig: (1) Tippfehler in der Spalte EMIAL statt EMAIL verursacht einen Kompilierungsfehler. (2) UPDATED_AT wird zu VARCHAR gecastet, Zielspalte ist DATE; je nach DB führt das zu Laufzeitfehlern oder impliziten, formatabhängigen Konvertierungen. Zusätzlich können durch RANK() bei gleichen UPDATED_AT mehrere Zeilen rn = 1 erhalten und mehrfach eingefügt werden. Die Zielspalte EMAIL ist NOT NULL, in der Quelle jedoch NULL-able; ohne Behandlung können Inserts scheitern.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Tippfehler in der Projektion: EMIAL statt EMAIL.",
+            "fix_suggestion": "Spaltenname korrigieren: SELECT ..., EMAIL, ... ."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Typinkompatibilität: CAST(UPDATED_AT AS VARCHAR) bei Zielspalte UPDATED_AT vom Typ DATE.",
+            "fix_suggestion": "Korrekt auf DATE casten: CAST(UPDATED_AT AS DATE) bzw. DATE(UPDATED_AT); keine Zwischenkonvertierung in VARCHAR."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Zielspalte EMAIL ist NOT NULL, aber Quelle CUSTOMER_STAGING.EMAIL kann NULL sein; Insert kann fehlschlagen.",
+            "fix_suggestion": "Beim Ranking NULL-Emails schlechter priorisieren oder auf EMAIL IS NOT NULL filtern: ROW_NUMBER() OVER (PARTITION BY CUSTOMER_ID ORDER BY (EMAIL IS NULL), UPDATED_AT DESC NULLS LAST) und WHERE rn = 1; alternativ zusätzliche Datenbereinigung."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "RANK() kann bei gleichen UPDATED_AT mehrere rn = 1 erzeugen, was zu doppelten Inserts pro CUSTOMER_ID führt.",
+            "fix_suggestion": "ROW_NUMBER() statt RANK() verwenden und einen deterministischen Tie-Breaker ergänzen (z. B. ORDER BY UPDATED_AT DESC NULLS LAST, EMAIL DESC, PHONE DESC)."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Sortierverhalten von UPDATED_AT ist DB-abhängig; ohne explizites NULLS LAST kann eine Zeile mit NULL fälschlich als 'neueste' gewählt werden.",
+            "fix_suggestion": "ORDER BY UPDATED_AT DESC NULLS LAST explizit setzen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Mögliche Mehrfacheinträge je CUSTOMER_ID in CUSTOMER_DEDUPED, falls keine Eindeutigkeitsbedingung existiert.",
+            "fix_suggestion": "Unique-Constraint/Index auf CUSTOMER_DEDUPED(CUSTOMER_ID) anlegen und die Dedup-Logik deterministisch gestalten."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Performance: Vollständige Window-Berechnung ohne unterstützende Indizes.",
+            "fix_suggestion": "Index auf CUSTOMER_STAGING(CUSTOMER_ID, UPDATED_AT DESC) anlegen; nur benötigte Spalten projizieren; optional CTE/QUALIFY (DB-spezifisch) oder DISTINCT ON (PostgreSQL) nutzen."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in der vorliegenden Form nicht funktionsfähig. Hauptursachen sind der Spaltentippfehler (EMIAL) und die falsche Typkonvertierung von UPDATED_AT zu VARCHAR bei einer DATE-Zielspalte. Zudem ist die Deduplizierung mit RANK() potenziell mehrzeilig und die NOT-NULL-Anforderung für EMAIL wird nicht berücksichtigt. Empfohlene Korrekturen: EMAIL korrekt referenzieren, UPDATED_AT auf DATE casten, ROW_NUMBER() mit ORDER BY UPDATED_AT DESC NULLS LAST und deterministischem Tie-Breaker verwenden sowie NULL-Emails aussortieren oder nachrangig behandeln. Für robuste Ergebnisse zusätzlich einen Unique-Index auf CUSTOMER_ID in CUSTOMER_DEDUPED anlegen und passende Indizes in CUSTOMER_STAGING setzen. Diese Anpassungen ändern die fachliche Intention nicht, machen den Prozess jedoch lauffähig, deterministisch und performanter.",
+    "_source_file": "case2.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 344.972,
+    "_response_char_count": 5997
+}

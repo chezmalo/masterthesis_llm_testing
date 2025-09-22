@@ -1,0 +1,87 @@
+{
+    "transformation_understanding": "Die Pipeline liest CONTACTS_RAW, bereinigt Telefonnummern von Nicht-Ziffern, interpretiert Präfixe (00 -> internationale Vorwahl mit +, führende 0 -> +49) und schreibt das Ergebnis als E.164-Nummer zusammen mit der CUSTOMER_ID nach CONTACTS_CLEAN.",
+    "data_lineage": [
+        "CONTACTS_RAW.CUSTOMER_ID -> CONTACTS_CLEAN.CUSTOMER_ID",
+        "CONTACTS_RAW.PHONE_RAW -> CONTACTS_CLEAN.PHONE_E164 (Bereinigung, Präfix-Logik, E.164-Normalisierung)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Quelle lesen und PHONE_RAW in Text konvertieren",
+            "formula": "SELECT CUSTOMER_ID, CAST(PHONE_RAW AS VARCHAR(64)) AS phone_txt FROM CONTACTS_RAW",
+            "improvement": "Explizite CAST-Konvertierung statt impliziter Typumwandlung; ggf. Zeichensatz angeben (z.B. USING UTF8)."
+        },
+        {
+            "step_count": 2,
+            "description": "Normalisierung: Ziffern extrahieren, Variante mit erhaltenem Plus",
+            "formula": "digits := REGEXP_REPLACE(phone_txt, '[^0-9]', ''); keep_plus := REGEXP_REPLACE(phone_txt, '[^0-9+]', '')",
+            "improvement": "Einmal berechnen (CTE/Subquery) und mehrfach verwenden; vermeidet wiederholte REGEXP_REPLACE-Aufrufe."
+        },
+        {
+            "step_count": 3,
+            "description": "E.164-Bildung per CASE-Logik",
+            "formula": "CASE WHEN REGEXP_LIKE(keep_plus, '^\\+[1-9]\\d{1,14}$') THEN keep_plus WHEN LEFT(digits,2)='00' THEN CONCAT('+', SUBSTRING(digits,3)) WHEN LEFT(digits,1)='0' THEN CONCAT('+49', SUBSTRING(digits,2)) WHEN LEFT(digits,1) BETWEEN '1' AND '9' THEN CONCAT('+', digits) ELSE NULL END AS PHONE_E164",
+            "improvement": "Erst auf Originalstring das führende '+' prüfen (keep_plus), danach Fallbacks anwenden; immer ein führendes '+' sicherstellen."
+        },
+        {
+            "step_count": 4,
+            "description": "Validierung und Laden ins Ziel",
+            "formula": "INSERT INTO CONTACTS_CLEAN(CUSTOMER_ID, PHONE_E164) SELECT CUSTOMER_ID, PHONE_E164 FROM prepared WHERE PHONE_E164 IS NOT NULL AND LENGTH(PHONE_E164)<=16",
+            "improvement": "CHECK-Constraint auf CONTACTS_CLEAN.PHONE_E164: '^\\+[1-9]\\d{1,14}$'; optional Reject-Table für ungültige Datensätze."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist nicht lauffähig: (1) Falscher Spaltenname CUST_ID statt CUSTOMER_ID. (2) PHONE_RAW ist RAW, wird aber mit Stringfunktionen verarbeitet (fehlender CAST). (3) Die erste CASE-Bedingung prüft nach Strippen aller Nicht-Ziffern auf '+', was nie zutreffen kann. (4) ELSE-Zweig liefert ggf. Nummern ohne '+', nicht E.164-konform. (5) Keine Längen-/Formatvalidierung, leere bzw. zu lange Ergebnisse möglich.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Nicht existierende Spalte: SELECT CUST_ID statt CONTACTS_RAW.CUSTOMER_ID",
+            "fix_suggestion": "Spaltenverweis korrigieren: SELECT CUSTOMER_ID ..."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "PHONE_RAW ist vom Typ RAW, REGEXP_REPLACE/LEFT/SUBSTRING erwarten Text",
+            "fix_suggestion": "PHONE_RAW vor Verarbeitung explizit in VARCHAR konvertieren (z.B. CAST(PHONE_RAW AS VARCHAR(64)))."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "CASE-Zweig prüft auf '+' nach REGEXP_REPLACE('[^0-9]', ''), das '+' entfernt",
+            "fix_suggestion": "Prüfung auf '+' am Originalstring oder per Variante mit '[^0-9+]' durchführen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "ELSE-Zweig erzeugt Nummern ohne führendes '+', nicht E.164-konform",
+            "fix_suggestion": "Im ELSE-Fall '+' voranstellen oder Datensätze als ungültig aussteuern."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Keine Validierung der Ergebnislänge/Formats; CHAR(16) kann bei >16 Zeichen truncaten/fehlschlagen",
+            "fix_suggestion": "Vor Insert prüfen: REGEXP_LIKE(PHONE_E164, '^\\+[1-9]\\d{1,14}$') und LENGTH<=16; sonst Reject."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Leere oder nicht-numerische Eingaben führen nach Bereinigung zu leeren Strings",
+            "fix_suggestion": "Zeilen mit LENGTH(digits)=0 ausschließen oder in Reject-Table schreiben."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Annahme '+49' für führende '0' ist regionsspezifisch",
+            "fix_suggestion": "Ländervorwahl aus Kundenland ableiten oder per Mapping-Tabelle/Parameter steuern."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Mehrfache REGEXP_REPLACE-Aufrufe pro Zeile",
+            "fix_suggestion": "Vorberechnete Spalten (CTE) nutzen; optional Funktionsindex auf bereinigter Nummer."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Zielspalte als CHAR(16) (fixed length) kann zu unerwarteten Padding-Effekten führen",
+            "fix_suggestion": "Auf VARCHAR(16) umstellen und per CHECK-Constraint E.164-Format sichern."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in der vorliegenden Form nicht funktionsfähig (falscher Spaltenname, RAW-zu-String-Verarbeitung, fehlerhafte '+'-Prüfung). Nach Korrektur der Spaltenreferenz, explizitem CAST von PHONE_RAW, Anpassung der CASE-Logik (Prüfung des ursprünglichen '+' oder Erhalt des '+'), konsequenter E.164-Erzeugung und Validierung (Regex/Längencheck) ist der Prozess robust. Zusätzlich empfehlen sich Performance-Optimierungen durch ein einmaliges Berechnen der bereinigten Varianten (CTE) sowie die Verwendung von VARCHAR(16) mit CHECK-Constraint.",
+    "_source_file": "case3.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 145.085,
+    "_response_char_count": 4876
+}

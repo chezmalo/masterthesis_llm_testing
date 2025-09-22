@@ -1,0 +1,66 @@
+{
+    "transformation_understanding": "ETL-Prozess zur Berechnung von Schadenreserven. Verknüpft Claims-Daten mit Reserveobergrenzen pro Geschäftssparte und berechnet die finale Reserve als Minimum zwischen Spartenlimit und der positiven Differenz aus gemeldeter und bezahlter Schadensumme (begrenzt durch Deckungslimit).",
+    "data_lineage": [
+        "CLAIMS → JOIN LOB_RESERVE_CAP → CLAIM_RESERVES"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "LEFT JOIN zwischen CLAIMS und LOB_RESERVE_CAP über LINE_OF_BUSINESS",
+            "formula": "LEFT JOIN LOB_RESERVE_CAP cap ON cap.LINE_BUSINESS = c.LINE_OF_BUSINESS",
+            "improvement": "Spaltennamen korrigieren: cap.LINE_OF_BUSINESS statt cap.LINE_BUSINESS"
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung der Grundreserve als Minimum zwischen Deckungslimit und Differenz aus REPORTED_AMT und PAID_AMT",
+            "formula": "MIN(c.COVER_LIMIT_AMT, (c.REPORTED_AMT - c.PAID_AMT))",
+            "improvement": "REPORTED_AMT von CLOB zu DECIMAL konvertieren vor arithmetischen Operationen"
+        },
+        {
+            "step_count": 3,
+            "description": "Anwendung von GREATEST(0, ...) zur Vermeidung negativer Reserven",
+            "formula": "GREATEST(0, MIN(c.COVER_LIMIT_AMT, (c.REPORTED_AMT - c.PAID_AMT)))",
+            "improvement": null
+        },
+        {
+            "step_count": 4,
+            "description": "Finale Reserveberechnung als Minimum zwischen Spartenlimit und berechneter Grundreserve",
+            "formula": "MIN(cap.MAX_RESERVE_AMT, GREATEST(0, MIN(c.COVER_LIMIT_AMT, (c.REPORTED_AMT - c.PAID_AMT))))",
+            "improvement": null
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation enthält kritische Fehler: Falscher Spaltenname im JOIN, CLOB-Datentyp in arithmetischen Operationen, fehlende SELECT-Klausel und GROUP BY. Die Rechenlogik ist konzeptionell korrekt, aber technisch nicht ausführbar.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "JOIN-Bedingung verwendet falschen Spaltennamen: cap.LINE_BUSINESS existiert nicht in LOB_RESERVE_CAP",
+            "fix_suggestion": "Korrektur zu cap.LINE_OF_BUSINESS für korrekte Verknüpfung"
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "REPORTED_AMT ist CLOB-Datentyp und kann nicht direkt in arithmetischen Operationen verwendet werden",
+            "fix_suggestion": "Explizite Konvertierung zu DECIMAL mittels TO_NUMBER() oder CAST() vor Berechnung"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Fehlende SELECT-Klausel und GROUP BY bei Verwendung von Aggregatfunktionen ohne entsprechende Gruppierung",
+            "fix_suggestion": "SELECT-Klausel hinzufügen und GROUP BY CLAIM_ID ergänzen oder Aggregatfunktionen entfernen"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Spaltenname CLM_ID im SELECT existiert nicht in der CLAIMS-Tabelle",
+            "fix_suggestion": "Korrektur zu c.CLAIM_ID für korrekte Spaltenreferenz"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Potenzielle NULL-Werte in arithmetischen Operationen können zu unerwarteten Ergebnissen führen",
+            "fix_suggestion": "COALESCE() oder ISNULL() für NULL-Behandlung in Berechnungen verwenden"
+        }
+    ],
+    "final_feedback": "Die Transformation ist aufgrund kritischer Syntaxfehler nicht ausführbar. Nach Korrektur der Spaltennamen, Datentyp-Konvertierung und SQL-Syntax würde die Rechenlogik korrekte Schadenreserven unter Berücksichtigung von Spartenlimits berechnen. Performance-Optimierung durch Indizierung auf JOIN-Spalten empfohlen.",
+    "_source_file": "case10.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 986.808,
+    "_response_char_count": 3515
+}

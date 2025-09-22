@@ -1,0 +1,55 @@
+{
+    "transformation_understanding": "Der ETL-Prozess transferiert Daten aus der Quelltabelle CONTACTS_RAW in die Zieltabelle CONTACTS_CLEAN. Dabei wird die Spalte CUSTOMER_ID übernommen und die Roh-Telefonnummer aus PHONE_RAW in das E.164-Format konvertiert. Die Transformation der Telefonnummer erfolgt durch eine CASE-Anweisung, die basierend auf den Präfixen der bereinigten Nummer ('00', '0') unterschiedliche Formatierungsregeln anwendet.",
+    "data_lineage": [
+        "CONTACTS_RAW.CUSTOMER_ID -> CONTACTS_CLEAN.CUSTOMER_ID",
+        "CONTACTS_RAW.PHONE_RAW -> CONTACTS_CLEAN.PHONE_E164"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Übernahme des Kundenidentifikators.",
+            "formula": "CUST_ID",
+            "improvement": "Der Spaltenname in der SELECT-Anweisung muss von 'CUST_ID' zu 'CUSTOMER_ID' korrigiert werden, um der Definition der Quelltabelle zu entsprechen."
+        },
+        {
+            "step_count": 2,
+            "description": "Bereinigung und Formatierung der Telefonnummer in das E.164-Format mittels einer bedingten Logik.",
+            "formula": "CASE WHEN LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 1) = '+' THEN ... ELSE REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '') END",
+            "improvement": "Die mehrfache Ausführung von REGEXP_REPLACE für dieselbe Zeile ist ineffizient. Die Bereinigung der Telefonnummer sollte einmalig pro Zeile in einer vorgeschalteten Abfrage (z.B. CTE oder Subquery) erfolgen, um die Performance zu verbessern."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist nicht valide. Die SQL-Anweisung referenziert eine nicht existierende Spalte 'CUST_ID' anstelle von 'CUSTOMER_ID', was zu einem Ausführungsfehler führt. Zusätzlich ist die Transformationslogik zur E.164-Formatierung fehlerhaft und würde in vielen Fällen zu inkorrekten oder ungültigen Ergebnissen führen.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "In der SELECT-Anweisung wird die Spalte 'CUST_ID' referenziert, obwohl die Quelltabelle 'CONTACTS_RAW' die Spalte als 'CUSTOMER_ID' definiert. Dies führt zu einem SQL-Fehler und verhindert die Ausführung des Prozesses.",
+            "fix_suggestion": "Ändern Sie den Spaltennamen im SELECT-Statement von 'CUST_ID' zu 'CUSTOMER_ID'."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Die Logik `WHEN LEFT(...) = '0' THEN CONCAT('+49', ...)` weist allen nationalen Nummern, die mit einer Null beginnen, pauschal die deutsche Ländervorwahl '+49' zu. Dies führt zu fehlerhaften Daten, wenn Nummern aus anderen Ländern verarbeitet werden.",
+            "fix_suggestion": "Die Ländervorwahl sollte nicht hartcodiert werden. Stattdessen muss die Länderinformation aus einer zusätzlichen Datenquelle bezogen oder die Logik zur Erkennung des Landes verfeinert werden."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Die erste Bedingung `WHEN LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 1) = '+'` ist unerreichbar, da die Funktion `REGEXP_REPLACE` mit dem Muster `[^0-9]` das Pluszeichen bereits entfernt hat, bevor es geprüft werden kann.",
+            "fix_suggestion": "Passen Sie den regulären Ausdruck an, um das Pluszeichen zu erhalten, oder prüfen Sie das Vorhandensein des Pluszeichens an der Roh-Zeichenkette, bevor die Bereinigung stattfindet."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Der ELSE-Fall der CASE-Anweisung gibt eine rein numerische Zeichenkette zurück. Das E.164-Format erfordert jedoch zwingend ein führendes '+' und eine Ländervorwahl. Dies erzeugt ungültig formatierte Einträge.",
+            "fix_suggestion": "Nicht eindeutig formatierbare Nummern sollten nicht unvollständig in die Zieltabelle geladen werden. Stattdessen sollten sie als fehlerhaft protokolliert oder (falls fachlich zulässig) als NULL eingefügt werden."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Die Funktion `REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '')` wird innerhalb der CASE-Anweisung für jede Zeile mehrfach aufgerufen. Reguläre Ausdrücke sind rechenintensiv und führen hier zu unnötiger Systemlast.",
+            "fix_suggestion": "Berechnen Sie den bereinigten Wert einmal pro Zeile in einer Subquery oder einer Common Table Expression (CTE) und referenzieren Sie dieses Ergebnis in der CASE-Anweisung."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner aktuellen Form nicht funktionsfähig und muss grundlegend überarbeitet werden. Neben einem fatalen Syntaxfehler enthält die Transformationslogik für die Telefonnummern schwere konzeptionelle Mängel, die zu inkonsistenten und falschen Daten führen. Eine Korrektur der Spaltennamen, eine robustere Logik zur Ländercode-Zuweisung und eine performantere Implementierung sind für einen produktiven Einsatz zwingend erforderlich.",
+    "_source_file": "case3.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 2659.398,
+    "_response_char_count": 4775
+}

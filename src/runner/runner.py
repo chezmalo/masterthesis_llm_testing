@@ -20,6 +20,7 @@ async def _run_async(
     concurrency: int,
     repeat: int,
     prompt_configs: list[dict], 
+    stream: bool = False,  
 ):
     logger = setup(level=loglevel, write_file=logfile)
     logger.info("LLM Runner gestartet")
@@ -82,7 +83,7 @@ async def _run_async(
                     logger.debug(f"Verarbeite Fall: {case.get('id', 'unbekannt')} mit Modell: {model}")
                     built_user_prompt = build_user_prompt(case, user_prompt)  # use builder from config
                     logger.debug(f"User-Prompt erstellt für Fall {case.get('id', 'unbekannt')}.")
-                    raw = await async_prompt_llm(model, system_prompt, built_user_prompt)
+                    raw = await async_prompt_llm(model, system_prompt, built_user_prompt, stream=stream)
                     logger.debug(f"Rohantwort vom LLM erhalten für Fall {case.get('id', 'unbekannt')}.")
                     try:
                         parsed = parse_answer(raw)
@@ -95,7 +96,7 @@ async def _run_async(
                         fix_prompt = FIX_JSON_PROMPT.format(raw_response=raw, schema_json=LLMAnswer.json_schema_str())
                         logger.info(f"Versuche, die Antwort mit einem Korrektur-Prompt zu reparieren für Fall {case.get('id', 'unbekannt')}.")
                         # Korrektur-Prompt an LLM senden
-                        raw_fixed = await async_prompt_llm(model, system_prompt, fix_prompt)
+                        raw_fixed = await async_prompt_llm(model, system_prompt, fix_prompt, stream=stream)
                         parsed = parse_answer(raw_fixed)
                         logger.debug(f"Reparierte Antwort geparst und validiert für Fall {case.get('id', 'unbekannt')}.")
                         # Ergebnis + Quelldatei speichern

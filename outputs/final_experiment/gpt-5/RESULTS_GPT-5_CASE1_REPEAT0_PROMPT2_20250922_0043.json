@@ -1,0 +1,73 @@
+{
+    "transformation_understanding": "Transaktionen werden je Kunde nach Jahr und Monat des BOOKING_DATE aggregiert. Für jede (CUSTOMER_ID, YEAR, MONTH)-Gruppe wird SUM(AMOUNT_EUR) berechnet und in TARGET_AGG_MONTH geschrieben.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> TARGET_AGG_MONTH.CUSTOMER_ID (Gruppierung)",
+        "TRANSACTIONS.BOOKING_DATE -> TARGET_AGG_MONTH.YEAR via YEAR(BOOKING_DATE)",
+        "TRANSACTIONS.BOOKING_DATE -> TARGET_AGG_MONTH.MONTH via MONTH(BOOKING_DATE)",
+        "TRANSACTIONS.AMOUNT_EUR -> TARGET_AGG_MONTH.SUM_AMOUNT_EUR via SUM()"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Periodenableitung aus BOOKING_DATE (Jahr und Monat).",
+            "formula": "YEAR(BOOKING_DATE) AS YEAR, MONTH(BOOKING_DATE) AS MONTH",
+            "improvement": "Alternativ: DATE_TRUNC('month', BOOKING_DATE) als period_key gruppieren und YEAR/MONTH daraus ableiten; ermöglicht funktionale Indizes/Partition-Pruning."
+        },
+        {
+            "step_count": 2,
+            "description": "Aggregation der Beträge je Kunde und Monat.",
+            "formula": "SUM(AMOUNT_EUR) AS SUM_AMOUNT_EUR GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE)",
+            "improvement": "Für Geldbeträge DECIMAL(18,2) statt FLOAT verwenden: SUM(CAST(AMOUNT_EUR AS DECIMAL(18,2)))."
+        },
+        {
+            "step_count": 3,
+            "description": "Laden ins Ziel mit Spaltenzuordnung (positional).",
+            "formula": "INSERT INTO TARGET_AGG_MONTH (CUSTOMER_ID, YEAR, MONTH, SUM_AMOUNT_EUR) SELECT CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE), SUM(...)",
+            "improvement": "Idempotent laden (MERGE/UPSERT) und UNIQUE-Constraint auf (CUSTOMER_ID, YEAR, MONTH) zur Duplikatvermeidung."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die vorliegende SQL ist fehlerhaft: (1) Tippfehler BOOKIN_DATE statt BOOKING_DATE führt zum Laufzeitfehler. (2) GROUP BY ist falsch: CUSTOMER_ID fehlt, AMOUNT_EUR ist fälschlich im GROUP BY; dies erzeugt entweder einen SQL-Fehler (standardkonforme DBs) oder falsche Aggregation. (3) Aliase YEAR/MONTH sind vertauscht und irreführend. Korrekturvorschlag: INSERT INTO TARGET_AGG_MONTH (CUSTOMER_ID, YEAR, MONTH, SUM_AMOUNT_EUR) SELECT CUSTOMER_ID, YEAR(BOOKING_DATE) AS YEAR, MONTH(BOOKING_DATE) AS MONTH, SUM(AMOUNT_EUR) AS SUM_AMOUNT_EUR FROM TRANSACTIONS GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE);",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Tippfehler bei Datumsfeld: YEAR(BOOKIN_DATE) / MONTH(BOOKIN_DATE) statt BOOKING_DATE.",
+            "fix_suggestion": "BOOKING_DATE korrekt verwenden: YEAR(BOOKING_DATE), MONTH(BOOKING_DATE)."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falsches GROUP BY: CUSTOMER_ID fehlt; AMOUNT_EUR steht im GROUP BY, wodurch Summen pro Betrag statt pro Kunde/Monat entstehen bzw. ein SQL-Fehler entsteht.",
+            "fix_suggestion": "GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE); AMOUNT_EUR aus GROUP BY entfernen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Vertauschte Aliase: YEAR(...) AS MONTH und MONTH(...) AS YEAR (positional Mapping funktioniert, ist aber irreführend).",
+            "fix_suggestion": "Aliase konsistent setzen: YEAR(...) AS YEAR, MONTH(...) AS MONTH."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Geldbeträge als FLOAT summiert -> Rundungsfehler möglich.",
+            "fix_suggestion": "AMOUNT_EUR als DECIMAL(18,2) modellieren und SUM(CAST(AMOUNT_EUR AS DECIMAL(18,2))) verwenden; Zielspalte entsprechend anpassen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Nicht-idempotentes INSERT kann bei Wiederholungen Duplikate in TARGET_AGG_MONTH erzeugen.",
+            "fix_suggestion": "MERGE/UPSERT verwenden oder vorab die betroffene Periode löschen; UNIQUE-Constraint/Index auf (CUSTOMER_ID, YEAR, MONTH) setzen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Spaltennamen YEAR/MONTH können je nach DB reservierte Wörter sein; Portabilitäts- und Quoting-Risiko.",
+            "fix_suggestion": "Spalten umbenennen (z. B. YEAR_NUM, MONTH_NUM) oder konsistent quoten (\"YEAR\", \"MONTH\")."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "GROUP BY auf Funktionsausdrücken erschwert Index-Nutzung und kann bei großen Datenmengen langsam sein.",
+            "fix_suggestion": "Funktionalen Index/Computed Column auf DATE_TRUNC('month', BOOKING_DATE) nutzen oder period_key materialisieren und danach gruppieren; Index auf (CUSTOMER_ID, BOOKING_DATE)."
+        }
+    ],
+    "final_feedback": "Die beabsichtigte monatliche Kundenaggregation ist klar, die aktuelle SQL ist jedoch nicht lauffähig und fachlich inkorrekt. Beheben Sie den Datums-Tippfehler, korrigieren Sie das GROUP BY auf (CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE)) und setzen Sie konsistente Aliase. Für Datenqualität/Portabilität: Geldbeträge als DECIMAL aggregieren, UNIQUE-Constraint bzw. MERGE für idempotentes Laden sowie geeignete Indizes bzw. period_key für Performance.",
+    "_source_file": "case1.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 55.297,
+    "_response_char_count": 5015
+}

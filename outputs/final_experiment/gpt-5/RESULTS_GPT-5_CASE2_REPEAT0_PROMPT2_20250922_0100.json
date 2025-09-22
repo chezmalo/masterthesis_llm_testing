@@ -1,0 +1,86 @@
+{
+    "transformation_understanding": "Deduplication nach CUSTOMER_ID: Pro Kunde wird der jüngste Datensatz (per UPDATED_AT) aus CUSTOMER_STAGING gewählt und in CUSTOMER_DEDUPED geladen. Spalten werden gemappt, UPDATED_AT wird (fehlerhaft) zu VARCHAR gecastet, obwohl Ziel DATE ist.",
+    "data_lineage": [
+        "CUSTOMER_STAGING.CUSTOMER_ID -> CUSTOMER_DEDUPED.CUSTOMER_ID",
+        "CUSTOMER_STAGING.EMAIL -> CUSTOMER_DEDUPED.EMAIL",
+        "CUSTOMER_STAGING.PHONE -> CUSTOMER_DEDUPED.PHONE",
+        "CUSTOMER_STAGING.UPDATED_AT (TIMESTAMP) -> CUSTOMER_DEDUPED.UPDATED_AT (DATE)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Quelle lesen",
+            "formula": "FROM CUSTOMER_STAGING",
+            "improvement": "Nur benötigte Spalten selektieren."
+        },
+        {
+            "step_count": 2,
+            "description": "Jüngsten Datensatz pro CUSTOMER_ID bestimmen",
+            "formula": "RANK() OVER (PARTITION BY CUSTOMER_ID ORDER BY UPDATED_AT DESC) AS rn",
+            "improvement": "ROW_NUMBER() statt RANK() verwenden und stabile Tiebreaker (z.B. UPDATED_AT DESC, EMAIL DESC) definieren."
+        },
+        {
+            "step_count": 3,
+            "description": "Nur Top-Datensatz je CUSTOMER_ID behalten",
+            "formula": "WHERE rn = 1",
+            "improvement": "Bei NULL UPDATED_AT explizit NULLS LAST/FIRST setzen, je nach gewünschter Logik."
+        },
+        {
+            "step_count": 4,
+            "description": "Spalten abbilden",
+            "formula": "SELECT CUSTOMER_ID, EMAIL, PHONE, UPDATED_AT",
+            "improvement": "Tippfehler EMIAL -> EMAIL korrigieren."
+        },
+        {
+            "step_count": 5,
+            "description": "Datentypkonvertierung UPDATED_AT",
+            "formula": "CAST(UPDATED_AT AS DATE)",
+            "improvement": "Kein VARCHAR-Zwischencast; ggf. Zeitzone/Trunkierung dokumentieren."
+        },
+        {
+            "step_count": 6,
+            "description": "Ziel laden unter Beachtung NOT NULL",
+            "formula": "INSERT INTO CUSTOMER_DEDUPED (...)",
+            "improvement": "NULL-EMAILS ausschließen oder mit Validierung/Default behandeln."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Abfrage ist nicht lauffähig: Tippfehler EMIAL statt EMAIL. Zusätzlich wird UPDATED_AT zu VARCHAR gecastet, Zielspalte ist DATE (implizite Konvertierung/Fehler möglich). RANK kann bei gleichen/NULL UPDATED_AT mehrere rn=1 liefern (Mehrfachzeilen pro CUSTOMER_ID). NOT NULL auf EMAIL kann Inserts mit NULL blockieren.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Tippfehler in Spaltenname: EMIAL in SELECT statt EMAIL.",
+            "fix_suggestion": "Spaltenname korrigieren: SELECT ..., EMAIL, ... ."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "UPDATED_AT wird zu VARCHAR gecastet, Zielspalte ist DATE.",
+            "fix_suggestion": "Direkt zu DATE casten: CAST(UPDATED_AT AS DATE) bzw. DATE(UPDATED_AT)."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "RANK bei PARTITION BY CUSTOMER_ID erzeugt bei Ties/NULL mehrere rn=1 -> Duplikate.",
+            "fix_suggestion": "ROW_NUMBER() mit deterministischem ORDER BY (UPDATED_AT DESC, weiterer Tiebreaker) verwenden."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "EMAIL in Ziel ist NOT NULL, Quelle erlaubt NULL -> Insert-Fehler.",
+            "fix_suggestion": "WHERE EMAIL IS NOT NULL ergänzen oder COALESCE/Validierung einbauen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Handling in ORDER BY unklar; NULLs können als ‚neueste‘ behandelt werden oder Ties erzeugen.",
+            "fix_suggestion": "ORDER BY UPDATED_AT DESC NULLS LAST definieren oder NULLs vorab ausschließen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Leistungsrisiko durch Window-Funktion ohne passende Indizes.",
+            "fix_suggestion": "Index auf (CUSTOMER_ID, UPDATED_AT) anlegen bzw. Cluster/Sortierung nutzen."
+        }
+    ],
+    "final_feedback": "Fachlich beabsichtigt: 1 aktueller Datensatz pro CUSTOMER_ID. Der Job ist aktuell fehlerhaft (EMIAL, falscher Cast). Korrigiere Spaltennamen, caste UPDATED_AT zu DATE, ersetze RANK durch ROW_NUMBER mit stabilem Tiebreaker und behandle NULL-EMAIL/NULL-UPDATED_AT explizit. Für Performance einen Index auf (CUSTOMER_ID, UPDATED_AT) setzen. Danach ist der ETL-Prozess robust und performant.",
+    "_source_file": "case2.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 411.348,
+    "_response_char_count": 4237
+}

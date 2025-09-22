@@ -1,0 +1,80 @@
+{
+    "transformation_understanding": "Monatliche Aggregation von Transaktionsbeträgen je Kunde: Aus TRANSACTIONS werden pro CUSTOMER_ID und Buchungsmonat (YEAR, MONTH aus BOOKING_DATE) die Summen von AMOUNT_EUR berechnet und in TARGET_AGG_MONTH geschrieben.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> TARGET_AGG_MONTH.CUSTOMER_ID (Gruppierungsschlüssel)",
+        "TRANSACTIONS.BOOKING_DATE -> TARGET_AGG_MONTH.YEAR (YEAR(BOOKING_DATE))",
+        "TRANSACTIONS.BOOKING_DATE -> TARGET_AGG_MONTH.MONTH (MONTH(BOOKING_DATE))",
+        "TRANSACTIONS.AMOUNT_EUR -> TARGET_AGG_MONTH.SUM_AMOUNT_EUR (SUM je Kunde/Jahr/Monat)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Quellselektion der relevanten Felder",
+            "formula": "SELECT CUSTOMER_ID, BOOKING_DATE, AMOUNT_EUR FROM TRANSACTIONS",
+            "improvement": "Staging-View verwenden, die nur benötigte Felder bereitstellt, um I/O zu reduzieren."
+        },
+        {
+            "step_count": 2,
+            "description": "Jahresableitung aus BOOKING_DATE",
+            "formula": "YEAR(BOOKING_DATE) AS YEAR",
+            "improvement": "Alternativ ein monatlicher Schlüssel (DATE_TRUNC('month', BOOKING_DATE)) plus funktionaler Index für bessere Prädikat- und Group-By-Performance."
+        },
+        {
+            "step_count": 3,
+            "description": "Monatsableitung aus BOOKING_DATE",
+            "formula": "MONTH(BOOKING_DATE) AS MONTH",
+            "improvement": "Generierte Spalten (YEAR, MONTH) oder funktionale Indizes anlegen, um Funktionsaufrufe auf BOOKING_DATE im GROUP BY zu beschleunigen."
+        },
+        {
+            "step_count": 4,
+            "description": "Aggregation des Betrags je Kunde, Jahr und Monat",
+            "formula": "SELECT CUSTOMER_ID, YEAR(BOOKING_DATE) AS YEAR, MONTH(BOOKING_DATE) AS MONTH, SUM(AMOUNT_EUR) AS SUM_AMOUNT_EUR FROM TRANSACTIONS GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE)",
+            "improvement": "SUM über DECIMAL statt FLOAT für exakte Währungen; optional Parallelisierung/Partitionierung nach BOOKING_DATE."
+        },
+        {
+            "step_count": 5,
+            "description": "Laden in das Ziel-Aggregat",
+            "formula": "INSERT INTO TARGET_AGG_MONTH (CUSTOMER_ID, YEAR, MONTH, SUM_AMOUNT_EUR) SELECT ...",
+            "improvement": "Idempotentes Laden via MERGE/UPSERT und UNIQUE-Constraint auf (CUSTOMER_ID, YEAR, MONTH); optional Partitionierung/Clusterung nach (YEAR, MONTH)."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die vorliegende SQL ist fehlerhaft. Probleme: 1) Tippfehler BOOKIN_DATE statt BOOKING_DATE in SELECT/GROUP BY. 2) GROUP BY enthält AMOUNT_EUR und lässt CUSTOMER_ID weg, was entweder zu SQL-Fehlern führt (nicht gruppiertes SELECT-Feld) oder falsche Aggregation erzeugt. 3) Vertauschte Aliasse (YEAR(...) AS MONTH und MONTH(...) AS YEAR) sind irreführend. Korrekturvorschlag:\nINSERT INTO TARGET_AGG_MONTH (CUSTOMER_ID, YEAR, MONTH, SUM_AMOUNT_EUR)\nSELECT\n  CUSTOMER_ID,\n  YEAR(BOOKING_DATE)  AS YEAR,\n  MONTH(BOOKING_DATE) AS MONTH,\n  SUM(AMOUNT_EUR)     AS SUM_AMOUNT_EUR\nFROM TRANSACTIONS\nGROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE);",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falscher Spaltenname: MONTH(YEAR(BOOKIN_DATE))/GROUP BY YEAR(BOOKIN_DATE) nutzt nicht existente Spalte BOOKIN_DATE.",
+            "fix_suggestion": "Alle Verwendungen auf BOOKING_DATE korrigieren: YEAR(BOOKING_DATE), MONTH(BOOKING_DATE)."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Fehlerhafte Gruppierung: CUSTOMER_ID fehlt im GROUP BY; AMOUNT_EUR fälschlich im GROUP BY.",
+            "fix_suggestion": "GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE); AMOUNT_EUR aus GROUP BY entfernen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Verwechslung der Aliasse (YEAR(...) AS MONTH, MONTH(...) AS YEAR) erhöht Fehlerrisiko und Wartungskosten.",
+            "fix_suggestion": "Aliasse korrekt zuweisen: YEAR(...) AS YEAR, MONTH(...) AS MONTH."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Währungsbeträge als FLOAT summiert können Rundungsfehler verursachen.",
+            "fix_suggestion": "AMOUNT_EUR und SUM_AMOUNT_EUR als DECIMAL(p,s) (z. B. DECIMAL(18,2)) modellieren."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Insert ist nicht idempotent; Mehrfachlauf erzeugt Duplikate im Ziel.",
+            "fix_suggestion": "UNIQUE-Constraint auf (CUSTOMER_ID, YEAR, MONTH) und Laden via MERGE/UPSERT oder vorheriges DELETE/REPLACE der betroffenen Perioden."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Funktionen YEAR/MONTH auf BOOKING_DATE im GROUP BY verhindern ggf. Indexnutzung.",
+            "fix_suggestion": "Funktionale Indizes oder generierte Spalten für YEAR/MONTH bzw. gruppieren über DATE_TRUNC('month', BOOKING_DATE)."
+        }
+    ],
+    "final_feedback": "Der beabsichtigte ETL-Prozess (monatliche Kundensummen) ist klar, die gegebene SQL ist jedoch nicht lauffähig und liefert auch fachlich falsche Aggregation. Korrigieren Sie den Spaltennamen, gruppieren Sie nach CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE) und bereinigen Sie die Aliasse. Für Datenqualität und Performance empfehlen sich: DECIMAL statt FLOAT für Beträge, UNIQUE-Constraint plus MERGE/UPSERT für Idempotenz sowie funktionale Indizes/generierte Spalten oder DATE_TRUNC-basierte Gruppierung. Mit diesen Anpassungen ist der Prozess funktionsfähig und performant.",
+    "_source_file": "case1.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 46.295,
+    "_response_char_count": 5386
+}

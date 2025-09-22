@@ -1,0 +1,85 @@
+{
+    "transformation_understanding": "Aus SALES_GROSS werden SALE_ID und CUSTOMER_ID übernommen. Über COUNTRY_CODE wird auf VAT_RATES gejoint, um den Mehrwertsteuersatz zu erhalten. Anschließend werden NET_AMT_EUR (Netto) und VAT_AMT_EUR (MwSt.-Betrag) berechnet und in SALES_NET geschrieben.",
+    "data_lineage": [
+        "SALES_GROSS.SALE_ID -> SALES_NET.SALE_ID (1:1, unverändert)",
+        "SALES_GROSS.CUSTOMER_ID -> SALES_NET.CUSTOMER_ID (1:1, unverändert)",
+        "SALES_GROSS.GROSS_AMT_EUR + VAT_RATES.VAT_RATE -> SALES_NET.NET_AMT_EUR (Berechnung: Netto aus Brutto und Steuersatz)",
+        "SALES_GROSS.GROSS_AMT_EUR (+ berechnetes Netto) -> SALES_NET.VAT_AMT_EUR (Berechnung: MwSt.-Betrag)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Join SALES_GROSS mit VAT_RATES über Ländercode.",
+            "formula": "JOIN VAT_RATES v ON v.COUNTRYCODE = s.COUNTRY_CODE",
+            "improvement": "Korrigiere Join-Spalte: v.COUNTRY_CODE = s.COUNTRY_CODE. Optional: WHERE v.VAT_RATE IS NOT NULL oder Constraint auf VAT_RATES.VAT_RATE NOT NULL."
+        },
+        {
+            "step_count": 2,
+            "description": "Durchreichen von Identifikatoren.",
+            "formula": "SELECT s.SALE_ID, s.CUSTOMER_ID",
+            "improvement": "Sicherstellen, dass SALE_ID eindeutig ist (Unique/PK) und Ziel-Insert idempotent erfolgt (MERGE/ON CONFLICT/NOT EXISTS)."
+        },
+        {
+            "step_count": 3,
+            "description": "Berechnung Netto-Betrag.",
+            "formula": "ROUND(CAST(s.GROSS_AMT_EUR AS INT) / (1 + v.VAT_RATE), 0)",
+            "improvement": "Kein CAST auf INT und Rundung auf 2 Nachkommastellen: ROUND(s.GROSS_AMT_EUR / (1 + v.VAT_RATE), 2)."
+        },
+        {
+            "step_count": 4,
+            "description": "Berechnung MwSt.-Betrag.",
+            "formula": "ROUND(s.GROSS_AMT_EUR, 0)",
+            "improvement": "MwSt. als Differenz berechnen und auf 2 Nachkommastellen runden: ROUND(s.GROSS_AMT_EUR - ROUND(s.GROSS_AMT_EUR / (1 + v.VAT_RATE), 2), 2)."
+        },
+        {
+            "step_count": 5,
+            "description": "Insert in SALES_NET.",
+            "formula": "INSERT INTO SALES_NET (SALE_ID, CUSTOMER_ID, NET_AMT_EUR, VAT_AMT_EUR) SELECT ...",
+            "improvement": "Upsert statt Blind-Insert (MERGE/INSERT … ON CONFLICT/NOT EXISTS). Indexe auf SALES_GROSS(COUNTRY_CODE) und VAT_RATES(COUNTRY_CODE) für schnelleren Join."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die aktuelle SQL scheitert am Join, da VAT_RATES.COUNTRYCODE nicht existiert (korrekt: COUNTRY_CODE). Zudem ist die Netto-/MwSt.-Logik fehlerhaft: 1) CAST(GROSS_AMT_EUR AS INT) verwirft Nachkommastellen und kann bei großen Beträgen überlaufen. 2) ROUND(..., 0) rundet Beträge auf ganze Euro, während die Zielspalten 2 Nachkommastellen erwarten. 3) VAT_AMT_EUR wird fälschlich als gerundeter Bruttobetrag gesetzt, nicht als MwSt.-Betrag. 4) Nullwerte in VAT_RATES.VAT_RATE führen zu NET_AMT_EUR = NULL; fachlich sollte dies verhindert oder explizit behandelt werden. Korrekturvorschlag: NET = ROUND(GROSS / (1 + VAT_RATE), 2); VAT = ROUND(GROSS - NET, 2). Damit gilt NET + VAT = GROSS (bis auf Rundung) und die Beträge passen zur Ziel-Precision.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falscher Join-Attributname: v.COUNTRYCODE existiert nicht in VAT_RATES (korrekt: COUNTRY_CODE).",
+            "fix_suggestion": "Join-Bedingung korrigieren: ON v.COUNTRY_CODE = s.COUNTRY_CODE."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falsche MwSt.-Berechnung: VAT_AMT_EUR wird als gerundeter Bruttobetrag eingefügt und nicht als Steueranteil.",
+            "fix_suggestion": "VAT_AMT_EUR als Differenz berechnen: ROUND(s.GROSS_AMT_EUR - ROUND(s.GROSS_AMT_EUR / (1 + v.VAT_RATE), 2), 2)."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "CAST auf INT und Rundung auf 0 Dezimalstellen führt zu Präzisionsverlust und potenziellem Overflow.",
+            "fix_suggestion": "Nur DECIMAL-Arithmetik verwenden und auf 2 Nachkommastellen runden: ROUND(s.GROSS_AMT_EUR / (1 + v.VAT_RATE), 2)."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "VAT_RATES.VAT_RATE ist NULL-able; bei vorhandenem Join-Eintrag mit NULL entsteht NET_AMT_EUR = NULL.",
+            "fix_suggestion": "VAT_RATES.VAT_RATE als NOT NULL definieren oder im ETL filtern (WHERE v.VAT_RATE IS NOT NULL) bzw. fachlich sauber behandeln."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Potenzielle Duplikate in VAT_RATES je COUNTRY_CODE führen zu Multiplizierung der Zielzeilen.",
+            "fix_suggestion": "Unique-Constraint/Index auf VAT_RATES(COUNTRY_CODE) oder Aggregation/DEDUP vor dem Join."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Performance: fehlende Indexe auf Join-Schlüsseln erhöhen Laufzeit.",
+            "fix_suggestion": "Indexe auf SALES_GROSS(COUNTRY_CODE) und VAT_RATES(COUNTRY_CODE) anlegen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Mehrfachläufe können identische SALE_ID mehrfach in SALES_NET einfügen.",
+            "fix_suggestion": "Idempotenz sicherstellen (MERGE/UPSERT) und Unique-Constraint auf SALES_NET(SALE_ID)."
+        }
+    ],
+    "final_feedback": "Der ETL ist in der vorliegenden Form nicht funktionsfähig (Join-Fehler) und enthält fachliche Rechenfehler. Nach Korrektur der Join-Bedingung und der Betragslogik sollte Netto als ROUND(GROSS/(1+VAT_RATE), 2) und MwSt. als ROUND(GROSS - Netto, 2) berechnet werden. Vermeide CAST auf INT und runde konsequent auf 2 Nachkommastellen. Stelle zudem sicher, dass VAT_RATES.VAT_RATE nicht NULL ist bzw. filtere solche Fälle. Für Stabilität und Performance: Unique-Constraints auf Join-/Schlüsselspalten, Indexe auf COUNTRY_CODE und ein idempotentes Ladeverfahren (MERGE/UPSERT). Diese Anpassungen ändern das fachliche Ergebnis nicht, sondern korrigieren und stabilisieren es.",
+    "_source_file": "case5.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 882.043,
+    "_response_char_count": 5767
+}

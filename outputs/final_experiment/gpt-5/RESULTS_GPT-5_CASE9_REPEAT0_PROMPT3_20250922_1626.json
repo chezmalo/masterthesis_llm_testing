@@ -1,0 +1,81 @@
+{
+    "transformation_understanding": "Aus STG werden Kundenadressen in eine SCD‑Typ‑2‑Dimension geladen. Idee: Bei Änderungen die bisher aktuelle Zeile schließen (VALID_TO setzen, IS_CURRENT umschalten) und eine neue aktuelle Version mit VALID_FROM = CHANGE_TS einfügen. Der vorliegende Code versucht dies in zwei Statements (Update, dann Insert).",
+    "data_lineage": [
+        "DIM_CUSTOMER_ADDRESS.CUSTOMER_ID <= CUSTOMER_ADDRESS_STG.CUSTOMER_ID",
+        "DIM_CUSTOMER_ADDRESS.STREET <= CUSTOMER_ADDRESS_STG.STREET",
+        "DIM_CUSTOMER_ADDRESS.CITY <= CUSTOMER_ADDRESS_STG.CITY",
+        "DIM_CUSTOMER_ADDRESS.POSTAL_CODE <= CUSTOMER_ADDRESS_STG.POSTAL_CODE",
+        "DIM_CUSTOMER_ADDRESS.COUNTRY <= CUSTOMER_ADDRESS_STG.COUNTRY",
+        "DIM_CUSTOMER_ADDRESS.VALID_FROM <= CUSTOMER_ADDRESS_STG.CHANGE_TS",
+        "DIM_CUSTOMER_ADDRESS.VALID_TO <= NULL (offen) bzw. Abschlusszeitpunkt",
+        "DIM_CUSTOMER_ADDRESS.IS_CURRENT <= TRUE bei neu eingefügten Versionen"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Bestehende aktuelle Dim-Zeilen bei Änderung schließen.",
+            "formula": "SET VALID_TO = NULL FROM CUSTOMER_ADDRESS_STG s WHERE d.CUSTOMER_ID = s.CUSTOMER_ID AND d.IS_CURRENT = TRUE AND (d.STREET <> s.STREET OR d.CITY <> s.CITY OR d.POSTCODE <> s.POSTAL_CODE OR d.COUNTRY = s.COUNTRY);",
+            "improvement": "UPDATE DIM_CUSTOMER_ADDRESS d SET VALID_TO = COALESCE(s.CHANGE_TS, CURRENT_TIMESTAMP), IS_CURRENT = FALSE FROM CUSTOMER_ADDRESS_STG s WHERE d.CUSTOMER_ID=s.CUSTOMER_ID AND d.IS_CURRENT=TRUE AND (d.STREET IS DISTINCT FROM s.STREET OR d.CITY IS DISTINCT FROM s.CITY OR d.POSTAL_CODE IS DISTINCT FROM s.POSTAL_CODE OR d.COUNTRY IS DISTINCT FROM s.COUNTRY);"
+        },
+        {
+            "step_count": 2,
+            "description": "Neue aktuelle Versionen für neue oder geänderte Adressen einfügen.",
+            "formula": "INSERT INTO DIM_CUSTOMER_ADDRESS (...) SELECT ... FROM CUSTOMER_ADDRESS_STG s LEFT JOIN DIM_CUSTOMER_ADDRESS d ON d.CUSTOMER_ID=s.CUSTOMER_ID AND d.IS_CURRENT=TRUE WHERE d.CUSTOMER_ID IS NULL OR d.STREET<>s.STREET OR d.CITY<>s.CITY OR d.POSTCODE<>s.POSTAL_CODE OR d.COUNTRY=s.COUNTRY;",
+            "improvement": "MERGE (oder NOT EXISTS) mit gleicher Change-Logik: WHEN MATCHED AND changed THEN UPDATE (schließen); WHEN NOT MATCHED OR changed THEN INSERT (VALID_FROM=COALESCE(s.CHANGE_TS,CURRENT_TIMESTAMP), VALID_TO=NULL oder 9999-12-31, IS_CURRENT=TRUE). Null-sicher vergleichen (IS DISTINCT FROM)."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Der Prozess zielt auf SCD‑Typ‑2, ist aber in der vorliegenden Form nicht funktionsfähig: (1) UPDATE-Syntax ist unvollständig (kein UPDATE DIM... Alias d fehlt), und es wird ein nicht existierendes Feld d.POSTCODE referenziert. (2) VALID_TO ist NOT NULL, dennoch werden NULL-Werte gesetzt/eingefügt. (3) Change-Erkennung fehlerhaft: COUNTRY wird mit '=' statt '<>' geprüft; Null-Werte werden mit '<>' nicht korrekt erkannt; IS_CURRENT wird beim Schließen nicht auf FALSE gesetzt. (4) Datentyp-Inkonsistenz: VALID_FROM ist TIMESTAMP, VALID_TO ist DATE (Trunkierung/Überlappungen möglich). (5) Logik kann zu doppelten Inserts führen. Aus diesen Gründen ist der ETL derzeit nicht lauffähig.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Fehlende UPDATE-Klausel und falscher Spaltenname d.POSTCODE im 1. Statement (Alias d nicht definiert; Spalte POSTCODE existiert nicht).",
+            "fix_suggestion": "Korrigieren zu: UPDATE DIM_CUSTOMER_ADDRESS d ...; alle Verweise auf d.POSTAL_CODE statt d.POSTCODE verwenden."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "VALID_TO ist NOT NULL, dennoch werden NULL-Werte gesetzt/insertiert.",
+            "fix_suggestion": "Schema oder Logik anpassen: VALID_TO NULL zulassen (offene Historie) oder mit Sentinel-Datum (z. B. '9999-12-31') arbeiten und Code entsprechend setzen."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falsche Change-Bedingung für COUNTRY (Gleichheit statt Ungleichheit) führt zu unnötigen Inserts.",
+            "fix_suggestion": "Alle Attribute mit Ungleichheit prüfen und null-sicher vergleichen (IS DISTINCT FROM bzw. COALESCE)."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Null-unsichere Vergleiche ('<>') bei möglichen NULLs übersehen Änderungen.",
+            "fix_suggestion": "IS DISTINCT FROM (PostgreSQL) verwenden oder COALESCE(d.col,'¤') <> COALESCE(s.col,'¤')."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Beim Schließen der alten Version wird IS_CURRENT nicht auf FALSE gesetzt.",
+            "fix_suggestion": "Im UPDATE zusätzlich IS_CURRENT = FALSE setzen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "VALID_FROM TIMESTAMP vs. VALID_TO DATE (Zeitanteil geht verloren; mögliche Zeitraum-Überlappungen).",
+            "fix_suggestion": "Beide Felder als TIMESTAMP führen oder beim Setzen von VALID_TO konsistent casten und Konvention definieren (z. B. Ende = letzte Millisekunde vor neuem VALID_FROM)."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "INSERT-Selektion mit LEFT JOIN und breiten OR-Bedingungen kann Duplikate und schlechte Performance verursachen.",
+            "fix_suggestion": "MERGE/UPSERT atomar verwenden oder NOT EXISTS mit exakt gleicher Change-Logik; Indexe auf DIM(CUSTOMER_ID, IS_CURRENT) und STG(CUSTOMER_ID)."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "POSTAL_CODE als UUID ist fachlich ungewöhnlich und erschwert Prüfungen/Validierung.",
+            "fix_suggestion": "Datentyp prüfen (VARCHAR) oder Validierungslogik/Domänen-Check implementieren; falls UUID unvermeidlich, Format-Konversion in STG sicherstellen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Fehlender Surrogate Key in der Dimension erschwert eindeutige Versionierung und Performance.",
+            "fix_suggestion": "Surrogatschlüssel (z. B. ADDRESS_KEY) mit eindeutigen Constraints einführen; Unique-Constraint auf (CUSTOMER_ID, VALID_FROM) oder (CUSTOMER_ID, IS_CURRENT) erwägen."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in der vorliegenden Form nicht funktionsfähig (Syntaxfehler, NOT-NULL-Verstöße, fehlerhafte Change-Erkennung, fehlendes Umschalten von IS_CURRENT). Für eine korrekte SCD‑Typ‑2‑Implementierung: (1) UPDATE korrekt formulieren und alte Zeilen mit VALID_TO = COALESCE(CHANGE_TS, CURRENT_TIMESTAMP) sowie IS_CURRENT = FALSE schließen. (2) Neue Zeilen nur bei echten Änderungen oder neuen Kunden einfügen; null-sichere Vergleiche (IS DISTINCT FROM) verwenden. (3) VALID_TO-Strategie klären: NULL zulassen oder Sentinel-Datum; Datentypen konsistent (bevorzugt TIMESTAMP). (4) Atomar mit MERGE abbilden und geeignete Indexe setzen. So bleibt das fachliche Ergebnis unverändert, die Ausführung wird korrekt und performanter.",
+    "_source_file": "case9.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 155.233,
+    "_response_char_count": 4378
+}

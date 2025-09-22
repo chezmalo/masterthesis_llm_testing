@@ -1,0 +1,55 @@
+{
+    "transformation_understanding": "ETL-Prozess zur Berechnung rollierender 3-Monats-Summen aus monatlichen Verkaufsdaten. Für jeden Kunden werden die Umsätze der aktuellen und vorherigen 3 Monate summiert und in die Zieltabelle SALES_ROLLING3M eingefügt.",
+    "data_lineage": [
+        "SALES_MONTHLY → SALES_ROLLING3M"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Extraktion der Kundendaten und Zeitdimensionen",
+            "formula": "SELECT CUSTOMER_ID, YEAR, MONTH FROM SALES_MONTHLY",
+            "improvement": null
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung der rollierenden 3-Monats-Summe mittels Window Function",
+            "formula": "SUM(AMNT_EUR) OVER (PARTITION BY CUSTOMER_ID ORDER BY MONTH, YEAR ROWS BETWEEN 3 PRECEDING AND CURRENT ROW)",
+            "improvement": "ORDER BY sollte chronologisch korrekt sein: ORDER BY YEAR, MONTH"
+        },
+        {
+            "step_count": 3,
+            "description": "Rundung des Ergebnisses auf 2 Dezimalstellen",
+            "formula": "ROUND(..., 2)",
+            "improvement": null
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Window Function verwendet eine falsche Sortierung (MONTH, YEAR statt YEAR, MONTH), was zu chronologisch inkorrekten rollierenden Summen führt. Der Spaltenname AMNT_EUR existiert nicht in der Quelltabelle (korrekt: AMOUNT_EUR).",
+    "error_risks": [
+        {
+            "severity": "high",
+            "source_of_risk": "Falsche chronologische Sortierung in Window Function: ORDER BY MONTH, YEAR sortiert Januar 2024 vor Januar 2023",
+            "fix_suggestion": "Sortierung ändern zu ORDER BY YEAR, MONTH für korrekte chronologische Reihenfolge"
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Spaltenname AMNT_EUR existiert nicht in Quelltabelle SALES_MONTHLY (korrekt: AMOUNT_EUR)",
+            "fix_suggestion": "Spaltenname zu AMOUNT_EUR korrigieren"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Werte in AMOUNT_EUR werden bei SUM() ignoriert, was zu unvollständigen rollierenden Summen führen kann",
+            "fix_suggestion": "COALESCE(AMOUNT_EUR, 0) verwenden oder explizite NULL-Behandlung implementieren"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "ROWS BETWEEN 3 PRECEDING AND CURRENT ROW erstellt 4-Monats-Fenster statt 3-Monats-Fenster",
+            "fix_suggestion": "ROWS BETWEEN 2 PRECEDING AND CURRENT ROW für echte 3-Monats-Summe verwenden"
+        }
+    ],
+    "final_feedback": "Transformation nicht funktionsfähig aufgrund kritischer Syntaxfehler (falscher Spaltenname) und logischer Fehler (falsche Sortierung, falsches Window-Fenster). Nach Korrektur der identifizierten Fehler ist die Grundlogik für rollierende Summen korrekt implementiert.",
+    "_source_file": "case8.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 1130.321,
+    "_response_char_count": 2673
+}

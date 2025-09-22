@@ -1,0 +1,81 @@
+{
+    "transformation_understanding": "Zahlungen aus PAYMENTS werden mit zum Zahlungstag passenden Devisenkursen aus FX_RATES verknüpft und in Euro umgerechnet. Ergebnis sind Zeilen in PAYMENTS_EUR mit PAYMENT_ID, CUSTOMER_ID, gerundetem AMOUNT_EUR und PAY_DATE. Der Join erfolgt über CURRENCY und PAY_DATE=RATE_DATE, AMOUNT_EUR wird per ROUND(CAST(AMOUNT AS INT) * EUR_RATE, 2) berechnet.",
+    "data_lineage": [
+        "PAYMENTS.PAYMENT_ID -> PAYMENTS_EUR.PAYMENT_ID (1:1 Projection)",
+        "PAYMENTS.CUSTOMER_ID -> PAYMENTS_EUR.CUSTOMER_ID (1:1 Projection)",
+        "PAYMENTS.PAY_DATE -> PAYMENTS_EUR.PAY_DATE (1:1 Projection)",
+        "PAYMENTS.AMOUNT + FX_RATES.EUR_RATE -> PAYMENTS_EUR.AMOUNT_EUR (Berechnung, Rundung auf 2 Stellen)",
+        "Join: PAYMENTS.(CURRENCY, PAY_DATE) = FX_RATES.(CURRENCY, RATE_DATE) LEFT JOIN"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Quellselektion aus PAYMENTS",
+            "formula": "SELECT p.* FROM PAYMENTS p",
+            "improvement": "Für inkrementelle Läufe nur neue/aktualisierte Zahlungen selektieren (z. B. WHERE pay_date >= :since oder per Änderungskennzeichen)."
+        },
+        {
+            "step_count": 2,
+            "description": "Zuordnung des Wechselkurses je Zahlungstag und Währung",
+            "formula": "LEFT JOIN FX_RATES r ON r.CURRENCY = p.CURRENCY AND r.RATE_DATE = p.PAY_DATE",
+            "improvement": "INNER JOIN verwenden oder WHERE r.EUR_RATE IS NOT NULL, falls fehlende Kurse nicht erlaubt sind. Indexe auf FX_RATES(CURRENCY, RATE_DATE) und PAYMENTS(CURRENCY, PAY_DATE) anlegen. Eindeutigkeit von (RATE_DATE, CURRENCY) sicherstellen."
+        },
+        {
+            "step_count": 3,
+            "description": "Berechnung des Eurobetrags",
+            "formula": "ROUND(CAST(p.AMOUNT AS INT) * r.EUR_RATE, 2)",
+            "improvement": "Genauigkeit bewahren: ROUND(p.AMOUNT * r.EUR_RATE, 2). Optional explizit casten: CAST(ROUND(p.AMOUNT * r.EUR_RATE, 2) AS DECIMAL(10,2)). NULLs abfangen: WHERE p.AMOUNT IS NOT NULL AND r.EUR_RATE IS NOT NULL oder COALESCE gemäß Business-Logik."
+        },
+        {
+            "step_count": 4,
+            "description": "Projektion der Zielspalten",
+            "formula": "SELECT p.PAYMENT_ID, p.CUSTOMER_ID, <AMOUNT_EUR>, p.PAY_DATE",
+            "improvement": "Explizite Aliase und Typen verwenden, um implizite Konvertierungen zu vermeiden."
+        },
+        {
+            "step_count": 5,
+            "description": "Insert in Zieltabelle",
+            "formula": "INSERT INTO PAYMENTS_EUR (PAYMENT_ID, CUSTOMER_ID, AMOUNT_EUR, PAY_DATE) SELECT ...",
+            "improvement": "Duplikate vermeiden (PRIMARY KEY/UNIQUE auf PAYMENT_ID oder (PAYMENT_ID, PAY_DATE)). Optional UPSERT/MERGE nutzen. Transaktion/Batches für Performance."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die aktuelle Formel konvertiert AMOUNT zunächst zu INT und kappt damit Nachkommastellen, bevor mit EUR_RATE multipliziert und auf 2 Dezimalstellen gerundet wird. Dadurch gehen Cent-Beträge verloren und das Ergebnis kann systematisch zu niedrig sein. Bei fehlendem Wechselkurs (LEFT JOIN ohne Treffer) oder NULL in AMOUNT wird AMOUNT_EUR NULL; das kollidiert mit NOT NULL in PAYMENTS_EUR. Zusätzlich kann der Wertebereich von DECIMAL(10,2) im Ziel für große Zahlungen nach der Umrechnung nicht ausreichen und zu Überläufen führen. Korrekt ist eine reine Dezimalarithmetik mit ROUND(p.AMOUNT * r.EUR_RATE, 2) und anschließender passender Typanpassung.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "NOT NULL-Verletzung in PAYMENTS_EUR.AMOUNT_EUR durch LEFT JOIN ohne Kurs oder NULL in PAYMENTS.AMOUNT (ROUND(NULL) -> NULL).",
+            "fix_suggestion": "INNER JOIN verwenden oder WHERE r.EUR_RATE IS NOT NULL AND p.AMOUNT IS NOT NULL. Alternativ fachlich definierten Fallback (z. B. EUR_RATE=1 für 'EUR') per COALESCE anwenden."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Wertebereichsüberlauf: DECIMAL(10,2) in PAYMENTS_EUR kann bei großen Beträgen nach Umrechnung überschritten werden.",
+            "fix_suggestion": "Zielspalte auf größeren Typ anheben (z. B. DECIMAL(14,2) oder DECIMAL(18,2)) und mit erwarteten Maximalwerten abstimmen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Genauigkeitsverlust durch CAST(AMOUNT AS INT) vor der Multiplikation (Abschneiden der Nachkommastellen).",
+            "fix_suggestion": "Ohne INT-Cast rechnen: ROUND(p.AMOUNT * r.EUR_RATE, 2) und das Ergebnis als DECIMAL(10,2) casten."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Potenzielle Duplikate durch mehrfache FX_RATES-Einträge je (RATE_DATE, CURRENCY), die den Join vervielfachen.",
+            "fix_suggestion": "Eindeutigen Index/Constraint auf FX_RATES(RATE_DATE, CURRENCY) anlegen oder per QUALIFY/ROW_NUMBER genau einen Kurs auswählen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Leistungseinbußen bei großen Tabellen ohne passende Indexe auf Join-Schlüsseln.",
+            "fix_suggestion": "Indexe auf FX_RATES(CURRENCY, RATE_DATE) und PAYMENTS(CURRENCY, PAY_DATE) anlegen; optional Partitionierung nach Datum."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Uneinheitliche Währungscodes (Groß-/Kleinschreibung, Spaces) können zu fehlenden Join-Treffern führen.",
+            "fix_suggestion": "Währungscodes normalisieren (UPPER/TRIM) und per CHECK-Constraint nur gültige ISO-4217-Codes zulassen."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist fachlich verständlich (Währungsumrechnung pro Zahlungstag), ist jedoch in der vorliegenden Form nicht robust. Hauptprobleme sind Genauigkeitsverlust durch INT-Cast, mögliche NOT NULL-Verletzungen bei fehlenden Kursen/Nullbeträgen und ein zu enger Ziel-Datentyp. Empfohlen: (1) reine Dezimalarithmetik mit ROUND(p.AMOUNT * r.EUR_RATE, 2), (2) fehlende Kurse ausschließen oder fachlich korrekt behandeln (INNER JOIN/COALESCE), (3) Zielpräzision erhöhen, (4) Eindeutigkeit der FX-RATES je (RATE_DATE, CURRENCY) sicherstellen, (5) Join-Indexe anlegen und optional inkrementell laden. So bleibt das fachliche Ergebnis unverändert, aber Genauigkeit, Stabilität und Performance verbessern sich deutlich.",
+    "_source_file": "case4.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 765.337,
+    "_response_char_count": 6068
+}

@@ -1,0 +1,83 @@
+{
+    "transformation_understanding": "Pro Kunde wird aus TRANSACTIONS eine Zeile in CUSTOMER_CHURN geschrieben. LAST_TX_DATE wird als MIN(BOOKING_DATE) berechnet und IS_INACTIVE per DATEDIFF gegen CURRENT_DATE auf > 180 Tage geprüft, bei Erfüllung 'TRUE', sonst NULL. Ziel ist offensichtlich die Kennzeichnung inaktiver Kunden anhand der letzten Transaktion, jedoch ist die Logik und Constraint-Beachtung fehlerhaft.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> CUSTOMER_CHURN.CUSTOMER_ID (Gruppierung je Kunde)",
+        "TRANSACTIONS.BOOKING_DATE -> MIN() -> CUSTOMER_CHURN.LAST_TX_DATE",
+        "CURRENT_DATE + TRANSACTIONS.BOOKING_DATE -> DATEDIFF() + CASE -> CUSTOMER_CHURN.IS_INACTIVE"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Gruppierung der Transaktionen je Kunde",
+            "formula": "FROM TRANSACTIONS t GROUP BY t.CUSTOMER_ID",
+            "improvement": "Index auf TRANSACTIONS(CUSTOMER_ID, BOOKING_DATE) zur Aggregationsbeschleunigung; optional BOOKING_DATE IS NOT NULL vor Gruppierung filtern."
+        },
+        {
+            "step_count": 2,
+            "description": "Ermittlung des Transaktionsdatums pro Kunde",
+            "formula": "MIN(t.BOOKING_DATE) AS LAST_TX_DATE",
+            "improvement": "Fachlich korrekt: MAX(t.BOOKING_DATE) als letzte Transaktion; bei unbekanntem Datum: NULL zulassen oder Kunden ausschließen (WHERE BOOKING_DATE IS NOT NULL)."
+        },
+        {
+            "step_count": 3,
+            "description": "Berechnung der Inaktivitäts-Flagge",
+            "formula": "CASE WHEN DATEDIFF(day, CURRENT_DATE, MIN(t.BOOKING_DATE)) > 180 THEN 'TRUE' ELSE NULL END AS IS_INACTIVE",
+            "improvement": "Korrekte Richtung und Konsistenz: CASE WHEN DATEDIFF('day', MAX(t.BOOKING_DATE), CURRENT_DATE) > 180 THEN 'TRUE' ELSE 'FALSE' END; Dialekt beachten (SQL Server: DATEDIFF(day, MAX(BOOKING_DATE), CAST(GETDATE() AS date)))."
+        },
+        {
+            "step_count": 4,
+            "description": "Schreiben in Zieltabelle",
+            "formula": "INSERT INTO CUSTOMER_CHURN (CUSTOMER_ID, LAST_TX_DATE, IS_INACTIVE) SELECT ...",
+            "improvement": "MERGE/UPSERT verwenden, um Duplikate zu vermeiden; Zielspaltenkonsistenz absichern (IS_INACTIVE NOT NULL -> nie NULL schreiben)."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Aggregation für LAST_TX_DATE ist fachlich falsch (MIN statt MAX). Die DATEDIFF-Argumentreihenfolge führt i.d.R. zu negativen Werten, wodurch die 180-Tage-Prüfung nicht greift. Zusätzlich verletzt ELSE NULL die NOT-NULL-Constraint von IS_INACTIVE. Abhängig vom SQL-Dialekt ist die DATEDIFF-Signatur/CURRENT_DATE-Nutzung inkonsistent.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "NOT-NULL-Verletzung: IS_INACTIVE ist NOT NULL, CASE liefert jedoch im ELSE-Zweig NULL.",
+            "fix_suggestion": "CASE-Logik auf ELSE 'FALSE' umstellen oder COALESCE anwenden; sicherstellen, dass nie NULL in IS_INACTIVE geschrieben wird."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falsche Bestimmung des letzten Transaktionsdatums: Verwendung von MIN(BOOKING_DATE) statt MAX(BOOKING_DATE).",
+            "fix_suggestion": "MAX(t.BOOKING_DATE) als LAST_TX_DATE verwenden."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "DATEDIFF in falscher Reihenfolge (CURRENT_DATE, BOOKING_DATE) führt zu negativen Abständen und verhindert die Erkennung inaktiver Kunden.",
+            "fix_suggestion": "DATEDIFF so ausrichten, dass CURRENT_DATE minus LAST_TX_DATE berechnet wird, z.B. DATEDIFF('day', MAX(BOOKING_DATE), CURRENT_DATE) > 180."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "SQL-Dialektinkonsistenzen: Verwendung von CURRENT_DATE/DATEDIFF-Signatur (day vs. 'day') ist nicht in allen Systemen gültig.",
+            "fix_suggestion": "Dialektkonform implementieren (z.B. Snowflake: DATEDIFF('day', MAX(BOOKING_DATE), CURRENT_DATE), SQL Server: DATEDIFF(day, MAX(BOOKING_DATE), CAST(GETDATE() AS date)))."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-BOOKING_DATE: Kunden mit nur NULL-Daten führen zu LAST_TX_DATE = NULL und damit zu potentiellen Folgefehlern bei IS_INACTIVE.",
+            "fix_suggestion": "Voraggregation BOOKING_DATE IS NOT NULL filtern oder NULL-Fälle separat behandeln (z.B. IS_INACTIVE = 'FALSE' bei fehlendem Datum)."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Insert ohne Deduplizierung/Upsert kann bei wiederholter Ausführung Duplikate erzeugen.",
+            "fix_suggestion": "MERGE/UPSERT mit Schlüssel CUSTOMER_ID oder UNIQUE-Constraint/Primary Key einführen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "VARCHAR(5) zur Abbildung einer Booleschen Flagge ist fehleranfällig.",
+            "fix_suggestion": "BOOLEAN/BIT verwenden oder CHECK-Constraint auf ('TRUE','FALSE') definieren; einheitliche Werte erzwingen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Potenzielle Performanceprobleme bei großen Datenmengen ohne geeigneten Index.",
+            "fix_suggestion": "Index auf TRANSACTIONS(CUSTOMER_ID, BOOKING_DATE) bzw. Partitionierung nach CUSTOMER_ID/BOOKING_DATE."
+        }
+    ],
+    "final_feedback": "Der ETL-Schritt ist in der vorliegenden Form nicht funktionsfähig: Er verletzt die NOT-NULL-Constraint von IS_INACTIVE, bestimmt das letzte Transaktionsdatum falsch (MIN statt MAX) und berechnet den Tagabstand in falscher Richtung. Korrigieren Sie die Aggregation auf MAX(BOOKING_DATE), drehen Sie die DATEDIFF-Argumente um und liefern Sie im ELSE-Zweig 'FALSE'. Filtern Sie nach Möglichkeit BOOKING_DATE IS NOT NULL und verwenden Sie einen MERGE/UPSERT statt reinem INSERT, um Duplikate zu vermeiden. Ergänzend empfehlen sich ein Index auf (CUSTOMER_ID, BOOKING_DATE) sowie die Vereinheitlichung der Booleschen Spalte (BOOLEAN/BIT oder CHECK-Constraint). Diese Anpassungen ändern das fachliche Ergebnis nicht, sondern stellen die korrekte und performante Ermittlung der Inaktivitätsflagge sicher.",
+    "_source_file": "case7.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 133.435,
+    "_response_char_count": 5988
+}

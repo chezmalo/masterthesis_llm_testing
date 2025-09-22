@@ -1,0 +1,66 @@
+{
+    "transformation_understanding": "Ziel ist eine SCD‑Typ‑2-Historisierung der Kundenadressen: Für geänderte Attribute soll der bisher aktuelle DIM-Datensatz beendet (VALID_TO gesetzt, IS_CURRENT = FALSE) und ein neuer aktueller Datensatz aus der Staging-Tabelle mit VALID_FROM = CHANGE_TS und VALID_TO = NULL eingefügt werden.",
+    "data_lineage": [
+        "CUSTOMER_ADDRESS_STG.CUSTOMER_ID -> DIM_CUSTOMER_ADDRESS.CUSTOMER_ID (identisch)",
+        "CUSTOMER_ADDRESS_STG.STREET -> DIM_CUSTOMER_ADDRESS.STREET (identisch)",
+        "CUSTOMER_ADDRESS_STG.CITY -> DIM_CUSTOMER_ADDRESS.CITY (identisch)",
+        "CUSTOMER_ADDRESS_STG.POSTAL_CODE -> DIM_CUSTOMER_ADDRESS.POSTAL_CODE (identisch)",
+        "CUSTOMER_ADDRESS_STG.COUNTRY -> DIM_CUSTOMER_ADDRESS.COUNTRY (identisch)",
+        "CUSTOMER_ADDRESS_STG.CHANGE_TS -> DIM_CUSTOMER_ADDRESS.VALID_FROM",
+        "Konstante NULL -> DIM_CUSTOMER_ADDRESS.VALID_TO (für aktuelle Sätze)",
+        "Konstante TRUE -> DIM_CUSTOMER_ADDRESS.IS_CURRENT (für neue aktuelle Sätze)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Beenden aktueller DIM-Sätze bei Attributänderungen (SCD2-‚Close out‘).",
+            "formula": "UPDATE DIM_CUSTOMER_ADDRESS d\nSET VALID_TO = CAST(s.CHANGE_TS AS DATE),\n    IS_CURRENT = FALSE\nFROM CUSTOMER_ADDRESS_STG s\nWHERE d.CUSTOMER_ID = s.CUSTOMER_ID\n  AND d.IS_CURRENT = TRUE\n  AND (\n    d.STREET IS DISTINCT FROM s.STREET OR\n    d.CITY IS DISTINCT FROM s.CITY OR\n    d.POSTAL_CODE IS DISTINCT FROM s.POSTAL_CODE OR\n    d.COUNTRY IS DISTINCT FROM s.COUNTRY\n  );",
+            "improvement": "Typen angleichen (VALID_TO als TIMESTAMP wie VALID_FROM) oder konsequent casten; Index auf DIM(CUSTOMER_ID, IS_CURRENT)."
+        },
+        {
+            "step_count": 2,
+            "description": "Einfügen neuer aktueller DIM-Sätze bei Neu- oder Änderungsfällen.",
+            "formula": "INSERT INTO DIM_CUSTOMER_ADDRESS\n  (CUSTOMER_ID, STREET, CITY, POSTAL_CODE, COUNTRY, VALID_FROM, VALID_TO, IS_CURRENT)\nSELECT s.CUSTOMER_ID, s.STREET, s.CITY, s.POSTAL_CODE, s.COUNTRY,\n       s.CHANGE_TS, NULL, TRUE\nFROM CUSTOMER_ADDRESS_STG s\nLEFT JOIN DIM_CUSTOMER_ADDRESS d\n  ON d.CUSTOMER_ID = s.CUSTOMER_ID AND d.IS_CURRENT = TRUE\nWHERE d.CUSTOMER_ID IS NULL OR (\n       d.STREET IS DISTINCT FROM s.STREET OR\n       d.CITY IS DISTINCT FROM s.CITY OR\n       d.POSTAL_CODE IS DISTINCT FROM s.POSTAL_CODE OR\n       d.COUNTRY IS DISTINCT FROM s.COUNTRY\n);",
+            "improvement": "Statt LEFT JOIN + WHERE-OR-Bedingungen alternativ EXISTS verwenden; Unique-Constraint oder partiellen Index auf (CUSTOMER_ID) WHERE IS_CURRENT."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die aktuelle Logik ist syntaktisch und fachlich fehlerhaft: Das Update-Statement hat kein UPDATE-Zielalias, verwendet einen nicht existierenden Spaltennamen (POSTCODE), erkennt Änderungen teilweise falsch (COUNTRY = statt <>), setzt IS_CURRENT nicht auf FALSE und setzt VALID_TO nicht korrekt. Zusätzlich sind Vergleiche mit NULL nicht NULL-sicher und VALID_TO ist als DATE definiert, während CHANGE_TS TIMESTAMP ist.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "1. Statement ohne UPDATE-Ziel (Alias d wird verwendet, aber nicht deklariert: 'SET ... FROM ... WHERE d...').",
+            "fix_suggestion": "Korrekt: 'UPDATE DIM_CUSTOMER_ADDRESS d SET ... FROM CUSTOMER_ADDRESS_STG s WHERE d.CUSTOMER_ID = s.CUSTOMER_ID ...'."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Falsche Änderungslogik: d.COUNTRY = s.COUNTRY statt Ungleichheit; zudem Spaltenname d.POSTCODE existiert nicht (richtiger Name: POSTAL_CODE).",
+            "fix_suggestion": "Bedingungen korrigieren: d.COUNTRY <> s.COUNTRY und d.POSTAL_CODE <> s.POSTAL_CODE (bzw. NULL-sicher, s.u.)."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "SCD2-‚Close out‘ fehlt: Alte aktuelle Zeilen bleiben IS_CURRENT = TRUE und VALID_TO wird nicht befüllt.",
+            "fix_suggestion": "Beim Update IS_CURRENT = FALSE setzen und VALID_TO auf (CAST(s.CHANGE_TS AS DATE) oder TIMESTAMP) setzen, bevor der neue Datensatz insertiert wird."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Datentypinkonsistenz: VALID_TO ist DATE, VALID_FROM/CHANGE_TS sind TIMESTAMP.",
+            "fix_suggestion": "Entweder VALID_TO auf TIMESTAMP ändern oder beim Update/Insert konsequent CAST(s.CHANGE_TS AS DATE) verwenden und Geschäftsregel (Tagesgrenze) dokumentieren."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Unsicherheit bei Vergleichen mit <>: Änderungen mit NULL werden nicht erkannt.",
+            "fix_suggestion": "NULL-sichere Vergleiche verwenden: IS DISTINCT FROM (Postgres) oder COALESCE(d.col,'∅') <> COALESCE(s.col,'∅')."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Leistungsrisiko: LEFT JOIN mit OR-Bedingungen auf Nullable-Spalten ohne geeignete Indizes.",
+            "fix_suggestion": "Index auf DIM(CUSTOMER_ID, IS_CURRENT); ggf. EXISTS statt LEFT JOIN; selektive Prädikate und Kompression/Statistiken prüfen."
+        }
+    ],
+    "final_feedback": "Der beabsichtigte SCD2-Prozess ist erkennbar, jedoch in der vorliegenden Form nicht lauffähig und fachlich inkorrekt. Zentral sind: korrektes UPDATE mit Alias, richtige Spaltennamen, Null-sichere Änderungsdetektion, Schließen des aktuellen Datensatzes (IS_CURRENT = FALSE, VALID_TO setzen) sowie konsistente Datentypen. Mit den vorgeschlagenen SQL-Korrekturen und Indizes wird der Prozess funktional und performanter, ohne das Ergebnis (Historisierung mit aktuellem Datensatz VALID_TO = NULL) zu verändern.",
+    "_source_file": "case9.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 949.96,
+    "_response_char_count": 5551
+}

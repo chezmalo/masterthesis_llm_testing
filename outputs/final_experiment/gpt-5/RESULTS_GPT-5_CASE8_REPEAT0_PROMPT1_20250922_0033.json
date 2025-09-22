@@ -1,0 +1,89 @@
+{
+    "transformation_understanding": "Aus SALES_MONTHLY werden pro CUSTOMER_ID und Monat ein 3‑Monats-Rollingsummenwert der Umsätze berechnet und mit 2 Dezimalstellen in SALES_ROLLING3M geschrieben.",
+    "data_lineage": [
+        "SALES_MONTHLY.CUSTOMER_ID -> SALES_ROLLING3M.CUSTOMER_ID",
+        "SALES_MONTHLY.YEAR -> SALES_ROLLING3M.YEAR",
+        "SALES_MONTHLY.MONTH -> SALES_ROLLING3M.MONTH",
+        "SALES_MONTHLY.AMOUNT_EUR (Window-SUM über 3 Monate, gerundet) -> SALES_ROLLING3M.ROLLING_3M_SUM_EUR"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Quellselektion pro Kunde und Monat",
+            "formula": "SELECT CUSTOMER_ID, YEAR, MONTH, AMOUNT_EUR FROM SALES_MONTHLY",
+            "improvement": "Index auf SALES_MONTHLY(CUSTOMER_ID, YEAR, MONTH) für sortierte Window-Operationen anlegen."
+        },
+        {
+            "step_count": 2,
+            "description": "Zeitliche Ordnung und Fensterrahmen für Rolling-Summe",
+            "formula": "PARTITION BY CUSTOMER_ID ORDER BY YEAR, MONTH ROWS BETWEEN 2 PRECEDING AND CURRENT ROW",
+            "improvement": "Bei lückenhaften Monaten Kalenderdimension verwenden oder Monate je Kunde auffüllen, um echte 3-Kalendermonate abzubilden."
+        },
+        {
+            "step_count": 3,
+            "description": "Aggregation, Nullbehandlung und Rundung",
+            "formula": "ROUND(COALESCE(SUM(CAST(AMOUNT_EUR AS DECIMAL(19,4))) OVER (...), 0), 2)",
+            "improvement": "Geldbeträge konsequent als DECIMAL(19,4) verarbeiten statt MONEY; erst am Ende auf Zieltyp CASTen."
+        },
+        {
+            "step_count": 4,
+            "description": "Schreiben ins Ziel",
+            "formula": "INSERT INTO SALES_ROLLING3M (CUSTOMER_ID, YEAR, MONTH, ROLLING_3M_SUM_EUR) SELECT ...",
+            "improvement": "Idempotenz sicherstellen (MERGE/UPSERT oder vorab DELETE/TRUNCATE; Unique Key auf (CUSTOMER_ID, YEAR, MONTH))."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Der Ausdruck referenziert eine nicht existierende Spalte (AMNT_EUR statt AMOUNT_EUR) und ordnet das Fenster fälschlich nach MONTH, YEAR, was die zeitliche Reihenfolge über Jahre hinweg verfälscht. Zudem umfasst ROWS BETWEEN 3 PRECEDING AND CURRENT ROW vier Zeilen (4-Monats-Fenster). Nullbeträge können zu NULL im Ziel (NOT NULL) führen.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falscher Spaltenname in SUM: AMNT_EUR existiert nicht.",
+            "fix_suggestion": "Auf AMOUNT_EUR korrigieren."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falsche Zeitordnung im Fenster: ORDER BY MONTH, YEAR mischt Jahre (Jan aller Jahre vor Feb etc.).",
+            "fix_suggestion": "ORDER BY YEAR, MONTH (oder DATEFROMPARTS(YEAR, MONTH, 1)) verwenden."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Fensterrahmen umfasst 4 Monate: ROWS BETWEEN 3 PRECEDING AND CURRENT ROW.",
+            "fix_suggestion": "Für 3 Monate: ROWS BETWEEN 2 PRECEDING AND CURRENT ROW."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Zielspalte NOT NULL, SUM kann bei nur NULL-Werten im Fenster NULL liefern.",
+            "fix_suggestion": "COALESCE um SUM-Window legen: COALESCE(SUM(... ) OVER (...), 0)."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "ROWS-Frame ist zeilenbasiert; bei fehlenden Monaten entspricht die Summe nicht exakt 3 Kalendermonaten.",
+            "fix_suggestion": "Monatslücken je Kunde auffüllen (Kalenderjoin) oder RANGE/INTERVAL (falls DB unterstützt) verwenden."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Mehrfachausführung erzeugt Duplikate im Ziel.",
+            "fix_suggestion": "MERGE/UPSERT nutzen oder vorher zielbezogen löschen; Unique Key auf (CUSTOMER_ID, YEAR, MONTH)."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Geldtyp MONEY und implizite Konvertierung können zu Rundungs-/Kompatibilitätsproblemen führen.",
+            "fix_suggestion": "AMOUNT_EUR als DECIMAL(19,4) casten und intern in DECIMAL rechnen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "DECIMAL(8,2) im Ziel kann bei hohen Umsätzen überlaufen.",
+            "fix_suggestion": "Zieltyp auf DECIMAL(12,2) oder größer anheben, abhängig vom Wertebereich."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Fehlende unterstützende Indizes verlangsamen Window-Sortierung.",
+            "fix_suggestion": "Index auf SALES_MONTHLY(CUSTOMER_ID, YEAR, MONTH) anlegen."
+        }
+    ],
+    "final_feedback": "Der ETL ist aktuell nicht funktionsfähig (falscher Spaltenname) und liefert bei Korrektur der Spalte dennoch falsche Ergebnisse wegen der Sortierung (MONTH, YEAR) und des 4‑Monats-Fensters. Korrigierte Kernausdrücke: ORDER BY YEAR, MONTH und ROWS BETWEEN 2 PRECEDING AND CURRENT ROW. Zusätzlich COALESCE um die Window-Summe legen und AMOUNT_EUR als DECIMAL(19,4) casten; Ergebnis am Ende auf DECIMAL(8,2) (oder größer) casten. Für exakte 3‑Monats-Perioden bei Lücken Monatskalender verwenden. Idempotentes Laden und geeignete Indizes einführen.",
+    "_source_file": "case8.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 912.832,
+    "_response_char_count": 4926
+}

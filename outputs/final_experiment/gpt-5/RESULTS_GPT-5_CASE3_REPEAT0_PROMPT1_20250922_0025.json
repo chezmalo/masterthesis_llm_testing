@@ -1,0 +1,81 @@
+{
+    "transformation_understanding": "Es werden Datensätze aus CONTACTS_RAW nach CONTACTS_CLEAN geladen. CUSTOMER_ID soll übernommen werden. PHONE_RAW wird per REGEXP_REPLACE von Nicht-Ziffern bereinigt und abhängig vom Präfix normalisiert: beginnt mit 00 → '+' + Nummer ohne die zwei führenden Nullen; beginnt mit 0 → '+49' + Nummer ohne führende 0; sonst bleibt die Ziffernfolge unverändert. Ergebnis landet in PHONE_E164 (CHAR(16)).",
+    "data_lineage": [
+        "CONTACTS_RAW.CUSTOMER_ID -> CONTACTS_CLEAN.CUSTOMER_ID (direktes Mapping, aktuell fälschlich als CUST_ID referenziert)",
+        "CONTACTS_RAW.PHONE_RAW -> CONTACTS_CLEAN.PHONE_E164 (Regex-Bereinigung und Präfix-Normalisierung)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Bereinigung der Telefonnummer: Entfernen aller Nicht-Ziffern.",
+            "formula": "REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '')",
+            "improvement": "PHONE_RAW vor Regex in VARCHAR casten; ggf. '+' erhalten: REGEXP_REPLACE(CAST(PHONE_RAW AS VARCHAR), '[^0-9+]', '') und Ergebnis einmalig in CTE/Subquery berechnen."
+        },
+        {
+            "step_count": 2,
+            "description": "Präfix-Logik zur E.164-Normalisierung.",
+            "formula": "CASE WHEN LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 2) = '00' THEN CONCAT('+', SUBSTRING(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 3)) WHEN LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 1) = '0' THEN CONCAT('+49', SUBSTRING(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 2)) ELSE REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '') END",
+            "improvement": "Auf '+' prüfen, bevor es entfernt wird (LEFT(original,1)='+'), oder '+' beim Bereinigen zulassen. Im ELSE-Zweig fehlendes '+' ergänzen. Längenprüfung (<=15 Ziffern) einbauen und ungültige Werte filtern/loggen."
+        },
+        {
+            "step_count": 3,
+            "description": "Auswahl der ID und Insert in Zieltabelle.",
+            "formula": "INSERT INTO CONTACTS_CLEAN (CUSTOMER_ID, PHONE_E164) SELECT CUST_ID, <berechnete_PHONE> FROM CONTACTS_RAW;",
+            "improvement": "Spaltenname korrigieren: SELECT CUSTOMER_ID. Zielspalte als VARCHAR(16) statt CHAR(16) definieren, um Padding zu vermeiden."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Abfrage ist aktuell nicht lauffähig: (1) CUST_ID existiert nicht (Quelle hat CUSTOMER_ID). (2) PHONE_RAW ist vom Typ RAW; REGEXP_REPLACE/LEFT/SUBSTRING erfordern Strings. Logisch fehlerhaft: '+'-Zweig ist unerreichbar, da '+' zuvor entfernt wird; internationale Nummern ohne 00/0 erhalten im ELSE-Zweig kein '+' und sind nicht E.164-konform.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falscher Spaltenname in SELECT: CUST_ID statt CUSTOMER_ID.",
+            "fix_suggestion": "SELECT CUSTOMER_ID verwenden bzw. CUST_ID korrekt aliasieren: SELECT CUSTOMER_ID AS CUSTOMER_ID."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Datentyp-Mismatch: PHONE_RAW ist RAW, Regex-/Stringfunktionen erwarten VARCHAR/TEXT.",
+            "fix_suggestion": "Spalte als VARCHAR anlegen oder explizit CAST(PHONE_RAW AS VARCHAR) vor allen Stringoperationen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Unerreichbarer CASE-Zweig: Prüfung LEFT(REGEXP_REPLACE(...),1) = '+' nach Entfernen des '+'.",
+            "fix_suggestion": "Auf '+' am Originalstring prüfen (LEFT(CAST(PHONE_RAW AS VARCHAR),1)='+') oder '+' beim Bereinigen erhalten: '[^0-9+]'."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Nicht-E.164-konforme Ausgabe im ELSE-Zweig: fehlendes '+' bei internationalen Nummern ohne 00/0 (z. B. '49...').",
+            "fix_suggestion": "Im ELSE-Zweig '+' voranstellen: CONCAT('+', <digits>)."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Keine Validierung der Ziffernlänge; E.164 erlaubt max. 15 Ziffern.",
+            "fix_suggestion": "Nach Bereinigung LENGTH(digits) BETWEEN 8 AND 15 prüfen; außerhalb Reject/NULL/Fehlerlog."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Zielspalte PHONE_E164 ist CHAR(16) und verursacht Padding.",
+            "fix_suggestion": "Auf VARCHAR(16) wechseln; optional CHECK-Constraint auf Format '^\\+[0-9]{1,15}$'."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Mehrfache REGEXP_REPLACE-/LEFT-/SUBSTRING-Aufrufe pro Zeile belasten Performance.",
+            "fix_suggestion": "CTE/Derived Table mit einmaliger Bereinigung verwenden und daraus weiterverarbeiten; geeignete Indizes für Join/Filter."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Annahme '+49' bei führender '0' ist nur für DE korrekt.",
+            "fix_suggestion": "Land aus Kundenkontext ableiten (z. B. Country-Code am Kunden) und Präfix per Mapping-Tabelle dynamisch setzen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Funktionale Portabilität (LEFT/SUBSTRING/REGEXP_REPLACE) je nach DB-Dialekt unterschiedlich.",
+            "fix_suggestion": "DB-spezifische Äquivalente konsistent nutzen und Tests pro Zielsystem hinterlegen."
+        }
+    ],
+    "final_feedback": "Der ETL ist derzeit nicht funktionsfähig (falscher Spaltenname, Typ RAW für Regex). Zudem ist die E.164-Logik fehlerhaft (unerreichbarer '+'-Zweig, fehlendes '+' in sonstigen Fällen). Nach Korrektur von Spaltenname und Datentyp sollte die Präfixlogik wie folgt angepasst werden: '+' vor Regex prüfen oder beim Bereinigen erhalten; 00→'+', 0→Ländercode, sonst '+' + digits; Längencheck ≤15. Performance: Bereinigung einmalig in CTE berechnen. Zielspalte auf VARCHAR(16) umstellen und optional Format-Constraint setzen.",
+    "_source_file": "case3.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 409.218,
+    "_response_char_count": 5502
+}

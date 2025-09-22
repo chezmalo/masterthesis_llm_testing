@@ -1,0 +1,78 @@
+{
+    "transformation_understanding": "Die ETL-Logik soll Produktstammdaten (PRODUCTS_RAW) mit einer Mapping-Tabelle (CATEGORY_MAPPING) verknüpfen und die Zielkategorie in PRODUCTS_NORM schreiben. Dabei wird pro Produkt die SOURCE_CATEGORY_CODE über eine LEFT JOIN-Verknüpfung in eine TARGET_CATEGORY übersetzt und als NOT NULL in PRODUCTS_NORM gespeichert.",
+    "data_lineage": [
+        "PRODUCTS_RAW.PRODUCT_ID -> PRODUCTS_NORM.PRODUCT_ID (direkte Übernahme)",
+        "CATEGORY_MAPPING.TARGET_CATEGORY -> PRODUCTS_NORM.TARGET_CATEGORY (COALESCE auf '' nach LEFT JOIN)",
+        "Join-Bedingung (as-is): CATEGORY_MAPPING.TARGET_CATEGORY = PRODUCTS_RAW.SOURCE_CATEGORY_CODE"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Selektion der Produktzeilen aus PRODUCTS_RAW",
+            "formula": "SELECT p.PRODUCT_ID, p.SOURCE_CATEGORY_CODE FROM PRODUCTS_RAW p",
+            "improvement": "Nur benötigte Spalten selektieren und ggf. Filtern anwenden, um Datenmenge zu reduzieren."
+        },
+        {
+            "step_count": 2,
+            "description": "LEFT JOIN mit CATEGORY_MAPPING auf (falsch) TARGET_CATEGORY = SOURCE_CATEGORY_CODE",
+            "formula": "LEFT JOIN CATEGORY_MAPPING m ON m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE",
+            "improvement": "Korrekt joinen: m.SOURCE_CATEGORY_CODE = CAST(p.SOURCE_CATEGORY_CODE AS VARCHAR(50)); Index auf beiden Join-Spalten."
+        },
+        {
+            "step_count": 3,
+            "description": "Ableitung TARGET_CATEGORY via COALESCE",
+            "formula": "COALESCE(m.TARGET_CATEGORY, '') AS TARGET_CATEGORY",
+            "improvement": "Vor Insert Länge absichern: LEFT(m.TARGET_CATEGORY, 20) bzw. CAST auf VARCHAR(20) zur kontrollierten Trunkierung."
+        },
+        {
+            "step_count": 4,
+            "description": "Insert in PRODUCTS_NORM",
+            "formula": "INSERT INTO PRODUCTS_NORM (PRODUCT_ID, TARGET_CATEGORY) SELECT p.PRODUCT_ID, COALESCE(m.TARGET_CATEGORY, '') FROM PRODUCTS_RAW p LEFT JOIN CATEGORY_MAPPING m ON m.SOURCE_CATEGORY_CODE = CAST(p.SOURCE_CATEGORY_CODE AS VARCHAR(50))",
+            "improvement": "UNIQUE-Index auf CATEGORY_MAPPING.SOURCE_CATEGORY_CODE; Index auf PRODUCTS_RAW.SOURCE_CATEGORY_CODE; optional NOT NULL auf CATEGORY_MAPPING.TARGET_CATEGORY falls fachlich erforderlich."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die gegebene SQL-Anweisung ist nicht lauffähig: (1) Im SELECT wird PROD_ID referenziert, die Spalte heißt jedoch PRODUCT_ID. (2) Die Join-Bedingung nutzt m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE statt m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE. Selbst bei Korrektur von (1) würde die Join-Bedingung i. d. R. keine Treffer liefern. Zusätzlich besteht hohes Risiko der Datenabschneidung, da CATEGORY_MAPPING.TARGET_CATEGORY bis 100 Zeichen lang sein kann, PRODUCTS_NORM.TARGET_CATEGORY jedoch nur 20 Zeichen erlaubt.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falscher Spaltenname im SELECT: PROD_ID existiert nicht (korrekt: PRODUCT_ID).",
+            "fix_suggestion": "SELECT p.PRODUCT_ID statt PROD_ID verwenden."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falscher Join-Key: m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE führt zu fehlenden Treffern.",
+            "fix_suggestion": "JOIN auf die Quellkategorie: m.SOURCE_CATEGORY_CODE = CAST(p.SOURCE_CATEGORY_CODE AS VARCHAR(50))."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Längen-/Typinkonsistenz: TARGET_CATEGORY (VARCHAR(100)) wird in PRODUCTS_NORM.TARGET_CATEGORY (VARCHAR(20)) geschrieben; Gefahr von Trunkierung/Insert-Fehlern.",
+            "fix_suggestion": "Vor dem Insert Länge prüfen/abschneiden (z. B. LEFT(m.TARGET_CATEGORY, 20)) oder die Zielspalte auf passende Länge erhöhen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Nicht garantierte Eindeutigkeit in CATEGORY_MAPPING.SOURCE_CATEGORY_CODE kann zu Duplikaten (Join-Multiplikation) in PRODUCTS_NORM führen.",
+            "fix_suggestion": "UNIQUE-Index oder Constraint auf CATEGORY_MAPPING.SOURCE_CATEGORY_CODE; alternativ deduplizieren (ROW_NUMBER() und Auswahl der ersten Zeile)."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Join zwischen ENUM (PRODUCTS_RAW.SOURCE_CATEGORY_CODE) und VARCHAR (CATEGORY_MAPPING.SOURCE_CATEGORY_CODE) kann Indexnutzung verhindern.",
+            "fix_suggestion": "Explizit casten und joinende Spalten indexieren (z. B. CAST(p.SOURCE_CATEGORY_CODE AS CHAR(1)) und INDEX auf CATEGORY_MAPPING.SOURCE_CATEGORY_CODE)."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "COALESCE auf leere Zeichenkette verschleiert fehlende Mappings.",
+            "fix_suggestion": "Eindeutigen Platzhalter wie 'UNMAPPED' verwenden oder Monitoring/Reporting für unmapped Fälle ergänzen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Fehlende Indizes auf Join-Spalten beeinträchtigen Performance bei größeren Datenmengen.",
+            "fix_suggestion": "Index auf PRODUCTS_RAW.SOURCE_CATEGORY_CODE und CATEGORY_MAPPING.SOURCE_CATEGORY_CODE anlegen; Ausführungsplan prüfen."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in der vorliegenden Form nicht funktionsfähig. Korrigiere den Spaltennamen (PRODUCT_ID) und den Join-Key (SOURCE_CATEGORY_CODE auf SOURCE_CATEGORY_CODE). Sichere die maximale Länge von TARGET_CATEGORY gegenüber VARCHAR(20) ab oder erweitere die Zielspalte. Stelle Eindeutigkeit und Indizes auf den Join-Spalten sicher. Danach ist der Prozess fachlich korrekt und performant betreibbar, ohne das gewünschte Endergebnis zu verändern.",
+    "_source_file": "case6.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 178.443,
+    "_response_char_count": 5492
+}

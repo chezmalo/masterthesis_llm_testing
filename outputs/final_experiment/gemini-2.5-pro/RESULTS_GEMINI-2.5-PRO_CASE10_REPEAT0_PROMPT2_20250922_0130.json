@@ -1,0 +1,73 @@
+{
+    "transformation_understanding": "Der Prozess berechnet Schadenrückstellungen. Für jeden Schaden wird der gemeldete Betrag um den bereits gezahlten Betrag reduziert. Dieses Ergebnis wird nach unten durch Null und nach oben durch das Deckungslimit der Police begrenzt. Abschließend wird eine spartenabhängige Obergrenze (Reserve Cap) angewendet. Die berechneten Werte werden in die Zieltabelle CLAIM_RESERVES geladen.",
+    "data_lineage": [
+        "CLAIMS.CLAIM_ID -> CLAIM_RESERVES.CLAIM_ID",
+        "CLAIMS.REPORTED_AMT, CLAIMS.PAID_AMT, CLAIMS.COVER_LIMIT_AMT, LOB_RESERVE_CAP.MAX_RESERVE_AMT -> CLAIM_RESERVES.CALC_RESERVE_AMT"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Join der Tabellen CLAIMS und LOB_RESERVE_CAP über die Sparte (Line of Business).",
+            "formula": "FROM CLAIMS c LEFT JOIN LOB_RESERVE_CAP cap ON cap.LINE_BUSINESS = c.LINE_OF_BUSINESS",
+            "improvement": null
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung des ausstehenden Schadenbetrags.",
+            "formula": "c.REPORTED_AMT - c.PAID_AMT",
+            "improvement": "Fehlende Beträge sollten mit COALESCE behandelt werden, z.B. COALESCE(c.PAID_AMT, 0)."
+        },
+        {
+            "step_count": 3,
+            "description": "Anwendung des Deckungslimits der Police.",
+            "formula": "MIN(c.COVER_LIMIT_AMT, ...)",
+            "improvement": null
+        },
+        {
+            "step_count": 4,
+            "description": "Sicherstellung einer nicht-negativen Rückstellung.",
+            "formula": "GREATEST(0, ...)",
+            "improvement": null
+        },
+        {
+            "step_count": 5,
+            "description": "Anwendung der spartenabhängigen Rückstellungsobergrenze.",
+            "formula": "MIN(cap.MAX_RESERVE_AMT, ...)",
+            "improvement": "Zur Vermeidung von NULL-Ergebnissen durch den LEFT JOIN sollte COALESCE verwendet werden, z.B. COALESCE(cap.MAX_RESERVE_AMT, 99999999999999.99)."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist nicht valide. Sie enthält Syntaxfehler durch Tippfehler in Spaltennamen ('CLM_ID' statt 'CLAIM_ID'; 'LINE_BUSINESS' statt 'LINE_OF_BUSINESS'). Zudem führt die arithmetische Operation auf dem CLOB-Datentyp 'REPORTED_AMT' zu einem fatalen Typenkonflikt.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Tippfehler im Spaltennamen 'CLM_ID' in der SELECT-Klausel.",
+            "fix_suggestion": "Korrigieren des Spaltennamens zu 'CLAIM_ID'."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Tippfehler im Spaltennamen 'LINE_BUSINESS' in der JOIN-Bedingung.",
+            "fix_suggestion": "Korrigieren des Spaltennamens zu 'LINE_OF_BUSINESS'."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Arithmetische Subtraktion wird auf dem Attribut 'REPORTED_AMT' vom Typ CLOB ausgeführt.",
+            "fix_suggestion": "Das Attribut 'REPORTED_AMT' muss explizit in einen numerischen Datentyp (z.B. DECIMAL) konvertiert werden. Der Quelldatentyp sollte grundsätzlich korrigiert werden."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Der LEFT JOIN kann zu NULL-Werten für 'MAX_RESERVE_AMT' führen, falls eine Sparte nicht in 'LOB_RESERVE_CAP' existiert. Dies resultiert in einer NULL-Rückstellung.",
+            "fix_suggestion": "Verwendung von COALESCE, um einen Standardwert für nicht gematchte Sparten zu setzen, oder Wechsel zu einem INNER JOIN, falls eine Obergrenze obligatorisch ist."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Inkonsistente Datentypen für monetäre Beträge. 'MAX_RESERVE_AMT' (DECIMAL(8,2)) hat eine geringere Präzision als andere Betragsfelder (DECIMAL(16,2)).",
+            "fix_suggestion": "Angleichung der DECIMAL-Präzisionen über alle relevanten Betragsfelder zur Wahrung der Datenintegrität und Vermeidung von Überlauffehlern."
+        }
+    ],
+    "final_feedback": "Die fachliche Logik zur Berechnung der Rückstellungen ist nachvollziehbar. Die technische Umsetzung ist jedoch aufgrund mehrerer kritischer Fehler (Tippfehler in Spaltennamen, inkompatible Datentypen) nicht lauffähig. Weitere Risiken wie die Handhabung von NULL-Werten durch den LEFT JOIN und inkonsistente Datentypen müssen vor der Produktivsetzung adressiert werden.",
+    "_source_file": "case10.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 1984.102,
+    "_response_char_count": 4109
+}

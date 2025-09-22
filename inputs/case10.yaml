@@ -6,17 +6,17 @@ input_tables:
       - {name: POLICY_ID, type: INT, nullable: false}
       - {name: LINE_OF_BUSINESS, type: VARCHAR(50), nullable: false}
       - {name: REPORTED_AMT, type: CLOB, nullable: true}
-      - {name: PAID_AMT, type: DECIMAL(16,2), nullable: true}
-      - {name: DEDUCTIBLE_AMT, type: DECIMAL(16,2), nullable: true}
-      - {name: COVER_LIMIT_AMT, type: DECIMAL(16,2), nullable: true}
+      - {name: PAID_AMT, type: "DECIMAL(16,2)", nullable: true}
+      - {name: DEDUCTIBLE_AMT, type: "DECIMAL(16,2)", nullable: true}
+      - {name: COVER_LIMIT_AMT, type: "DECIMAL(16,2)", nullable: true}
   LOB_RESERVE_CAP:
     columns:
       - {name: LINE_OF_BUSINESS, type: VARCHAR(50), nullable: false}
-      - {name: MAX_RESERVE_AMT, type: DECIMAL(8,2), nullable: false}
+      - {name: MAX_RESERVE_AMT, type: "DECIMAL(8,2)", nullable: false}
   CLAIM_RESERVES:
     columns:
       - {name: CLAIM_ID, type: INT, nullable: false}
-      - {name: CALC_RESERVE_AMT, type: DECIMAL(16,2), nullable: true}
+      - {name: CALC_RESERVE_AMT, type: "DECIMAL(16,2)", nullable: true}
 sql_script: |
   INSERT INTO CLAIM_RESERVES (CLAIM_ID, CALC_RESERVE_AMT)
   SELECT

@@ -3,7 +3,7 @@ input_tables:
   PRODUCTS_RAW:
     columns:
       - {name: PRODUCT_ID, type: INT, nullable: false}
-      - {name: SOURCE_CATEGORY_CODE, type: ENUM('A','B','C','D'), nullable: true} 
+      - {name: SOURCE_CATEGORY_CODE, type: 'ENUM("A","B","C","D")', nullable: true}
   CATEGORY_MAPPING:
     columns:
       - {name: SOURCE_CATEGORY_CODE, type: VARCHAR(50), nullable: true}

@@ -7,4 +7,4 @@ python -m pip install --upgrade pip
 # installs dependencies
 pip install -e .
 clear
-python run_experiments.py --model "gpt" --input "inputs" --output "outputs" --limit 1
+python run_experiments.py --model "google,claude,gpt" --input "inputs" --output "outputs" --limit 1

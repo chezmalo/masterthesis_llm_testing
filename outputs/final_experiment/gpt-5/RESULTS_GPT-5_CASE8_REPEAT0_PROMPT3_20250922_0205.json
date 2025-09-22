@@ -1,0 +1,84 @@
+{
+    "transformation_understanding": "Aus SALES_MONTHLY werden pro Kunde und (YEAR, MONTH) gleitende 3‑Monats‑Summen berechnet und in SALES_ROLLING3M geschrieben. Die Berechnung nutzt ein Window SUM mit PARTITION BY CUSTOMER_ID und einer zeitlichen Sortierung, anschließend Rundung auf 2 Nachkommastellen.",
+    "data_lineage": [
+        "SALES_MONTHLY.CUSTOMER_ID -> SALES_ROLLING3M.CUSTOMER_ID",
+        "SALES_MONTHLY.YEAR -> SALES_ROLLING3M.YEAR",
+        "SALES_MONTHLY.MONTH -> SALES_ROLLING3M.MONTH",
+        "SALES_MONTHLY.AMOUNT_EUR -> Window-SUM -> ROUND(2) -> SALES_ROLLING3M.ROLLING_3M_SUM_EUR"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Quelle lesen und Kunden-/Zeitdimension übernehmen",
+            "formula": "SELECT CUSTOMER_ID, YEAR, MONTH, AMOUNT_EUR FROM SALES_MONTHLY",
+            "improvement": "Validierung sicherstellen: MONTH zwischen 1 und 12; eindeutige Zeilen pro (CUSTOMER_ID, YEAR, MONTH) erzwingen."
+        },
+        {
+            "step_count": 2,
+            "description": "Gleitende Summe über 3 Monate je Kunde berechnen",
+            "formula": "SUM(AMNT_EUR) OVER (PARTITION BY CUSTOMER_ID ORDER BY MONTH, YEAR ROWS BETWEEN 3 PRECEDING AND CURRENT ROW)",
+            "improvement": "SUM(COALESCE(CAST(AMOUNT_EUR AS DECIMAL(18,2)),0)) OVER (PARTITION BY CUSTOMER_ID ORDER BY YEAR, MONTH ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)"
+        },
+        {
+            "step_count": 3,
+            "description": "Ergebnis runden/kasten",
+            "formula": "ROUND(<window_sum>, 2)",
+            "improvement": "CAST(ROUND(<window_sum>, 2) AS DECIMAL(18,2))"
+        },
+        {
+            "step_count": 4,
+            "description": "Ziel laden",
+            "formula": "INSERT INTO SALES_ROLLING3M (CUSTOMER_ID, YEAR, MONTH, ROLLING_3M_SUM_EUR) SELECT ...",
+            "improvement": "Vor dem Insert Ziel bereinigen oder MERGE/UPSERT verwenden, Primär-/Unique-Key auf (CUSTOMER_ID, YEAR, MONTH) setzen."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die aktuelle Berechnung ist fachlich/technisch fehlerhaft: (1) Spaltenname AMNT_EUR existiert nicht (richtig: AMOUNT_EUR). (2) ORDER BY MONTH, YEAR sortiert Monate über Jahre hinweg falsch (z.B. alle Januare zusammen); korrekt ist YEAR, MONTH oder ein Datumskey. (3) ROWS BETWEEN 3 PRECEDING AND CURRENT ROW summiert 4 statt 3 Monate; für 3M muss es 2 PRECEDING sein. (4) SUM über nur NULL-Werte liefert NULL; Zielspalte ist NOT NULL, was zu Insert-Fehlern führen kann. (5) Typ-/Präzisionsrisiko: Quelle MONEY, Ziel DECIMAL(8,2); mögliche Überläufe/implizite Casts.",
+    "error_risks": [
+        {
+            "severity": "high",
+            "source_of_risk": "Falscher Quellspaltenname: AMNT_EUR statt AMOUNT_EUR.",
+            "fix_suggestion": "Spaltenreferenz in der Window-Funktion auf AMOUNT_EUR korrigieren."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falsche zeitliche Sortierung: ORDER BY MONTH, YEAR führt zu nicht-chronologischen Summen über Jahre.",
+            "fix_suggestion": "ORDER BY YEAR, MONTH verwenden oder über einen Datumswert (z.B. DATEFROMPARTS(YEAR,MONTH,1)) sortieren."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Fensterrahmen 3 PRECEDING summiert 4 Monate.",
+            "fix_suggestion": "ROWS BETWEEN 2 PRECEDING AND CURRENT ROW verwenden für echte 3‑Monats‑Summe."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Verarbeitung: SUM nur aus NULL-Werten ergibt NULL; Zielspalte ist NOT NULL.",
+            "fix_suggestion": "COALESCE(AMOUNT_EUR,0) in der SUM verwenden oder Zielspalte nullable machen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Typ-/Präzisionsmismatch: MONEY -> DECIMAL(8,2) kann Überläufe/Abschneidungen verursachen.",
+            "fix_suggestion": "Quelle in DECIMAL(18,2) casten und Zielspalte auf DECIMAL(18,2) anheben."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Mehrere Zeilen pro (CUSTOMER_ID, YEAR, MONTH) führen zu doppelten Beiträge im Rolling Window.",
+            "fix_suggestion": "Eindeutigkeit in SALES_MONTHLY sicherstellen (Unique-Index) oder voraggregieren."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Nicht-deterministisches Ordering bei Duplikaten gleicher YEAR/MONTH.",
+            "fix_suggestion": "Zusätzliche Tie-Breaker im ORDER BY aufnehmen (z.B. Tagesstempel/Load_TS) oder Duplikate eliminieren."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Performance: Window-Funktion ohne passenden Index.",
+            "fix_suggestion": "Index auf SALES_MONTHLY(CUSTOMER_ID, YEAR, MONTH) INCLUDE(AMOUNT_EUR) anlegen; Ziel: Unique-Index auf (CUSTOMER_ID, YEAR, MONTH)."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist aktuell nicht funktionsfähig. Hauptgründe: falscher Spaltenname, falsche Sortierung und falscher Fensterrahmen. Korrigierte Kernlogik: ROUND(SUM(COALESCE(CAST(AMOUNT_EUR AS DECIMAL(18,2)),0)) OVER (PARTITION BY CUSTOMER_ID ORDER BY YEAR, MONTH ROWS BETWEEN 2 PRECEDING AND CURRENT ROW), 2). Zusätzlich Datentyp (mind. DECIMAL(18,2)), Eindeutigkeit und Indizes anpassen. Danach ist der Prozess fachlich und technisch konsistent und performant.",
+    "_source_file": "case8.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 1371.186,
+    "_response_char_count": 5035
+}

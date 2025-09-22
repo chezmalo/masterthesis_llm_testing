@@ -1,0 +1,82 @@
+{
+    "transformation_understanding": "Es werden Kundentelefonnummern aus CONTACTS_RAW in CONTACTS_CLEAN geladen. CUSTOMER_ID wird 1:1 übernommen (im SQL fälschlich als CUST_ID referenziert). PHONE_RAW wird über RegEx auf Ziffern reduziert und per CASE in ein E.164-ähnliches Format gebracht: führendes 00 -> +, führende 0 -> +49, sonst unverändert. Ergebnis landet in PHONE_E164 (CHAR(16)).",
+    "data_lineage": [
+        "CONTACTS_RAW.CUSTOMER_ID -> CONTACTS_CLEAN.CUSTOMER_ID",
+        "CONTACTS_RAW.PHONE_RAW -> CONTACTS_CLEAN.PHONE_E164"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Quelle lesen und Zielspalten mappen",
+            "formula": "INSERT INTO CONTACTS_CLEAN (CUSTOMER_ID, PHONE_E164) SELECT CUST_ID, <CASE_EXPR> FROM CONTACTS_RAW",
+            "improvement": "CUST_ID zu CUSTOMER_ID korrigieren; für PHONE_RAW explizite Typkonvertierung auf VARCHAR."
+        },
+        {
+            "step_count": 2,
+            "description": "Telefonnummer bereinigen (nur Ziffern extrahieren)",
+            "formula": "digits := REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '')",
+            "improvement": "RegEx-Ergebnis einmalig in CTE/Subquery berechnen, nicht mehrfach; für '+'-Erkennung zusätzlich cleaned_plus := REGEXP_REPLACE(PHONE_RAW, '[^0-9+]', '')."
+        },
+        {
+            "step_count": 3,
+            "description": "E.164-Normalisierung per CASE",
+            "formula": "CASE WHEN LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''),1) = '+' THEN REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '') WHEN LEFT(...,2)='00' THEN '+'||SUBSTRING(...,3) WHEN LEFT(...,1)='0' THEN '+49'||SUBSTRING(...,2) ELSE REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '') END",
+            "improvement": "Pluszeichen nicht vorher entfernen: CASE WHEN REGEXP_LIKE(PHONE_RAW,'^\\s*\\+') THEN '+'||REGEXP_REPLACE(PHONE_RAW,'[^0-9]','') WHEN digits LIKE '00%' THEN '+'||SUBSTRING(digits,3) WHEN digits LIKE '0%' THEN '+49'||SUBSTRING(digits,2) ELSE '+'||digits END; zusätzlich Längenprüfung (1–15 Ziffern) und Ablegen fehlerhafter Datensätze."
+        },
+        {
+            "step_count": 4,
+            "description": "In Zieltabelle schreiben",
+            "formula": "INSERT INTO CONTACTS_CLEAN(CUSTOMER_ID, PHONE_E164) SELECT CUSTOMER_ID, phone_e164 FROM <CTE>",
+            "improvement": "PHONE_E164 als VARCHAR(16) statt CHAR(16) speichern, um Padding zu vermeiden; Index/Constraint für E.164-Format optional."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Der SQL-Insert ist nicht lauffähig, da CUST_ID in CONTACTS_RAW nicht existiert. Zudem ist die '+'-Bedingung logisch unerreichbar, weil das Plus bereits durch REGEXP_REPLACE entfernt wurde; dadurch entstehen Werte ohne führendes '+', was E.164 verletzt. PHONE_RAW ist als RAW deklariert und kann je nach DB mit REGEXP_REPLACE nicht verarbeitbar sein. Es fehlen Längenvalidierung (max. 15 Ziffern) und Behandlung leerer/ungültiger Nummern.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falscher Spaltenname: SELECT CUST_ID aus CONTACTS_RAW (existiert nicht).",
+            "fix_suggestion": "Auf SELECT CUSTOMER_ID korrigieren oder CUST_ID korrekt aliassen: SELECT CUSTOMER_ID AS CUST_ID."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Unlogische '+'-Prüfung: Vorherige RegEx entfernt '+', CASE-Zweig wird nie wahr; resultiert in Nummern ohne führendes '+'.",
+            "fix_suggestion": "Pluszeichen beim Prüfen erhalten (z. B. REGEXP_REPLACE(PHONE_RAW,'[^0-9+]','')) oder direkt auf das Original mit REGEXP_LIKE(PHONE_RAW,'^\\s*\\+') prüfen; anschließend '+'||digits zurückgeben."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Datentyp PHONE_RAW = RAW; String-/RegEx-Funktionen sind darauf je nach DB nicht anwendbar.",
+            "fix_suggestion": "PHONE_RAW als VARCHAR/TEXT modellieren oder vor Nutzung CAST/CONVERT auf VARCHAR mit definierter Kodierung durchführen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "E.164 wird nicht erzwungen (fehlendes '+' im ELSE-Zweig, keine formale Prüfung).",
+            "fix_suggestion": "Immer '+' voranstellen und Ziffernlänge 1–15 validieren; ungültige Datensätze abweisen oder in Error-Tabelle schreiben."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Hartcodierte Landeslogik: '0' -> +49. Für internationale Daten fehleranfällig.",
+            "fix_suggestion": "Default-Ländercode parametrisieren (z. B. Konfiguration pro Kunde/Markt) oder aus Adress-/Länderattributen ableiten."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Leere oder zu lange Nummern nach Bereinigung (Extensions, Sonderzeichen) führen zu ungültigen/NULL-Werten.",
+            "fix_suggestion": "Extensions vor Bereinigung abtrennen; nach RegEx Länge prüfen und leere/zu lange Werte filtern oder separat protokollieren."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Mehrfache REGEXP_REPLACE-Aufrufe pro Zeile verursachen unnötige CPU-Kosten.",
+            "fix_suggestion": "Sanitizing einmalig in CTE/Derived Column berechnen und im CASE wiederverwenden."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Zielspalte CHAR(16) führt zu Space-Padding; kann Vergleiche/Indizes beeinträchtigen.",
+            "fix_suggestion": "VARCHAR(16) für PHONE_E164 verwenden; optional CHECK-Constraint für E.164-Pattern '^\\+[0-9]{1,15}$'."
+        }
+    ],
+    "final_feedback": "Der ETL ist in der vorliegenden Form nicht funktionsfähig (falscher Spaltenname) und erzeugt selbst nach Ausführung kein konsistentes E.164-Format. Korrigiere die Spaltenreferenz, passe die CASE-Logik an (Pluszeichen erhalten/erzwingen), konvertiere PHONE_RAW zu VARCHAR, validiere die Ziffernlänge und behandle leere/ungültige Werte. Für Performance die RegEx-Bereinigung einmalig berechnen. Optional PHONE_E164 als VARCHAR(16) speichern und die +49-Annahme parametrisierbar machen. Danach ist der Prozess robust, ohne das fachliche Ziel zu ändern.",
+    "_source_file": "case3.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 129.872,
+    "_response_char_count": 4576
+}

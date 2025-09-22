@@ -1,0 +1,64 @@
+{
+    "transformation_understanding": "Der ETL-Prozess aggregiert monatliche Umsatzdaten aus der Tabelle 'SALES_MONTHLY', um für jeden Kunden einen gleitenden 3-Monats-Durchschnitt zu berechnen. Das Ergebnis wird in die Zieltabelle 'SALES_ROLLING3M' geschrieben. Die Berechnung erfolgt mittels einer SQL-Fensterfunktion, die die Daten pro Kunde partitioniert und über einen definierten Zeitrahmen summiert.",
+    "data_lineage": [
+        "SALES_MONTHLY.CUSTOMER_ID -> SALES_ROLLING3M.CUSTOMER_ID",
+        "SALES_MONTHLY.YEAR -> SALES_ROLLING3M.YEAR",
+        "SALES_MONTHLY.MONTH -> SALES_ROLLING3M.MONTH",
+        "SALES_MONTHLY.AMOUNT_EUR -> SALES_ROLLING3M.ROLLING_3M_SUM_EUR"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Partitionierung der Daten nach Kunde, um die Berechnungen für jeden Kunden separat durchzuführen.",
+            "formula": "PARTITION BY CUSTOMER_ID",
+            "improvement": "Ein Index auf der Spalte 'CUSTOMER_ID' in der Quelltabelle kann die Performance der Partitionierung verbessern."
+        },
+        {
+            "step_count": 2,
+            "description": "Sortierung der partitionierten Daten, um eine chronologische Reihenfolge für die gleitende Berechnung herzustellen.",
+            "formula": "ORDER BY MONTH, YEAR",
+            "improvement": "Ein zusammengesetzter Index auf (CUSTOMER_ID, YEAR, MONTH) in der Quelltabelle beschleunigt die Sortierung innerhalb der Partitionen erheblich."
+        },
+        {
+            "step_count": 3,
+            "description": "Berechnung der Summe über ein Fenster von vier statt drei Monaten (aktuelle Zeile plus drei vorhergehende).",
+            "formula": "SUM(AMNT_EUR) OVER (... ROWS BETWEEN 3 PRECEDING AND CURRENT ROW)",
+            "improvement": null
+        },
+        {
+            "step_count": 4,
+            "description": "Rundung des Summen-Ergebnisses auf zwei Dezimalstellen.",
+            "formula": "ROUND(..., 2)",
+            "improvement": null
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist aufgrund mehrerer Fehler nicht funktionsfähig und liefert ein logisch falsches Ergebnis. Es liegt ein Syntaxfehler durch einen Tippfehler im Spaltennamen ('AMNT_EUR' statt 'AMOUNT_EUR') vor. Die Sortierreihenfolge ('ORDER BY MONTH, YEAR') ist logisch falsch und führt zu einer fehlerhaften chronologischen Anordnung. Das Berechnungsfenster ('ROWS BETWEEN 3 PRECEDING AND CURRENT ROW') umfasst vier statt der beabsichtigten drei Monate. Zudem fehlt eine Behandlung von NULL-Werten, was bei einer NOT-NULL-Spalte im Ziel zu Laufzeitfehlern führen kann.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Im SQL-Code wird der Spaltenname 'AMNT_EUR' verwendet, in der Quelltabelle lautet dieser jedoch 'AMOUNT_EUR'. Dies führt zu einem Syntaxfehler und zum sofortigen Abbruch der Abfrage.",
+            "fix_suggestion": "Korrigieren Sie den Spaltennamen im SUM-Aggregat zu 'AMOUNT_EUR'."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Die Sortierung 'ORDER BY MONTH, YEAR' ist logisch fehlerhaft. Sie sortiert alle Januar-Werte aller Jahre zusammen, dann alle Februar-Werte etc. Dies zerstört die chronologische Reihenfolge und führt zu einer komplett falschen Berechnung des gleitenden Wertes.",
+            "fix_suggestion": "Ändern Sie die Sortierung zu 'ORDER BY YEAR, MONTH', um eine korrekte chronologische Sequenz sicherzustellen."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Das Fenster 'ROWS BETWEEN 3 PRECEDING AND CURRENT ROW' summiert den aktuellen Monat und die drei vorhergehenden Monate, also insgesamt vier Monate. Der Spaltenname 'ROLLING_3M_SUM_EUR' suggeriert jedoch eine 3-Monats-Summe.",
+            "fix_suggestion": "Passen Sie das Fenster an die Anforderung an: 'ROWS BETWEEN 2 PRECEDING AND CURRENT ROW' für eine 3-Monats-Summe (inklusive des aktuellen Monats)."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Die Quellspalte 'AMOUNT_EUR' ist 'nullable'. Wenn alle Werte in einem Berechnungsfenster NULL sind, liefert SUM() ebenfalls NULL. Der Versuch, NULL in die als 'NOT NULL' definierte Zielspalte 'ROLLING_3M_SUM_EUR' einzufügen, verursacht einen Laufzeitfehler.",
+            "fix_suggestion": "Verwenden Sie 'COALESCE(SUM(AMOUNT_EUR) OVER (...), 0)' um sicherzustellen, dass anstelle von NULL der Wert 0 eingefügt wird."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner aktuellen Form nicht funktionsfähig und logisch fehlerhaft. Er enthält kritische Syntax- und Logikfehler, die zu einem Abbruch der Ausführung bzw. zu falschen Ergebnissen führen. Nach Behebung der identifizierten Probleme, insbesondere der Sortierreihenfolge und des Berechnungsfensters, kann der Prozess die gewünschte Funktionalität korrekt abbilden.",
+    "_source_file": "case8.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 2865.989,
+    "_response_char_count": 4686
+}

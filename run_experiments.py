@@ -19,6 +19,7 @@ def run(
     logfile: bool = typer.Option(True, help="Soll ein Logfile geschrieben werden? (default: True)"),
     concurrency: int = typer.Option(8, help="Max. gleichzeitige LLM-Requests"),
     repeat: int = typer.Option(1, help="Wie oft soll jeder Fall ausgeführt werden? (Testen der Konsistenz) (default: 1)"),
+    stream: bool = typer.Option(False, help="Nutze Streaming für LLM-Antworten (default: False)"),  
 ):
     """
     Starte die Verarbeitung der Testfälle mit dem angegebenen Modell.
@@ -33,9 +34,8 @@ def run(
         {"system_prompt": SYSTEM_PROMPT, "user_prompt_builder": USER_PROMPT_TEMPLATE},
         {"system_prompt": SYSTEM_PROMPT_ROBUST, "user_prompt_builder": USER_PROMPT_TEMPLATE_ROBUST},
     ]
-
     asyncio.run(_run_async(
-        ping, model_list, input, limit, output, loglevel, logfile, concurrency, repeat, prompt_configs
+        ping, model_list, input, limit, output, loglevel, logfile, concurrency, repeat, prompt_configs, stream  
     ))
 
 if __name__ == "__main__":

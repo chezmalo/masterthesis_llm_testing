@@ -1,0 +1,93 @@
+{
+    "transformation_understanding": "Je Claim wird eine Reserve berechnet: Basis = max(0, min(COVER_LIMIT_AMT, REPORTED_AMT − PAID_AMT)); anschließend wird diese Basis durch den LOB-spezifischen Cap (MAX_RESERVE_AMT) begrenzt. Ergebnis wird mit CLAIM_ID in CLAIM_RESERVES geladen.",
+    "data_lineage": [
+        "CLAIMS.CLAIM_ID -> CLAIM_RESERVES.CLAIM_ID",
+        "CLAIMS.REPORTED_AMT, CLAIMS.PAID_AMT -> (REPORTED_AMT - PAID_AMT)",
+        "CLAIMS.COVER_LIMIT_AMT -> Begrenzung der Basisreserve",
+        "LOB_RESERVE_CAP.LINE_OF_BUSINESS = CLAIMS.LINE_OF_BUSINESS -> Join zur Cap-Ermittlung",
+        "LOB_RESERVE_CAP.MAX_RESERVE_AMT -> Deckelung der Reserve",
+        "Berechnetes Resultat -> CLAIM_RESERVES.CALC_RESERVE_AMT"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Mapping der Claim-ID für den Zieldatensatz",
+            "formula": "c.CLAIM_ID -> CLAIM_RESERVES.CLAIM_ID",
+            "improvement": "Spaltenname im SELECT als c.CLAIM_ID referenzieren (statt CLM_ID)."
+        },
+        {
+            "step_count": 2,
+            "description": "Join CLAIMS zu LOB_RESERVE_CAP über Sparte",
+            "formula": "LEFT JOIN LOB_RESERVE_CAP cap ON cap.LINE_OF_BUSINESS = c.LINE_OF_BUSINESS",
+            "improvement": "Korrekte Spaltennamen nutzen; Indexe auf beiden LINE_OF_BUSINESS-Spalten."
+        },
+        {
+            "step_count": 3,
+            "description": "Ermittlung des gemeldet-minus-gezahlt Betrags",
+            "formula": "CAST(c.REPORTED_AMT AS DECIMAL(16,2)) - COALESCE(c.PAID_AMT, 0)",
+            "improvement": "Explizites CAST von CLOB auf DECIMAL; Eingabewerte vor CAST validieren/bereinigen."
+        },
+        {
+            "step_count": 4,
+            "description": "Berechnung Basisreserve (nicht negativ, max. bis Deckungslimit)",
+            "formula": "GREATEST(0, LEAST(c.COVER_LIMIT_AMT, (CAST(c.REPORTED_AMT AS DECIMAL(16,2)) - COALESCE(c.PAID_AMT,0))))",
+            "improvement": "Optional: COALESCE auf COVER_LIMIT_AMT, falls NULL logisch 0 sein soll."
+        },
+        {
+            "step_count": 5,
+            "description": "Anwendung des LOB-Caps auf die Basisreserve",
+            "formula": "LEAST(cap.MAX_RESERVE_AMT, Basisreserve)",
+            "improvement": "LEAST statt MIN verwenden; Typangleichung auf DECIMAL(16,2) sicherstellen."
+        },
+        {
+            "step_count": 6,
+            "description": "Insert in Zieltabelle",
+            "formula": "INSERT INTO CLAIM_RESERVES (CLAIM_ID, CALC_RESERVE_AMT) SELECT ...",
+            "improvement": "Idempotenz via MERGE/UPSERT oder WHERE NOT EXISTS sicherstellen; Unique-Index auf CLAIM_RESERVES.CLAIM_ID."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die aktuelle SQL ist nicht ausführbar: 1) Falsche Spaltennamen (CLM_ID, cap.LINE_BUSINESS). 2) MIN wird als 2-Argument-Funktion benutzt; dies ist ein Aggregat und erfordert GROUP BY bzw. LEAST. 3) Arithmetik mit CLOB (REPORTED_AMT) verursacht Typfehler; CAST nötig. 4) NULL-Propagation in GREATEST/LEAST kann zu NULL-Reserven führen. Korrigierte Kernformel je Claim: LEAST(cap.MAX_RESERVE_AMT, GREATEST(0, LEAST(c.COVER_LIMIT_AMT, (CAST(c.REPORTED_AMT AS DECIMAL(16,2)) - COALESCE(c.PAID_AMT,0))))) mit korrektem Join auf LINE_OF_BUSINESS.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falsche Spaltenreferenzen: CLM_ID existiert nicht (CLAIMS.CLAIM_ID), cap.LINE_BUSINESS existiert nicht (LOB_RESERVE_CAP.LINE_OF_BUSINESS).",
+            "fix_suggestion": "SELECT c.CLAIM_ID; JOIN ON cap.LINE_OF_BUSINESS = c.LINE_OF_BUSINESS."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "MIN als 2-Argument-Funktion verwendet; kollidiert mit Aggregatsemantik und fehlt GROUP BY.",
+            "fix_suggestion": "MIN(...) durch LEAST(...) ersetzen; auch inneres MIN(...) zu LEAST(...)."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Arithmetik mit CLOB (REPORTED_AMT - PAID_AMT) führt zu Typfehlern bzw. teuren impliziten Konvertierungen.",
+            "fix_suggestion": "REPORTED_AMT vorab validieren/bereinigen und explizit CAST(c.REPORTED_AMT AS DECIMAL(16,2)) verwenden."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Propagation: LEAST/GREATEST liefern NULL, wenn ein Operand NULL ist (z. B. kein Cap, NULL in Beträgen).",
+            "fix_suggestion": "Geschäftsregel klären; falls nicht gewünscht: COALESCE in den Operanden bzw. CASE für fehlenden Cap anwenden."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Join-Kardinalität: Mehrere Cap-Zeilen pro LINE_OF_BUSINESS erzeugen Duplikate und Mehrfachinserts.",
+            "fix_suggestion": "Eindeutigkeit in LOB_RESERVE_CAP sicherstellen (UNIQUE auf LINE_OF_BUSINESS) oder per ROW_NUMBER() genau eine Zeile wählen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Nicht-idempotentes INSERT kann bei Wiederholungen Duplikate in CLAIM_RESERVES erzeugen.",
+            "fix_suggestion": "MERGE/UPSERT verwenden oder WHERE NOT EXISTS; UNIQUE/PK auf CLAIM_RESERVES.CLAIM_ID."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Performance: Join ohne passende Indexe; teure CAST-Operationen auf CLOB in der Abfrage.",
+            "fix_suggestion": "Indexe auf CLAIMS.LINE_OF_BUSINESS und LOB_RESERVE_CAP.LINE_OF_BUSINESS; REPORTED_AMT als NUMERIC statt CLOB speichern."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist aktuell nicht funktionsfähig (kritische Syntax-/Typfehler). Nach Korrektur der Spaltennamen, Ersatz von MIN durch LEAST, explizitem CAST von REPORTED_AMT sowie Prüfung von NULL- und Kardinalitätsfällen ist die Berechnung fachlich konsistent: Reserve = min(LOB-Cap, max(0, min(Cover-Limit, Reported − Paid))). Für Stabilität und Performance zusätzlich Idempotenz (MERGE/UPSERT), Eindeutigkeit in LOB_RESERVE_CAP sowie geeignete Indexe umsetzen.",
+    "_source_file": "case10.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 142.448,
+    "_response_char_count": 6432
+}

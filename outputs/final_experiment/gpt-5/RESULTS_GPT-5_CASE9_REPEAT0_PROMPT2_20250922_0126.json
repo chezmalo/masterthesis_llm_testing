@@ -1,0 +1,81 @@
+{
+    "transformation_understanding": "Ziel ist ein SCD‑2‑ähnlicher Prozess für Kundenadressen: 1) Aktuelle Dimensionseinträge bei Attributänderung „abdaten“ (Gültigkeitsende setzen) und 2) neuen aktuellen Datensatz aus STG einfügen (VALID_FROM aus CHANGE_TS, IS_CURRENT = TRUE).",
+    "data_lineage": [
+        "DIM_CUSTOMER_ADDRESS.CUSTOMER_ID <- CUSTOMER_ADDRESS_STG.CUSTOMER_ID",
+        "DIM_CUSTOMER_ADDRESS.STREET <- CUSTOMER_ADDRESS_STG.STREET",
+        "DIM_CUSTOMER_ADDRESS.CITY <- CUSTOMER_ADDRESS_STG.CITY",
+        "DIM_CUSTOMER_ADDRESS.POSTAL_CODE <- CUSTOMER_ADDRESS_STG.POSTAL_CODE",
+        "DIM_CUSTOMER_ADDRESS.COUNTRY <- CUSTOMER_ADDRESS_STG.COUNTRY",
+        "DIM_CUSTOMER_ADDRESS.VALID_FROM <- CUSTOMER_ADDRESS_STG.CHANGE_TS",
+        "DIM_CUSTOMER_ADDRESS.VALID_TO <- (aus Update-Schritt, sollte auf Endzeit des alten Datensatzes gesetzt werden)",
+        "DIM_CUSTOMER_ADDRESS.IS_CURRENT <- (Update: FALSE für Alt-Datensatz; Insert: TRUE für Neu-Datensatz)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Aktualisieren der aktuellen DIM-Zeilen bei Änderungen.",
+            "formula": "UPDATE DIM_CUSTOMER_ADDRESS d\nSET VALID_TO = NULL\nFROM CUSTOMER_ADDRESS_STG s\nWHERE d.CUSTOMER_ID = s.CUSTOMER_ID\n  AND d.IS_CURRENT = TRUE\n  AND (\n    d.STREET      <> s.STREET OR\n    d.CITY        <> s.CITY OR\n    d.POSTCODE <> s.POSTAL_CODE OR \n    d.COUNTRY     = s.COUNTRY  \n  );",
+            "improvement": "Korrekt: UPDATE DIM_CUSTOMER_ADDRESS d SET VALID_TO = s.CHANGE_TS, IS_CURRENT = FALSE FROM CUSTOMER_ADDRESS_STG s WHERE d.CUSTOMER_ID = s.CUSTOMER_ID AND d.IS_CURRENT = TRUE AND (d.STREET IS DISTINCT FROM s.STREET OR d.CITY IS DISTINCT FROM s.CITY OR d.POSTAL_CODE IS DISTINCT FROM s.POSTAL_CODE OR d.COUNTRY IS DISTINCT FROM s.COUNTRY);"
+        },
+        {
+            "step_count": 2,
+            "description": "Einfügen neuer aktueller DIM-Zeilen für neue/aktualisierte Adressen.",
+            "formula": "INSERT INTO DIM_CUSTOMER_ADDRESS\n  (CUSTOMER_ID, STREET, CITY, POSTAL_CODE, COUNTRY, VALID_FROM, VALID_TO, IS_CURRENT)\nSELECT\n  s.CUSTOMER_ID, s.STREET, s.CITY, s.POSTAL_CODE, s.COUNTRY,\n  s.CHANGE_TS AS VALID_FROM,\n  NULL        AS VALID_TO,\n  TRUE        AS IS_CURRENT\nFROM CUSTOMER_ADDRESS_STG s\nLEFT JOIN DIM_CUSTOMER_ADDRESS d\n  ON d.CUSTOMER_ID = s.CUSTOMER_ID\n AND d.IS_CURRENT = TRUE\nWHERE d.CUSTOMER_ID IS NULL\n   OR d.STREET      <> s.STREET\n   OR d.CITY        <> s.CITY\n   OR d.POSTCODE <> s.POSTAL_CODE\n   OR d.COUNTRY     = s.COUNTRY;",
+            "improvement": "Korrekt: INSERT ... SELECT ... WHERE d.CUSTOMER_ID IS NULL OR (d.STREET IS DISTINCT FROM s.STREET OR d.CITY IS DISTINCT FROM s.CITY OR d.POSTAL_CODE IS DISTINCT FROM s.POSTAL_CODE OR d.COUNTRY IS DISTINCT FROM s.COUNTRY); VALID_TO nicht NULL (z. B. '9999-12-31'), Spaltenname POSTAL_CODE verwenden."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Der Prozess ist in der vorliegenden Form nicht lauffähig: 1) UPDATE-Syntax/Target fehlt und Alias d ist undefiniert; 2) Spaltenname POSTCODE ist falsch (sollte POSTAL_CODE sein); 3) Vergleichslogik COUNTRY verwendet '=' statt '<>', was unnötige Updates/Inserts auslöst; 4) VALID_TO wird auf NULL gesetzt bzw. eingefügt, die Spalte ist jedoch NOT NULL (und DATE); 5) IS_CURRENT des Alt-Datensatzes wird nicht auf FALSE gesetzt; 6) NULL-sichere Vergleiche fehlen (<> scheitert bei NULLs); 7) Zeitlogik von VALID_FROM (TIMESTAMP) und VALID_TO (DATE) ist inkonsistent. Dadurch drohen Constraint-Verletzungen, Duplikate aktueller Zeilen und inkorrekte Historisierung.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "VALID_TO ist NOT NULL (DATE), wird jedoch im UPDATE und INSERT als NULL gesetzt.",
+            "fix_suggestion": "VALID_TO auf ein hohes Enddatum setzen (z. B. '9999-12-31') oder Spaltendefinition auf TIMESTAMP NULL ändern und Standard/Logik konsistent anwenden."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Erstes Statement ist kein gültiges UPDATE (fehlendes 'UPDATE DIM_CUSTOMER_ADDRESS d') und verwendet einen undefinierten Alias d.",
+            "fix_suggestion": "Korrekte UPDATE-Syntax verwenden: UPDATE DIM_CUSTOMER_ADDRESS d SET ... FROM CUSTOMER_ADDRESS_STG s WHERE ...."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falscher Spaltenname 'POSTCODE' statt 'POSTAL_CODE' in beiden Statements.",
+            "fix_suggestion": "Spaltenreferenzen auf 'POSTAL_CODE' korrigieren."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "COUNTRY-Vergleich nutzt '=' statt '<>' und führt zu Updates/Inserts trotz unveränderter Werte.",
+            "fix_suggestion": "Auf Ungleichheit prüfen (IS DISTINCT FROM oder COALESCE-basierte Vergleiche) und '=' entfernen."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Alt-Zeilen bleiben IS_CURRENT = TRUE; neue Zeilen werden ebenfalls als IS_CURRENT = TRUE eingefügt.",
+            "fix_suggestion": "Im UPDATE Alt-Zeile IS_CURRENT = FALSE setzen; in INSERT nur eine aktuelle Zeile pro CUSTOMER_ID sicherstellen (Unique-Constraint oder WHERE NOT EXISTS)."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-unsafe Vergleiche mit '<>' (bei NULL ergibt sich UNKNOWN, Änderungen werden ggf. nicht erkannt).",
+            "fix_suggestion": "NULL-sichere Vergleiche verwenden: IS DISTINCT FROM (Postgres) oder COALESCE(a,'') <> COALESCE(b,'')."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "VALID_FROM ist TIMESTAMP, VALID_TO ist DATE; zeitliche Grenzen können sich überschneiden/ungenau sein.",
+            "fix_suggestion": "VALID_TO auf TIMESTAMP anpassen oder ein konsistentes Intervall/Granularität definieren (z. B. VALID_TO = CHANGE_TS - INTERVAL '1 millisecond')."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "POSTAL_CODE als UUID modelliert; reale Postleitzahlen sind nicht im UUID-Format.",
+            "fix_suggestion": "Datentyp auf VARCHAR ändern; falls UUID zwingend, Validierung/Konvertierung im STG sicherstellen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "OR-basiertes Change-Checking über viele Attribute ist leistungsschwach und schlecht indexnutzbar.",
+            "fix_suggestion": "Attribut-Hash (z. B. MD5 über relevante Spalten) vergleichen oder MERGE mit vorab gefilterten Change-Sätzen; passende Indizes auf (CUSTOMER_ID, IS_CURRENT)."
+        }
+    ],
+    "final_feedback": "Der beabsichtigte SCD‑2‑Prozess ist konzeptionell klar, aber in der Umsetzung aktuell fehlerhaft und nicht lauffähig (Syntax-/Namensfehler, NOT-NULL-Verstoß, falsche Change-Logik, fehlendes Deaktivieren der Alt-Zeile). Korrigieren Sie UPDATE/INSERT, verwenden Sie NULL-sichere Vergleiche und setzen Sie Alt-Zeilen auf IS_CURRENT = FALSE mit passendem VALID_TO. Vereinheitlichen Sie die Zeittypen und vermeiden Sie NULL für VALID_TO bei NOT NULL-Definition. Prüfen Sie den Datentyp von POSTAL_CODE und optimieren Sie die Change-Erkennung (Hash/MERGE, Indizes). Danach ist der Prozess funktionstüchtig ohne Änderung des fachlichen Ergebnisses.",
+    "_source_file": "case9.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 1735.407,
+    "_response_char_count": 6979
+}
