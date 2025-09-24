@@ -31,8 +31,6 @@ def run(
     # Define prompt configs: two initial, one robust
     prompt_configs = [
         {"system_prompt": SYSTEM_PROMPT, "user_prompt_builder": USER_PROMPT_TEMPLATE},
-        {"system_prompt": SYSTEM_PROMPT, "user_prompt_builder": USER_PROMPT_TEMPLATE},
-        {"system_prompt": SYSTEM_PROMPT_ROBUST, "user_prompt_builder": USER_PROMPT_TEMPLATE_ROBUST},
     ]
     asyncio.run(_run_async(
         ping, model_list, input, limit, output, loglevel, logfile, concurrency, repeat, prompt_configs, stream  

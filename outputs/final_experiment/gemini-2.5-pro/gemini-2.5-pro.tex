@@ -1,0 +1,1790 @@
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 1 Hauptdurchlauf},label={gemini_case1_prompt1}]
+{
+    "transformation_understanding": "Der ETL-Prozess aggregiert Transaktionsdaten aus der Tabelle 'TRANSACTIONS' auf monatlicher Basis pro Kunde. Die Summe der Transaktionsbeträge wird berechnet und zusammen mit der Kunden-ID sowie dem extrahierten Jahr und Monat in die Zieltabelle 'TARGET_AGG_MONTH' geladen.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> TARGET_AGG_MONTH.CUSTOMER_ID",
+        "TRANSACTIONS.BOOKING_DATE -> TARGET_AGG_MONTH.YEAR",
+        "TRANSACTIONS.BOOKING_DATE -> TARGET_AGG_MONTH.MONTH",
+        "TRANSACTIONS.AMOUNT_EUR -> TARGET_AGG_MONTH.SUM_AMOUNT_EUR"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Direkte Übernahme der Kunden-ID.",
+            "formula": "CUSTOMER_ID",
+            "improvement": null
+        },
+        {
+            "step_count": 2,
+            "description": "Extraktion des Jahres aus dem Buchungsdatum.",
+            "formula": "YEAR(BOOKING_DATE)",
+            "improvement": null
+        },
+        {
+            "step_count": 3,
+            "description": "Extraktion des Monats aus dem Buchungsdatum.",
+            "formula": "MONTH(BOOKING_DATE)",
+            "improvement": null
+        },
+        {
+            "step_count": 4,
+            "description": "Summierung der Transaktionsbeträge pro Aggregationsgruppe.",
+            "formula": "SUM(AMOUNT_EUR)",
+            "improvement": null
+        },
+        {
+            "step_count": 5,
+            "description": "Gruppierung der Daten zur Aggregation nach Kunde, Jahr und Monat.",
+            "formula": "GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE)",
+            "improvement": "Eine korrekte Gruppierung nach Kunde und Zeitperiode ist für die beabsichtigte Aggregation essenziell. Die ursprüngliche Gruppierung nach Betrag ist logisch fehlerhaft."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist aufgrund mehrerer Fehler nicht valide. Ein Tippfehler im Spaltennamen ('BOOKIN_DATE') führt zu einem Syntaxfehler. Die Aliase für Jahr und Monat sind vertauscht, was zu einer falschen Datenzuordnung führt. Die 'GROUP BY'-Klausel ist logisch inkorrekt, da sie die 'CUSTOMER_ID' nicht berücksichtigt und fälschlicherweise nach 'AMOUNT_EUR' gruppiert, was das Aggregationsergebnis verfälscht.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Die 'GROUP BY'-Klausel ist fehlerhaft. Sie gruppiert nach 'AMOUNT_EUR' und lässt 'CUSTOMER_ID' aus. Dies verhindert die korrekte monatliche Aggregation pro Kunde und führt zu falschen Ergebnissen.",
+            "fix_suggestion": "Die Klausel muss zu 'GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE)' korrigiert werden."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Die Spaltenaliase für Jahr und Monat sind vertauscht ('YEAR(...) AS MONTH', 'MONTH(...) AS YEAR'). Dies führt dazu, dass Jahreswerte in die Monatsspalte und Monatswerte in die Jahresspalte geschrieben werden.",
+            "fix_suggestion": "Die Aliase müssen korrekt zugeordnet werden: 'YEAR(BOOKING_DATE) AS YEAR', 'MONTH(BOOKING_DATE) AS MONTH'."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Der Spaltenname 'BOOKING_DATE' ist in der Abfrage durchgehend als 'BOOKIN_DATE' falsch geschrieben. Dies führt zu einem 'invalid identifier'-Fehler und verhindert die Ausführung der Abfrage.",
+            "fix_suggestion": "Der Tippfehler muss in allen Vorkommnissen zu 'BOOKING_DATE' korrigiert werden."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner aktuellen Form nicht funktionstüchtig. Er enthält kritische logische Fehler in der Aggregationslogik sowie Syntaxfehler, die eine Ausführung verhindern oder zu komplett falschen Daten in der Zieltabelle führen. Eine Korrektur der benannten Fehler ist zwingend erforderlich.",
+    "_source_file": "case1.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 1171.558,
+    "_response_char_count": 3565
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 1 Konsistenzdurchlauf},label={gemini_case1_prompt2}]
+{
+    "transformation_understanding": "Der ETL-Prozess aggregiert Transaktionsdaten aus der Tabelle 'TRANSACTIONS' auf monatlicher Basis pro Kunde. Die Ergebnisse, bestehend aus Kunden-ID, Jahr, Monat und der Summe der Transaktionsbeträge, werden in die Zieltabelle 'TARGET_AGG_MONTH' geladen.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> TARGET_AGG_MONTH.CUSTOMER_ID",
+        "TRANSACTIONS.BOOKING_DATE -> TARGET_AGG_MONTH.YEAR",
+        "TRANSACTIONS.BOOKING_DATE -> TARGET_AGG_MONTH.MONTH",
+        "TRANSACTIONS.AMOUNT_EUR -> TARGET_AGG_MONTH.SUM_AMOUNT_EUR"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Extraktion des Jahres aus dem Buchungsdatum.",
+            "formula": "YEAR(BOOKING_DATE)",
+            "improvement": null
+        },
+        {
+            "step_count": 2,
+            "description": "Extraktion des Monats aus dem Buchungsdatum.",
+            "formula": "MONTH(BOOKING_DATE)",
+            "improvement": null
+        },
+        {
+            "step_count": 3,
+            "description": "Aggregation der Transaktionsbeträge pro Gruppe.",
+            "formula": "SUM(AMOUNT_EUR)",
+            "improvement": null
+        },
+        {
+            "step_count": 4,
+            "description": "Gruppierung der Daten zur Aggregation.",
+            "formula": "GROUP BY AMOUNT_EUR, YEAR(BOOKIN_DATE), MONTH(BOOKIN_DATE)",
+            "improvement": "Die Gruppierung sollte über die nicht-aggregierten Selektionsattribute erfolgen, um eine korrekte monatliche Summe pro Kunde zu gewährleisten: GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE)."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die SQL-Transformation ist aufgrund mehrerer Fehler nicht valide. Die Spalten-Aliase für Jahr und Monat sind vertauscht, was zu einer inkorrekten Datenzuordnung führt. Zudem enthält die Abfrage Tippfehler im Spaltennamen 'BOOKING_DATE'. Die 'GROUP BY'-Klausel ist fundamental fehlerhaft, da sie nach 'AMOUNT_EUR' gruppiert und 'CUSTOMER_ID' nicht einschließt, was zu falschen Aggregationsergebnissen und einem SQL-Fehler führen wird.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "SELECT YEAR(BOOKING_DATE) AS MONTH, MONTH(BOOKIN_DATE) AS YEAR",
+            "fix_suggestion": "Die Spalten-Aliase müssen mit den Zielspalten übereinstimmen: SELECT YEAR(BOOKING_DATE) AS YEAR, MONTH(BOOKING_DATE) AS MONTH."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "GROUP BY AMOUNT_EUR, ...",
+            "fix_suggestion": "Die Gruppierung muss nach den nicht-aggregierten Feldern erfolgen, um eine korrekte monatliche Aggregation pro Kunde zu ermöglichen. Korrekte Klausel: GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE)."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "MONTH(BOOKIN_DATE), YEAR(BOOKIN_DATE)",
+            "fix_suggestion": "Tippfehler im Spaltennamen korrigieren. Der korrekte Name lautet 'BOOKING_DATE'."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in der vorliegenden Form nicht funktionstüchtig und wird entweder mit einem Fehler abbrechen oder semantisch falsche Ergebnisse produzieren. Eine grundlegende Korrektur der SQL-Logik, insbesondere der Spaltenzuordnung und der Gruppierung, ist zwingend erforderlich.",
+    "_source_file": "case1.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 1947.972,
+    "_response_char_count": 3086
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 1 Robustheitsdurchlauf},label={gemini_case1_prompt3}]
+{
+    "transformation_understanding": "Der ETL-Prozess aggregiert Transaktionsdaten aus der Tabelle 'TRANSACTIONS'. Ziel ist es, die Summe der Transaktionsbeträge ('AMOUNT_EUR') pro Kunde, Jahr und Monat zu berechnen und das Ergebnis in die Zieltabelle 'TARGET_AGG_MONTH' zu schreiben.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> TARGET_AGG_MONTH.CUSTOMER_ID",
+        "TRANSACTIONS.BOOKING_DATE -> TARGET_AGG_MONTH.YEAR",
+        "TRANSACTIONS.BOOKING_DATE -> TARGET_AGG_MONTH.MONTH",
+        "TRANSACTIONS.AMOUNT_EUR -> TARGET_AGG_MONTH.SUM_AMOUNT_EUR"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Extraktion der Jahreskomponente aus dem Buchungsdatum.",
+            "formula": "YEAR(BOOKING_DATE)",
+            "improvement": null
+        },
+        {
+            "step_count": 2,
+            "description": "Extraktion der Monatskomponente aus dem Buchungsdatum.",
+            "formula": "MONTH(BOOKING_DATE)",
+            "improvement": null
+        },
+        {
+            "step_count": 3,
+            "description": "Aggregation der Transaktionsbeträge zur Summe.",
+            "formula": "SUM(AMOUNT_EUR)",
+            "improvement": null
+        },
+        {
+            "step_count": 4,
+            "description": "Gruppierung der Daten zur monatlichen Aggregation pro Kunde.",
+            "formula": "GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE)",
+            "improvement": "Die ursprüngliche Gruppierung nach 'AMOUNT_EUR' ist fehlerhaft und verhindert die korrekte Summenbildung. Die Gruppierung muss nach den identifizierenden Attributen 'CUSTOMER_ID' sowie den abgeleiteten Zeitkomponenten erfolgen."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist aufgrund mehrerer Fehler nicht funktionsfähig. Es liegen Tippfehler in Spaltennamen vor ('BOOKIN_DATE' statt 'BOOKING_DATE'). Die Spaltenaliase für Jahr und Monat sind vertauscht. Die GROUP BY-Klausel ist fehlerhaft, da sie die nicht-aggregierte Spalte 'CUSTOMER_ID' nicht enthält und fälschlicherweise nach 'AMOUNT_EUR' gruppiert, was zu einem falschen Aggregationsergebnis führen würde.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Die `GROUP BY`-Klausel enthält nicht die Spalte `CUSTOMER_ID` aus der `SELECT`-Liste und gruppiert fälschlicherweise nach `AMOUNT_EUR`. Dies führt zu einer fehlerhaften Aggregation und in den meisten Datenbanksystemen zu einem SQL-Fehler.",
+            "fix_suggestion": "Die Gruppierung muss nach allen nicht-aggregierten Spalten der `SELECT`-Liste erfolgen: `GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE)`."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Die Spaltenaliase für Jahr und Monat sind vertauscht (`YEAR(...) AS MONTH`, `MONTH(...) AS YEAR`). Dies führt dazu, dass Jahreswerte in die Monatsspalte und Monatswerte in die Jahresspalte der Zieltabelle geschrieben werden, was die Datenintegrität verletzt.",
+            "fix_suggestion": "Korrigieren Sie die Aliase entsprechend der Zielspalten: `YEAR(BOOKING_DATE) AS YEAR`, `MONTH(BOOKING_DATE) AS MONTH`."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "In der `SELECT`- und `GROUP BY`-Klausel wird ein Tippfehler verwendet ('BOOKIN_DATE' statt 'BOOKING_DATE'). Dies führt zu einem Syntaxfehler, wodurch die Abfrage nicht ausgeführt werden kann.",
+            "fix_suggestion": "Korrigieren Sie den Spaltennamen an allen Stellen zu 'BOOKING_DATE'."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner aktuellen Form nicht funktionsfähig und liefert kein korrektes Ergebnis. Kritische Fehler in der `GROUP BY`-Klausel, vertauschte Spaltenaliase und Tippfehler verhindern die korrekte Ausführung und Datenaggregation. Nach Behebung der genannten Fehler kann der Prozess das gewünschte Ergebnis liefern. Eine Indexierung der Spalten `CUSTOMER_ID` und `BOOKING_DATE` in der Quelltabelle wird zur Leistungsoptimierung empfohlen.",
+    "_source_file": "case1.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 2554.595,
+    "_response_char_count": 3849
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 2 Hauptdurchlauf},label={gemini_case2_prompt1}]
+{
+    "transformation_understanding": "Der ETL-Prozess dedupliziert Kundendaten aus der Staging-Tabelle 'CUSTOMER_STAGING'. Mittels einer Fensterfunktion wird für jede 'CUSTOMER_ID' der Datensatz mit dem jüngsten 'UPDATED_AT'-Zeitstempel identifiziert und in die Zieltabelle 'CUSTOMER_DEDUPED' geladen.",
+    "data_lineage": [
+        "CUSTOMER_STAGING",
+        "CUSTOMER_DEDUPED"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Deduplizierung der Quelldaten auf Basis der 'CUSTOMER_ID'.",
+            "formula": "RANK() OVER (PARTITION BY CUSTOMER_ID ORDER BY UPDATED_AT DESC)",
+            "improvement": "ROW_NUMBER() anstelle von RANK() verwenden, um bei identischen Zeitstempeln ein deterministisches Ergebnis zu garantieren und potenzielle Fehler bei Primärschlüsselverletzungen zu vermeiden."
+        },
+        {
+            "step_count": 2,
+            "description": "Konvertierung des Datumsformats.",
+            "formula": "CAST(UPDATED_AT AS VARCHAR)",
+            "improvement": "Eine direkte und explizite Konvertierung in den Zieldatentyp durchführen: CAST(UPDATED_AT AS DATE)."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist nicht valide. Ein Syntaxfehler (Tippfehler 'EMIAL' statt 'EMAIL') verhindert die Ausführung der Abfrage. Zudem können Laufzeitfehler durch eine inkompatible Datentyp-Konvertierung und die Verletzung von NOT-NULL-Constraints auftreten.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Syntaxfehler im SELECT-Statement: Der Spaltenname 'EMIAL' existiert nicht in der Quelltabelle 'CUSTOMER_STAGING'.",
+            "fix_suggestion": "Korrigieren des Tippfehlers zu 'EMAIL'."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Inkonsistente Datentyp-Transformation: Das Feld 'UPDATED_AT' (TIMESTAMP) wird zu VARCHAR konvertiert, was bei der impliziten Umwandlung in das Zielformat DATE zu Fehlern oder falschen Daten führen kann.",
+            "fix_suggestion": "Explizite und korrekte Typumwandlung verwenden: CAST(UPDATED_AT AS DATE)."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Potenzielle Verletzung der NOT NULL-Beschränkung: Das Feld 'EMAIL' ist in der Quelle nullbar, im Ziel jedoch nicht. Ein NULL-Wert im neuesten Datensatz eines Kunden führt zum Abbruch des Ladevorgangs.",
+            "fix_suggestion": "Implementierung einer Fehlerbehandlung für NULL-Werte, z.B. durch Filtern (WHERE EMAIL IS NOT NULL) oder Zuweisung eines Standardwertes (COALESCE(EMAIL, 'default@value.com'))."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Nicht-deterministische Deduplizierung: Die Verwendung von RANK() kann bei identischen 'UPDATED_AT'-Zeitstempeln für dieselbe 'CUSTOMER_ID' mehrere Datensätze mit Rang 1 liefern.",
+            "fix_suggestion": "Verwendung von ROW_NUMBER() anstelle von RANK() zur Sicherstellung eines eindeutigen Ergebnisses pro Partition."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner aktuellen Form aufgrund eines Syntaxfehlers nicht lauffähig. Nach Behebung des Fehlers bestehen weitere hohe Risiken durch eine fehlerhafte Datentyp-Konvertierung und eine mögliche Verletzung von NOT-NULL-Constraints. Die Deduplizierungslogik ist konzeptionell korrekt, sollte aber für deterministische Ergebnisse verbessert werden.",
+    "_source_file": "case2.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 1223.033,
+    "_response_char_count": 3280
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 2 Konsistenzdurchlauf},label={gemini_case2_prompt2}]
+{
+    "transformation_understanding": "Der ETL-Prozess dedupliziert Kundendaten aus der Tabelle 'CUSTOMER_STAGING'. Mittels einer Fensterfunktion wird für jede 'CUSTOMER_ID' der Datensatz mit dem jüngsten 'UPDATED_AT'-Zeitstempel identifiziert und in die Zieltabelle 'CUSTOMER_DEDUPED' geladen.",
+    "data_lineage": [
+        "CUSTOMER_STAGING",
+        "CUSTOMER_DEDUPED"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Deduplizierung der Quelldaten mittels Fensterfunktion, um den aktuellsten Datensatz pro Kunde zu ermitteln.",
+            "formula": "RANK() OVER (PARTITION BY CUSTOMER_ID ORDER BY UPDATED_AT DESC)",
+            "improvement": "ROW_NUMBER() statt RANK() verwenden, um bei identischen Zeitstempeln pro Kunde garantiert nur einen Datensatz auszuwählen und Duplikate in der Zieltabelle zu vermeiden."
+        },
+        {
+            "step_count": 2,
+            "description": "Datentyp-Konvertierung des Zeitstempels 'UPDATED_AT' von TIMESTAMP (Quelle) zu DATE (Ziel).",
+            "formula": "CAST(UPDATED_AT AS VARCHAR)",
+            "improvement": "Eine explizite und direkte Konvertierung mittels CAST(UPDATED_AT AS DATE) verwenden, um implizite, potenziell fehleranfällige Konvertierungen von VARCHAR zu DATE zu umgehen."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die SQL-Transformation ist aufgrund eines Tippfehlers im Spaltennamen ('EMIAL' statt 'EMAIL') nicht ausführbar.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Tippfehler im Spaltennamen 'EMIAL' in der SELECT-Anweisung. Die Quelltabelle 'CUSTOMER_STAGING' enthält keine Spalte mit diesem Namen.",
+            "fix_suggestion": "Korrigieren des Spaltennamens zu 'EMAIL'."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Inkonsistente Datentyp-Konvertierung für 'UPDATED_AT'. Ein TIMESTAMP wird zu VARCHAR konvertiert, was bei der impliziten Konvertierung in den Zieldatentyp DATE zu Laufzeitfehlern oder Datenverlust führen kann.",
+            "fix_suggestion": "Explizite Konvertierung von TIMESTAMP zu DATE mittels `CAST(UPDATED_AT AS DATE)`."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Die Quellspalte 'CUSTOMER_STAGING.EMAIL' erlaubt NULL-Werte, während die Zielspalte 'CUSTOMER_DEDUPED.EMAIL' dies nicht tut (NOT NULL). Ein INSERT-Versuch mit einem NULL-Wert für EMAIL führt zu einem Fehler.",
+            "fix_suggestion": "Filterung der Quelldaten (z.B. `WHERE EMAIL IS NOT NULL` im Subquery) oder Implementierung einer Fehlerbehandlung für Datensätze mit NULL-Werten."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Die Verwendung von `RANK()` kann bei identischen 'UPDATED_AT'-Werten für dieselbe 'CUSTOMER_ID' zu mehreren Datensätzen mit dem Rang 1 führen, was Duplikate in der Zieltabelle erzeugen kann.",
+            "fix_suggestion": "`ROW_NUMBER()` anstelle von `RANK()` verwenden, um eine eindeutige Zeilennummerierung sicherzustellen und pro Partition garantiert nur einen Datensatz auszuwählen."
+        }
+    ],
+    "final_feedback": "Der Prozess ist in seiner logischen Konzeption zur Deduplizierung schlüssig, jedoch aufgrund eines kritischen Tippfehlers und einer fehleranfälligen Datentyp-Konvertierung nicht lauffähig. Weitere Risiken bezüglich Null-Werten und der Wahl der Fensterfunktion können zu Laufzeitfehlern oder Datenintegritätsproblemen führen. Die Behebung der genannten Punkte ist für einen robusten Betrieb erforderlich.",
+    "_source_file": "case2.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 2011.666,
+    "_response_char_count": 3407
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 2 Robustheitsdurchlauf},label={gemini_case2_prompt3}]
+{
+    "transformation_understanding": "Der ETL-Prozess dient der Deduplizierung von Kundendaten. Aus der Staging-Tabelle `CUSTOMER_STAGING` wird für jede `CUSTOMER_ID` der jeweils aktuellste Datensatz basierend auf dem `UPDATED_AT`-Zeitstempel ermittelt und in die Zieltabelle `CUSTOMER_DEDUPED` geladen. Die Identifizierung des aktuellsten Datensatzes erfolgt mittels der Fensterfunktion `RANK()`.",
+    "data_lineage": [
+        "CUSTOMER_STAGING.CUSTOMER_ID -> CUSTOMER_DEDUPED.CUSTOMER_ID",
+        "CUSTOMER_STAGING.EMAIL -> CUSTOMER_DEDUPED.EMAIL",
+        "CUSTOMER_STAGING.PHONE -> CUSTOMER_DEDUPED.PHONE",
+        "CUSTOMER_STAGING.UPDATED_AT -> CUSTOMER_DEDUPED.UPDATED_AT"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Ranking der Kundendatensätze pro Kunde, um den neuesten Eintrag zu identifizieren.",
+            "formula": "RANK() OVER (PARTITION BY CUSTOMER_ID ORDER BY UPDATED_AT DESC)",
+            "improvement": "Die Verwendung von `ROW_NUMBER()` anstelle von `RANK()` stellt sicher, dass bei identischen Zeitstempeln pro Kunde exakt ein Datensatz ausgewählt wird, was potenzielle Primärschlüsselverletzungen in der Zieltabelle verhindert."
+        },
+        {
+            "step_count": 2,
+            "description": "Filterung der Datensätze, um ausschließlich den neuesten Eintrag (Rang 1) zu selektieren.",
+            "formula": "WHERE rn = 1",
+            "improvement": null
+        },
+        {
+            "step_count": 3,
+            "description": "Datentyp-Konvertierung des Zeitstempels.",
+            "formula": "CAST(UPDATED_AT AS VARCHAR)",
+            "improvement": "Die Konvertierung sollte direkt in den Zieldatentyp erfolgen, um Fehler durch implizite Konvertierungen zu vermeiden: `CAST(UPDATED_AT AS DATE)`."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist nicht valide. Ein Tippfehler im Spaltennamen ('EMIAL' statt 'EMAIL') führt zu einem Syntaxfehler. Zudem bestehen weitere logische Fehler: Die Verarbeitung von NULL-Werten in der Spalte 'EMAIL' kann zu einer Verletzung der NOT-NULL-Beschränkung in der Zieltabelle führen. Die Datentypkonvertierung von TIMESTAMP zu VARCHAR und der anschließende Ladevorgang in eine DATE-Spalte ist fehleranfällig. Die Verwendung von `RANK()` kann bei Zeitstempel-Gleichheit zu Duplikaten führen.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Syntaxfehler im SELECT-Statement: Die Spalte 'EMIAL' existiert nicht in der Quelltabelle 'CUSTOMER_STAGING' oder deren abgeleiteter Form.",
+            "fix_suggestion": "Korrigieren des Tippfehlers von 'EMIAL' zu 'EMAIL'."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Die Quellspalte 'CUSTOMER_STAGING.EMAIL' erlaubt NULL-Werte, während die Zielspalte 'CUSTOMER_DEDUPED.EMAIL' als NOT NULL definiert ist. Wenn der aktuellste Datensatz eines Kunden einen NULL-Wert für EMAIL enthält, schlägt der INSERT-Vorgang fehl.",
+            "fix_suggestion": "Implementierung einer Filterlogik, die Datensätze mit `EMAIL IS NULL` vor der Deduplizierung ausschließt, oder Definition einer Ersatzwert-Strategie (z.B. COALESCE)."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Die Spalte 'UPDATED_AT' (Typ TIMESTAMP) wird explizit in einen VARCHAR gecastet, aber in eine Zieltabelle mit dem Datentyp DATE eingefügt. Dies verlässt sich auf eine implizite Konvertierung, die je nach Datenbankkonfiguration fehlschlagen oder zu unerwünschten Ergebnissen führen kann.",
+            "fix_suggestion": "Direktes und korrektes Casting des Datentyps in der SELECT-Anweisung: `CAST(UPDATED_AT AS DATE)`."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Die Verwendung von `RANK()` kann bei identischen `UPDATED_AT`-Zeitstempeln für dieselbe `CUSTOMER_ID` dazu führen, dass mehrere Datensätze den Rang 1 erhalten. Dies kann zu Duplikaten oder einem Fehlschlagen des INSERT-Vorgangs führen, wenn `CUSTOMER_ID` ein Primärschlüssel in der Zieltabelle ist.",
+            "fix_suggestion": "Verwendung von `ROW_NUMBER()` anstelle von `RANK()`, um sicherzustellen, dass pro `CUSTOMER_ID` exakt ein Datensatz ausgewählt wird."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner aktuellen Form aufgrund eines Syntaxfehlers nicht funktionsfähig. Darüber hinaus enthält die Logik kritische Schwachstellen bezüglich der Datenintegrität (NULL-Werte, potenzielle Duplikate) und der Datentypkonvertierung. Eine Überarbeitung der SQL-Transformation gemäß den Verbesserungsvorschlägen ist zwingend erforderlich, um einen stabilen und korrekten Datenfluss zu gewährleisten.",
+    "_source_file": "case2.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 2622.886,
+    "_response_char_count": 4516
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 3 Hauptdurchlauf},label={gemini_case3_prompt1}]
+{
+    "transformation_understanding": "Der ETL-Prozess lädt Rohdaten aus der Tabelle CONTACTS_RAW, transformiert die Telefonnummern aus dem Feld PHONE_RAW in das E.164-Format und speichert das Ergebnis zusammen mit der Kunden-ID in der Tabelle CONTACTS_CLEAN. Die Transformation beinhaltet das Entfernen von nicht-numerischen Zeichen und die Anwendung von bedingten Formatierungsregeln, um internationale und nationale Präfixe zu standardisieren.",
+    "data_lineage": [
+        "CONTACTS_RAW.CUSTOMER_ID -> CONTACTS_CLEAN.CUSTOMER_ID",
+        "CONTACTS_RAW.PHONE_RAW -> CONTACTS_CLEAN.PHONE_E164"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Direkte Übernahme der Kunden-ID aus der Quelltabelle. Achtung: Im SQL wird der Alias 'CUST_ID' verwendet, obwohl die Quellspalte 'CUSTOMER_ID' heißt.",
+            "formula": "CUST_ID",
+            "improvement": null
+        },
+        {
+            "step_count": 2,
+            "description": "Transformation der rohen Telefonnummer in das E.164-Format mittels einer CASE-Anweisung.",
+            "formula": "CASE WHEN LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 1) = '+' THEN ... ELSE REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '') END",
+            "improvement": "Die mehrfache Ausführung von REGEXP_REPLACE für dieselbe Spalte ist ineffizient. Die Berechnung sollte in einer vorgeschalteten Stufe (z.B. CTE oder Subquery) einmalig erfolgen, um die Lesbarkeit und Performance zu verbessern."
+        },
+        {
+            "step_count": 3,
+            "description": "Bedingung 1: Ersetzt das Präfix '00' durch '+'.",
+            "formula": "WHEN LEFT(..., 2) = '00' THEN CONCAT('+', SUBSTRING(..., 3))",
+            "improvement": null
+        },
+        {
+            "step_count": 4,
+            "description": "Bedingung 2: Ersetzt das nationale Präfix '0' durch die hartcodierte deutsche Ländervorwahl '+49'.",
+            "formula": "WHEN LEFT(..., 1) = '0' THEN CONCAT('+49', SUBSTRING(..., 2))",
+            "improvement": null
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist nicht valide. Die Abfrage referenziert die Spalte 'CUST_ID', welche in der Quelltabelle 'CONTACTS_RAW' nicht existiert (korrekt wäre 'CUSTOMER_ID'). Zudem enthält die Transformationslogik fehlerhafte Annahmen und nicht erreichbaren Code.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Die SELECT-Anweisung verwendet den Spaltennamen 'CUST_ID', während die Quelltabelle die Spalte 'CUSTOMER_ID' definiert. Dies führt zu einem 'invalid identifier'-Fehler und verhindert die Ausführung.",
+            "fix_suggestion": "Korrigieren des Spaltennamens in der SELECT-Anweisung von 'CUST_ID' zu 'CUSTOMER_ID'."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Die Logik ersetzt eine führende '0' pauschal durch die deutsche Ländervorwahl '+49'. Dies führt zu fehlerhaften Telefonnummern für alle Kontakte, die nicht aus Deutschland stammen.",
+            "fix_suggestion": "Die Logik zur Ländervorwahl muss überarbeitet werden. Entweder wird eine Standard-Ländervorwahl als Business-Rule explizit definiert oder die Logik muss um die Verarbeitung verschiedener Länder erweitert werden."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Die erste WHEN-Bedingung `LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 1) = '+'` kann niemals wahr sein, da der vorausgehende REGEXP_REPLACE-Aufruf das '+'-Zeichen bereits entfernt. Es handelt sich um toten Code.",
+            "fix_suggestion": "Die Prüfung auf ein führendes '+' sollte auf der Roh-Spalte `PHONE_RAW` erfolgen, bevor nicht-numerische Zeichen entfernt werden, oder die Regex sollte angepasst werden, um das '+' zu erhalten."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Die Funktion `REGEXP_REPLACE` wird innerhalb der CASE-Anweisung mehrfach auf dieselbe Spalte angewendet. Dies führt zu unnötiger Rechenlast und beeinträchtigt die Performance.",
+            "fix_suggestion": "Die Bereinigung der Telefonnummer sollte einmalig vor der CASE-Anweisung erfolgen, z.B. durch Nutzung einer Common Table Expression (CTE) oder einer Subquery."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner aktuellen Form aufgrund eines Syntaxfehlers nicht lauffähig. Nach Behebung des Fehlers würden logische Mängel in der Transformation, insbesondere die fehlerhafte Annahme einer festen Ländervorwahl, zu erheblichen Datenqualitätsproblemen führen. Eine grundlegende Überarbeitung der Transformationslogik und eine Optimierung der Performance sind erforderlich.",
+    "_source_file": "case3.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 1251.354,
+    "_response_char_count": 4374
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 3 Konsistenzdurchlauf},label={gemini_case3_prompt2}]
+{
+    "transformation_understanding": "Der ETL-Prozess transferiert und transformiert Kontaktdaten aus einer Roh-Tabelle (CONTACTS_RAW) in eine bereinigte Zieltabelle (CONTACTS_CLEAN). Dabei wird die Kunden-ID direkt übernommen und die Telefonnummer (PHONE_RAW) durch Entfernen von Nicht-Ziffern und Anwendung einer Logik zur Normalisierung von Ländervorwahlen in das E.164-Format (PHONE_E164) überführt.",
+    "data_lineage": [
+        "CONTACTS_RAW.CUSTOMER_ID -> CONTACTS_CLEAN.CUSTOMER_ID",
+        "CONTACTS_RAW.PHONE_RAW -> CONTACTS_CLEAN.PHONE_E164"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Direkte Übernahme der Kunden-ID.",
+            "formula": "CUST_ID",
+            "improvement": "Korrektur des Spaltennamens auf 'CUSTOMER_ID' zur Übereinstimmung mit der Quelltabelle."
+        },
+        {
+            "step_count": 2,
+            "description": "Bereinigung und Formatierung der Telefonnummer in das E.164-Format mittels einer CASE-Anweisung, die auf führenden Ziffern basiert.",
+            "formula": "CASE WHEN LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 1) = '+' THEN ... ELSE REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '') END",
+            "improvement": "Die mehrfache Ausführung von REGEXP_REPLACE für dieselbe Zeile ist ineffizient. Die Berechnung des bereinigten Strings sollte in einer CTE oder Subquery einmalig erfolgen, um die Performance zu verbessern und die Lesbarkeit zu erhöhen."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist nicht valide. Ein Syntaxfehler durch einen falschen Spaltennamen ('CUST_ID' statt 'CUSTOMER_ID') verhindert die Ausführung. Zudem enthält die Transformationslogik für die Telefonnummern schwere konzeptionelle Fehler, die zu inkonsistenten und falschen Ergebnissen führen.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "SELECT CUST_ID FROM CONTACTS_RAW",
+            "fix_suggestion": "Der Spaltenname in der SELECT-Klausel muss 'CUSTOMER_ID' lauten, um der Tabellendefinition zu entsprechen."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "WHEN LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 1) = '+'",
+            "fix_suggestion": "Die Regex-Funktion entfernt das '+' Zeichen, bevor es geprüft wird, wodurch die Bedingung nie erfüllt ist. Die Logik muss umgestellt werden, um zuerst den Roh-String zu prüfen oder die Regex anzupassen (z.B. '[^0-9\\+]')."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "WHEN LEFT(..., 1) = '0' THEN CONCAT('+49', ...)",
+            "fix_suggestion": "Die statische Annahme der Ländervorwahl '+49' für Nummern mit führender '0' ist bei internationalen Daten fehleranfällig und führt zu falschen Ergebnissen für nicht-deutsche Nummern."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "ELSE REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '')",
+            "fix_suggestion": "Der Fallback-Zweig erzeugt keine E.164-konforme Nummer, da das führende '+' fehlt. Dies führt zu ungültigen Formaten in der Zieltabelle. Eine dedizierte Fehlerbehandlung oder ein Standard-Präfix sollte implementiert werden."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in der vorliegenden Form nicht funktionstüchtig. Neben einem fatalen Syntaxfehler weist die Kernlogik zur Normalisierung von Telefonnummern erhebliche Mängel auf. Die Behandlung bereits formatierter Nummern ist defekt und die Annahmen zu nationalen Nummern sind zu restriktiv. Eine grundlegende Überarbeitung der Transformationslogik ist zur Sicherstellung der Datenqualität und Funktionalität zwingend erforderlich.",
+    "_source_file": "case3.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 2037.772,
+    "_response_char_count": 3535
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 3 Robustheitsdurchlauf},label={gemini_case3_prompt3}]
+{
+    "transformation_understanding": "Der ETL-Prozess transferiert Daten aus der Quelltabelle CONTACTS_RAW in die Zieltabelle CONTACTS_CLEAN. Dabei wird die Spalte CUSTOMER_ID übernommen und die Roh-Telefonnummer aus PHONE_RAW in das E.164-Format konvertiert. Die Transformation der Telefonnummer erfolgt durch eine CASE-Anweisung, die basierend auf den Präfixen der bereinigten Nummer ('00', '0') unterschiedliche Formatierungsregeln anwendet.",
+    "data_lineage": [
+        "CONTACTS_RAW.CUSTOMER_ID -> CONTACTS_CLEAN.CUSTOMER_ID",
+        "CONTACTS_RAW.PHONE_RAW -> CONTACTS_CLEAN.PHONE_E164"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Übernahme des Kundenidentifikators.",
+            "formula": "CUST_ID",
+            "improvement": "Der Spaltenname in der SELECT-Anweisung muss von 'CUST_ID' zu 'CUSTOMER_ID' korrigiert werden, um der Definition der Quelltabelle zu entsprechen."
+        },
+        {
+            "step_count": 2,
+            "description": "Bereinigung und Formatierung der Telefonnummer in das E.164-Format mittels einer bedingten Logik.",
+            "formula": "CASE WHEN LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 1) = '+' THEN ... ELSE REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '') END",
+            "improvement": "Die mehrfache Ausführung von REGEXP_REPLACE für dieselbe Zeile ist ineffizient. Die Bereinigung der Telefonnummer sollte einmalig pro Zeile in einer vorgeschalteten Abfrage (z.B. CTE oder Subquery) erfolgen, um die Performance zu verbessern."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist nicht valide. Die SQL-Anweisung referenziert eine nicht existierende Spalte 'CUST_ID' anstelle von 'CUSTOMER_ID', was zu einem Ausführungsfehler führt. Zusätzlich ist die Transformationslogik zur E.164-Formatierung fehlerhaft und würde in vielen Fällen zu inkorrekten oder ungültigen Ergebnissen führen.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "In der SELECT-Anweisung wird die Spalte 'CUST_ID' referenziert, obwohl die Quelltabelle 'CONTACTS_RAW' die Spalte als 'CUSTOMER_ID' definiert. Dies führt zu einem SQL-Fehler und verhindert die Ausführung des Prozesses.",
+            "fix_suggestion": "Ändern Sie den Spaltennamen im SELECT-Statement von 'CUST_ID' zu 'CUSTOMER_ID'."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Die Logik `WHEN LEFT(...) = '0' THEN CONCAT('+49', ...)` weist allen nationalen Nummern, die mit einer Null beginnen, pauschal die deutsche Ländervorwahl '+49' zu. Dies führt zu fehlerhaften Daten, wenn Nummern aus anderen Ländern verarbeitet werden.",
+            "fix_suggestion": "Die Ländervorwahl sollte nicht hartcodiert werden. Stattdessen muss die Länderinformation aus einer zusätzlichen Datenquelle bezogen oder die Logik zur Erkennung des Landes verfeinert werden."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Die erste Bedingung `WHEN LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 1) = '+'` ist unerreichbar, da die Funktion `REGEXP_REPLACE` mit dem Muster `[^0-9]` das Pluszeichen bereits entfernt hat, bevor es geprüft werden kann.",
+            "fix_suggestion": "Passen Sie den regulären Ausdruck an, um das Pluszeichen zu erhalten, oder prüfen Sie das Vorhandensein des Pluszeichens an der Roh-Zeichenkette, bevor die Bereinigung stattfindet."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Der ELSE-Fall der CASE-Anweisung gibt eine rein numerische Zeichenkette zurück. Das E.164-Format erfordert jedoch zwingend ein führendes '+' und eine Ländervorwahl. Dies erzeugt ungültig formatierte Einträge.",
+            "fix_suggestion": "Nicht eindeutig formatierbare Nummern sollten nicht unvollständig in die Zieltabelle geladen werden. Stattdessen sollten sie als fehlerhaft protokolliert oder (falls fachlich zulässig) als NULL eingefügt werden."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Die Funktion `REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '')` wird innerhalb der CASE-Anweisung für jede Zeile mehrfach aufgerufen. Reguläre Ausdrücke sind rechenintensiv und führen hier zu unnötiger Systemlast.",
+            "fix_suggestion": "Berechnen Sie den bereinigten Wert einmal pro Zeile in einer Subquery oder einer Common Table Expression (CTE) und referenzieren Sie dieses Ergebnis in der CASE-Anweisung."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner aktuellen Form nicht funktionsfähig und muss grundlegend überarbeitet werden. Neben einem fatalen Syntaxfehler enthält die Transformationslogik für die Telefonnummern schwere konzeptionelle Mängel, die zu inkonsistenten und falschen Daten führen. Eine Korrektur der Spaltennamen, eine robustere Logik zur Ländercode-Zuweisung und eine performantere Implementierung sind für einen produktiven Einsatz zwingend erforderlich.",
+    "_source_file": "case3.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 2659.398,
+    "_response_char_count": 4775
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 4 Hauptdurchlauf},label={gemini_case4_prompt1}]
+{
+    "transformation_understanding": "Der ETL-Prozess reichert Zahlungsdaten aus der Tabelle PAYMENTS mit Euro-Wechselkursen aus FX_RATES an. Die Umrechnung erfolgt auf Basis von Währung und Datum. Das Ergebnis wird in die Tabelle PAYMENTS_EUR geladen.",
+    "data_lineage": [
+        "PAYMENTS.PAYMENT_ID -> PAYMENTS_EUR.PAYMENT_ID",
+        "PAYMENTS.CUSTOMER_ID -> PAYMENTS_EUR.CUSTOMER_ID",
+        "PAYMENTS.PAY_DATE -> PAYMENTS_EUR.PAY_DATE",
+        "PAYMENTS.AMOUNT, FX_RATES.EUR_RATE -> PAYMENTS_EUR.AMOUNT_EUR"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Join der Tabellen PAYMENTS und FX_RATES via LEFT JOIN über die Felder CURRENCY und PAY_DATE/RATE_DATE.",
+            "formula": "FROM PAYMENTS p LEFT JOIN FX_RATES r ON r.CURRENCY = p.CURRENCY AND r.RATE_DATE = p.PAY_DATE",
+            "improvement": "Sicherstellen, dass die Join-Felder (PAYMENTS.CURRENCY, PAYMENTS.PAY_DATE, FX_RATES.CURRENCY, FX_RATES.RATE_DATE) indiziert sind, um die Performance zu verbessern."
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung des Euro-Betrags durch Multiplikation des zu INT konvertierten Betrags mit dem EUR_RATE und anschließendes Runden auf zwei Nachkommastellen.",
+            "formula": "ROUND(CAST(p.AMOUNT AS INT) * r.EUR_RATE, 2)",
+            "improvement": null
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Berechnung ist fehlerhaft. Die Konvertierung von AMOUNT (DECIMAL) zu INT führt zu einem Präzisionsverlust. Der LEFT JOIN kann NULL-Werte für EUR_RATE erzeugen, was bei der NOT-NULL-Beschränkung der Zielspalte zu einem Ladefehler führt. Zudem ist der Zieldatentyp für AMOUNT_EUR potenziell zu klein und kann zu arithmetischen Überläufen führen.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Datenverlust durch explizite Typumwandlung von `DECIMAL(14,2)` zu `INT` bei der Spalte `AMOUNT`. Nachkommastellen werden vor der Multiplikation abgeschnitten.",
+            "fix_suggestion": "Entfernen der `CAST(... AS INT)`-Funktion. Die Multiplikation sollte direkt auf dem `DECIMAL`-Typ erfolgen."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Potenzieller Ladefehler durch `LEFT JOIN`. Wenn für eine Zahlung kein Wechselkurs in `FX_RATES` existiert, wird `EUR_RATE` zu `NULL`. Die Multiplikation ergibt `NULL`, was die `NOT NULL`-Beschränkung der Zielspalte `AMOUNT_EUR` verletzt.",
+            "fix_suggestion": "Den `LEFT JOIN` durch einen `INNER JOIN` ersetzen, um nur Zahlungen mit gültigem Wechselkurs zu verarbeiten. Alternativ die `NULL`-Werte explizit behandeln."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Risiko eines arithmetischen Überlauffehlers. Der Zieldatentyp `DECIMAL(10,2)` für `AMOUNT_EUR` ist zu klein, um das Ergebnis der Multiplikation von `AMOUNT` (`DECIMAL(14,2)`) und `EUR_RATE` sicher aufzunehmen.",
+            "fix_suggestion": "Anpassung des Datentyps der Spalte `PAYMENTS_EUR.AMOUNT_EUR` auf eine höhere Präzision, z.B. `DECIMAL(24,2)`."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in der aktuellen Form nicht funktionstüchtig und birgt kritische Fehler. Er führt zu Datenverlust durch eine fehlerhafte Typumwandlung, zu Laufzeitfehlern durch unzureichendes NULL-Handling und potenziellen Datenüberläufen aufgrund eines zu klein definierten Zieldatentyps. Eine Überarbeitung der Transformationslogik ist zwingend erforderlich.",
+    "_source_file": "case4.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 1286.573,
+    "_response_char_count": 3380
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 4 Konsistenzdurchlauf},label={gemini_case4_prompt2}]
+{
+    "transformation_understanding": "Der ETL-Prozess konvertiert Zahlungsbeträge aus der Tabelle PAYMENTS in Euro. Dazu werden die Zahlungen über Währung und Datum mit den täglichen Wechselkursen aus der Tabelle FX_RATES verknüpft. Das Ergebnis der Umrechnung wird in die Zieltabelle PAYMENTS_EUR geschrieben.",
+    "data_lineage": [
+        "PAYMENTS.PAYMENT_ID -> PAYMENTS_EUR.PAYMENT_ID",
+        "PAYMENTS.CUSTOMER_ID -> PAYMENTS_EUR.CUSTOMER_ID",
+        "PAYMENTS.PAY_DATE -> PAYMENTS_EUR.PAY_DATE",
+        "{PAYMENTS.AMOUNT, FX_RATES.EUR_RATE} -> PAYMENTS_EUR.AMOUNT_EUR"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Verknüpfung der Tabellen PAYMENTS und FX_RATES über die Attribute Währung und Datum mittels eines LEFT JOIN.",
+            "formula": "FROM PAYMENTS p LEFT JOIN FX_RATES r ON r.CURRENCY = p.CURRENCY AND r.RATE_DATE = p.PAY_DATE",
+            "improvement": "Zur Vermeidung von Laufzeitfehlern durch fehlende Wechselkurse sollte ein INNER JOIN verwendet werden. Für eine optimale Performance sollten Indizes auf den Join-Spalten beider Tabellen existieren."
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung des Euro-Betrags durch Multiplikation des zu einem Integer konvertierten Zahlungsbetrags mit dem Wechselkurs und Runden auf zwei Dezimalstellen.",
+            "formula": "ROUND(CAST(p.AMOUNT AS INT) * r.EUR_RATE, 2)",
+            "improvement": "Die explizite Konvertierung `CAST(p.AMOUNT AS INT)` führt zu einem Präzisionsverlust und muss entfernt werden. Die korrekte Formel lautet: `ROUND(p.AMOUNT * r.EUR_RATE, 2)`."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Berechnung ist fehlerhaft. Der `CAST` auf `INT` entfernt die Dezimalstellen des ursprünglichen Betrags vor der Umrechnung, was zu falschen Ergebnissen führt. Zudem besteht ein hohes Risiko eines numerischen Überlaufs, da der Zieldatentyp `DECIMAL(10,2)` für die möglichen Ergebniswerte zu klein ist.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Die Konvertierung des Quellbetrags mittels `CAST(p.AMOUNT AS INT)` führt zum Abschneiden von Dezimalstellen und damit zu einem systematischen Datenqualitätsverlust.",
+            "fix_suggestion": "Entfernen des `CAST(p.AMOUNT AS INT)` und direkte Verwendung des Attributs `p.AMOUNT` in der Multiplikation."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Der Zieldatentyp `DECIMAL(10,2)` für `AMOUNT_EUR` ist zu klein, um das Ergebnis der Multiplikation von `PAYMENTS.AMOUNT` (`DECIMAL(14,2)`) und `FX_RATES.EUR_RATE` aufzunehmen. Dies führt zu numerischen Überlauffehlern.",
+            "fix_suggestion": "Anpassung des Zieldatentyps `PAYMENTS_EUR.AMOUNT_EUR` auf eine höhere Präzision, z.B. `DECIMAL(18,2)`."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Der `LEFT JOIN` kann `NULL`-Werte für `r.EUR_RATE` erzeugen, wenn kein passender Wechselkurs gefunden wird. Die nachfolgende Berechnung resultiert in `NULL`, was einen `INSERT`-Fehler verursacht, da die Zielspalte `AMOUNT_EUR` als `NOT NULL` definiert ist.",
+            "fix_suggestion": "Verwendung eines `INNER JOIN`, um nur Zahlungen mit vorhandenen Wechselkursen zu verarbeiten."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Die Quellspalte `PAYMENTS.AMOUNT` ist `NULLABLE`. Ein `NULL`-Wert führt zu einem `NULL`-Ergebnis in der Berechnung und einem `INSERT`-Fehler, da die Zielspalte `AMOUNT_EUR` `NOT NULL` ist.",
+            "fix_suggestion": "Hinzufügen einer `WHERE`-Klausel, um Zahlungen mit `NULL`-Beträgen auszuschließen (`WHERE p.AMOUNT IS NOT NULL`)."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner aktuellen Form nicht funktionstüchtig. Kritische Fehler in der Berechnungslogik (Präzisionsverlust durch `CAST`) und im Datentyp-Mapping (numerischer Überlauf) führen zu falschen Daten und Prozessabbrüchen. Die Behandlung von fehlenden Wechselkursen ist ebenfalls unzureichend und wird zu Fehlern führen. Eine Überarbeitung der Transformation ist zwingend erforderlich.",
+    "_source_file": "case4.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 2070.847,
+    "_response_char_count": 4007
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 4 Robustheitsdurchlauf},label={gemini_case4_prompt3}]
+{
+    "transformation_understanding": "Der ETL-Prozess konvertiert Zahlungen aus der Tabelle PAYMENTS in die Währung EUR. Dazu werden die Zahlungsdaten mit tagesaktuellen Wechselkursen aus der Tabelle FX_RATES über die Spalten für Währung und Datum verknüpft. Das berechnete Ergebnis wird in die Zieltabelle PAYMENTS_EUR geladen.",
+    "data_lineage": [
+        "PAYMENTS.PAYMENT_ID -> PAYMENTS_EUR.PAYMENT_ID",
+        "PAYMENTS.CUSTOMER_ID -> PAYMENTS_EUR.CUSTOMER_ID",
+        "PAYMENTS.PAY_DATE -> PAYMENTS_EUR.PAY_DATE",
+        "(PAYMENTS.AMOUNT, PAYMENTS.CURRENCY, PAYMENTS.PAY_DATE, FX_RATES.EUR_RATE) -> PAYMENTS_EUR.AMOUNT_EUR"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Verknüpfung der Tabellen PAYMENTS und FX_RATES mittels LEFT JOIN über die Währung und das Zahlungsdatum, um den passenden Wechselkurs zu ermitteln.",
+            "formula": "FROM PAYMENTS p LEFT JOIN FX_RATES r ON r.CURRENCY = p.CURRENCY AND r.RATE_DATE = p.PAY_DATE",
+            "improvement": "Für eine verbesserte Performance sollten Indizes auf den Join-Spalten (PAYMENTS.CURRENCY, PAYMENTS.PAY_DATE, FX_RATES.CURRENCY, FX_RATES.RATE_DATE) existieren."
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung des Betrags in Euro durch Multiplikation des Zahlungsbetrags mit dem Euro-Wechselkurs und anschließendes Runden auf zwei Dezimalstellen.",
+            "formula": "ROUND(CAST(p.AMOUNT AS INT) * r.EUR_RATE, 2)",
+            "improvement": "Die Verwendung expliziter Tabellen-Aliase für alle Spalten (z.B. p.PAY_DATE statt PAY_DATE) erhöht die Lesbarkeit und vermeidet Mehrdeutigkeiten."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Berechnung ist fehlerhaft. 1. Die Konvertierung von AMOUNT zu INT (`CAST(p.AMOUNT AS INT)`) führt zu einem Präzisionsverlust durch das Abschneiden von Dezimalstellen. 2. Der LEFT JOIN kann zu NULL-Werten für EUR_RATE führen, was bei der Multiplikation zu einem NULL-Ergebnis führt. Ein Einfügen von NULL in die NOT-NULL-Spalte AMOUNT_EUR schlägt fehl. 3. Der Zieldatentyp DECIMAL(10,2) für AMOUNT_EUR ist zu klein und kann zu einem arithmetischen Überlauffehler führen.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Die explizite Typumwandlung `CAST(p.AMOUNT AS INT)` führt zum Verlust der Nachkommastellen des ursprünglichen Betrags und damit zu falschen Berechnungsergebnissen.",
+            "fix_suggestion": "Entfernen der CAST-Operation. Die Multiplikation sollte direkt auf dem DECIMAL-Datentyp `p.AMOUNT` ausgeführt werden, um die Präzision zu erhalten."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Der Zieldatentyp `DECIMAL(10,2)` für `AMOUNT_EUR` ist unzureichend dimensioniert. Die Multiplikation eines `DECIMAL(14,2)`-Wertes mit einem Wechselkurs kann einen Wert erzeugen, der den Bereich von `DECIMAL(10,2)` übersteigt, was zu einem arithmetischen Überlauffehler führt.",
+            "fix_suggestion": "Anpassung des Datentyps der Spalte `PAYMENTS_EUR.AMOUNT_EUR` auf eine ausreichende Größe, z.B. `DECIMAL(22,2)` oder höher, um das Ergebnis der Multiplikation sicher aufnehmen zu können."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Der `LEFT JOIN` kann zu `NULL` für `r.EUR_RATE` führen, falls kein passender Wechselkurs gefunden wird. Die Multiplikation mit `NULL` ergibt `NULL`, was einen `NOT NULL` Constraint-Fehler in der Zieltabelle `PAYMENTS_EUR` auslöst und den Ladevorgang abbricht.",
+            "fix_suggestion": "Implementierung einer NULL-Behandlung, z.B. durch `COALESCE(p.AMOUNT * r.EUR_RATE, 0)`. Alternativ kann ein `INNER JOIN` verwendet werden, um Zahlungen ohne Wechselkurs von der Verarbeitung auszuschließen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Die Quellspalte `PAYMENTS.AMOUNT` ist als 'nullable' definiert. Ein `NULL`-Wert in dieser Spalte führt ebenfalls zu einem `NULL`-Ergebnis in der Berechnung und damit zum Scheitern des `INSERT`-Befehls.",
+            "fix_suggestion": "Die Berechnung sollte `NULL`-Werte in der Quellspalte explizit behandeln, z.B. durch `COALESCE(p.AMOUNT, 0)`, um sie als Nullbetrag zu interpretieren."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in der vorliegenden Form nicht funktionsfähig. Er enthält kritische Fehler in der Berechnungslogik (Präzisionsverlust), der Fehlerbehandlung (NULL-Werte) und der Datentypdefinition (Überlaufgefahr), die zu Datenverlust und Prozessabbrüchen führen. Eine Überarbeitung gemäß den Vorschlägen ist zwingend erforderlich.",
+    "_correction_attempted": true,
+    "_source_file": "case4.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 2733.992,
+    "_response_char_count": 6785
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 5 Hauptdurchlauf},label={gemini_case5_prompt1}]
+{
+    "transformation_understanding": "Der ETL-Prozess reichert Brutto-Verkaufsdaten aus der Tabelle SALES_GROSS mit länderspezifischen Mehrwertsteuersätzen aus VAT_RATES an. Ziel ist die Berechnung von Netto- und Mehrwertsteuerbeträgen und deren Speicherung in der Zieltabelle SALES_NET.",
+    "data_lineage": [
+        "SALES_GROSS.SALE_ID -> SALES_NET.SALE_ID",
+        "SALES_GROSS.CUSTOMER_ID -> SALES_NET.CUSTOMER_ID",
+        "(SALES_GROSS.GROSS_AMT_EUR, VAT_RATES.VAT_RATE) -> SALES_NET.NET_AMT_EUR",
+        "SALES_GROSS.GROSS_AMT_EUR -> SALES_NET.VAT_AMT_EUR"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Verknüpfung der Tabellen SALES_GROSS und VAT_RATES über den Ländercode.",
+            "formula": "FROM SALES_GROSS s JOIN VAT_RATES v ON v.COUNTRYCODE = s.COUNTRY_CODE",
+            "improvement": "Einen LEFT JOIN verwenden, um den Verlust von Verkaufsdaten ohne zugehörigen Steuersatz zu vermeiden. Fehlende Steuersätze sollten explizit behandelt werden."
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung des Netto-Betrags.",
+            "formula": "ROUND(CAST(s.GROSS_AMT_EUR AS INT) / (1 + v.VAT_RATE), 0)",
+            "improvement": "Die Formel sollte ohne den verlustbehafteten CAST zu INT und mit kaufmännischer Rundung auf zwei Dezimalstellen implementiert werden: ROUND(s.GROSS_AMT_EUR / (1 + v.VAT_RATE), 2)."
+        },
+        {
+            "step_count": 3,
+            "description": "Berechnung des Mehrwertsteuer-Betrags.",
+            "formula": "ROUND(s.GROSS_AMT_EUR, 0)",
+            "improvement": "Die korrekte Formel zur Berechnung des Mehrwertsteueranteils lautet: ROUND(s.GROSS_AMT_EUR - (s.GROSS_AMT_EUR / (1 + v.VAT_RATE)), 2)."
+        },
+        {
+            "step_count": 4,
+            "description": "Einfügen der transformierten Daten in die Zieltabelle SALES_NET.",
+            "formula": "INSERT INTO SALES_NET (...)",
+            "improvement": null
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Berechnungen sind fundamental fehlerhaft. Die Formel zur Ermittlung des Mehrwertsteuerbetrags ist logisch falsch. Zudem führt die Berechnung des Nettobetrags durch einen CAST zu INT und eine Rundung auf null Dezimalstellen zu erheblichem Präzisionsverlust und inkorrekten Werten.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Die Berechnung für VAT_AMT_EUR ist logisch falsch. Es wird der gerundete Bruttobetrag anstelle des Mehrwertsteueranteils berechnet, was zu massiv verfälschten Finanzdaten führt.",
+            "fix_suggestion": "Die korrekte Formel verwenden: s.GROSS_AMT_EUR - NET_AMT_EUR. Das Ergebnis sollte auf zwei Dezimalstellen gerundet werden."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Der CAST(s.GROSS_AMT_EUR AS INT) führt zum Abschneiden von Dezimalstellen vor der Berechnung, was zu falschen Nettobeträgen führt. Das anschließende ROUND(..., 0) entfernt erneut die Dezimalpräzision.",
+            "fix_suggestion": "Den CAST zu INT und die Rundung auf 0 Dezimalstellen entfernen. Die Berechnung direkt auf dem DECIMAL-Typ durchführen und das Ergebnis auf zwei Dezimalstellen runden: ROUND(s.GROSS_AMT_EUR / (1 + v.VAT_RATE), 2)."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Der INNER JOIN verwirft Verkaufsdatensätze, für die kein Ländercode in VAT_RATES existiert. Dies kann zu unbemerktem Datenverlust in der Zieltabelle führen.",
+            "fix_suggestion": "Einen LEFT JOIN verwenden und Fälle, in denen v.VAT_RATE NULL ist, explizit behandeln (z.B. durch COALESCE oder separates Logging)."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Die JOIN-Bedingung `v.COUNTRYCODE = s.COUNTRY_CODE` verwendet `COUNTRYCODE`, obwohl die Tabellendefinition `COUNTRY_CODE` lautet. Dies führt zu einem Syntaxfehler.",
+            "fix_suggestion": "Den Spaltennamen in der JOIN-Bedingung an die Tabellendefinition anpassen: `v.COUNTRY_CODE = s.COUNTRY_CODE`."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Das Feld `VAT_RATES.VAT_RATE` ist nullable. Falls ein NULL-Wert für einen Ländercode existiert, führt die Berechnung `1 + v.VAT_RATE` zu NULL, was zu einem NULL-Wert für `NET_AMT_EUR` führt.",
+            "fix_suggestion": "Sicherstellen, dass die Spalte `VAT_RATE` keine NULL-Werte enthält oder NULL-Fälle in der Transformation explizit behandeln, z.B. mit `COALESCE(v.VAT_RATE, 0)`."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner aktuellen Form nicht funktionstüchtig und produziert falsche Finanzdaten. Kritische Fehler in der Berechnungslogik für Netto- und Mehrwertsteuerbeträge sowie der verlustbehaftete INNER JOIN erfordern eine grundlegende Überarbeitung der SQL-Transformation.",
+    "_source_file": "case5.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 1319.252,
+    "_response_char_count": 4627
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 5 Konsistenzdurchlauf},label={gemini_case5_prompt2}]
+{
+    "transformation_understanding": "Der ETL-Prozess berechnet Netto- und Mehrwertsteuerbeträge aus Bruttoumsätzen. Dazu werden die Tabellen SALES_GROSS (Bruttoumsätze) und VAT_RATES (Mehrwertsteuersätze) über den Ländercode verknüpft und die Ergebnisse in die Zieltabelle SALES_NET geladen.",
+    "data_lineage": [
+        "SALES_NET.SALE_ID <- SALES_GROSS.SALE_ID",
+        "SALES_NET.CUSTOMER_ID <- SALES_GROSS.CUSTOMER_ID",
+        "SALES_NET.NET_AMT_EUR <- SALES_GROSS.GROSS_AMT_EUR, VAT_RATES.VAT_RATE",
+        "SALES_NET.VAT_AMT_EUR <- SALES_GROSS.GROSS_AMT_EUR"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Verknüpfung der Quelltabellen SALES_GROSS und VAT_RATES über den Ländercode.",
+            "formula": "FROM SALES_GROSS s JOIN VAT_RATES v ON v.COUNTRYCODE = s.COUNTRY_CODE",
+            "improvement": "LEFT JOIN verwenden, um Datenverlust bei fehlenden Ländercodes in VAT_RATES zu vermeiden. Join-Bedingung korrigieren: ON s.COUNTRY_CODE = v.COUNTRY_CODE."
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung des Nettobetrags aus dem Bruttobetrag und dem Mehrwertsteuersatz.",
+            "formula": "ROUND(CAST(s.GROSS_AMT_EUR AS INT) / (1 + v.VAT_RATE), 0)",
+            "improvement": "Datentyp-Konvertierung zu INT entfernen, um Präzisionsverlust zu vermeiden. Auf zwei Dezimalstellen runden, passend zum Zieldatentyp: ROUND(s.GROSS_AMT_EUR / (1 + COALESCE(v.VAT_RATE, 0)), 2)."
+        },
+        {
+            "step_count": 3,
+            "description": "Fehlerhafte Zuweisung des Mehrwertsteuerbetrags.",
+            "formula": "ROUND(s.GROSS_AMT_EUR, 0)",
+            "improvement": "Korrekte Formel zur Berechnung der Mehrwertsteuer verwenden: ROUND(s.GROSS_AMT_EUR - (s.GROSS_AMT_EUR / (1 + COALESCE(v.VAT_RATE, 0))), 2)."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Berechnungen sind fehlerhaft. Die Konvertierung von GROSS_AMT_EUR zu INT führt zu Genauigkeitsverlust. Die Formel zur Berechnung von VAT_AMT_EUR ist logisch falsch; sie weist den gerundeten Bruttobetrag der Mehrwertsteuer zu. Zudem führt der INNER JOIN zu Datenverlust, falls Ländercodes in der VAT_RATES-Tabelle fehlen.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Die Formel zur Berechnung von VAT_AMT_EUR (`ROUND(s.GROSS_AMT_EUR, 0)`) ist logisch inkorrekt. Sie berechnet nicht die Mehrwertsteuer, sondern weist den gerundeten Bruttobetrag zu.",
+            "fix_suggestion": "Die korrekte Formel `GROSS_AMT_EUR - NET_AMT_EUR` verwenden. Zum Beispiel: `s.GROSS_AMT_EUR - ROUND(s.GROSS_AMT_EUR / (1 + v.VAT_RATE), 2)`."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Die Join-Bedingung `v.COUNTRYCODE = s.COUNTRY_CODE` enthält einen Tippfehler. Der Spaltenname in `VAT_RATES` lautet `COUNTRY_CODE`. Die Abfrage ist nicht ausführbar.",
+            "fix_suggestion": "Die Join-Bedingung zu `v.COUNTRY_CODE = s.COUNTRY_CODE` korrigieren."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Der `CAST` von `GROSS_AMT_EUR` (DECIMAL) zu `INT` vor der Division führt zum Verlust der Nachkommastellen und damit zu ungenauen Nettobeträgen.",
+            "fix_suggestion": "Den `CAST` zu `INT` entfernen und direkt mit dem `DECIMAL`-Wert rechnen, um die finanzielle Genauigkeit zu wahren."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Der `INNER JOIN` filtert alle Umsätze heraus, deren `COUNTRY_CODE` nicht in der `VAT_RATES`-Tabelle vorhanden ist. Dies führt zu stillem Datenverlust.",
+            "fix_suggestion": "Einen `LEFT JOIN` von `SALES_GROSS` zu `VAT_RATES` verwenden und fehlende Steuersätze explizit behandeln, z.B. mit `COALESCE(v.VAT_RATE, 0)`."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Die Spalte `VAT_RATE` ist `NULLABLE`. Falls ein `VAT_RATE` `NULL` ist, wird das Ergebnis der Division `NULL`, was zu fehlenden Nettobeträgen führt.",
+            "fix_suggestion": "`NULL`-Werte für `VAT_RATE` mit `COALESCE(v.VAT_RATE, 0)` abfangen, um einen Standardwert (z.B. 0% MwSt.) anzuwenden und Rechenfehler zu vermeiden."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner aktuellen Form nicht funktionstüchtig und fehlerhaft. Kritische Fehler in der Berechnungslogik (VAT_AMT_EUR), ein Syntaxfehler in der JOIN-Bedingung und ein problematischer Datentyp-Cast verhindern ein korrektes Ergebnis. Weitere Risiken wie potenzieller Datenverlust durch den INNER JOIN und die unzureichende Behandlung von NULL-Werten müssen behoben werden, um einen robusten und korrekten Datenfluss sicherzustellen.",
+    "_source_file": "case5.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 2106.736,
+    "_response_char_count": 4496
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 5 Robustheitsdurchlauf},label={gemini_case5_prompt3}]
+{
+    "transformation_understanding": "Der ETL-Prozess soll aus Brutto-Verkaufsdaten die Netto- und Mehrwertsteuerbeträge berechnen. Hierzu werden die Tabellen SALES_GROSS und VAT_RATES über den Ländercode verknüpft, um den jeweiligen Mehrwertsteuersatz zu ermitteln. Die berechneten Werte werden anschließend in die Zieltabelle SALES_NET eingefügt.",
+    "data_lineage": [
+        "SALES_GROSS.SALE_ID -> SALES_NET.SALE_ID",
+        "SALES_GROSS.CUSTOMER_ID -> SALES_NET.CUSTOMER_ID",
+        "SALES_GROSS.GROSS_AMT_EUR, VAT_RATES.VAT_RATE -> SALES_NET.NET_AMT_EUR",
+        "SALES_GROSS.GROSS_AMT_EUR -> SALES_NET.VAT_AMT_EUR"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Verknüpfung der Quelltabellen SALES_GROSS und VAT_RATES mittels eines INNER JOIN über den Ländercode.",
+            "formula": "FROM SALES_GROSS s JOIN VAT_RATES v ON v.COUNTRYCODE = s.COUNTRY_CODE",
+            "improvement": "Für eine verbesserte Performance sollten die Join-Spalten 'COUNTRY_CODE' in beiden Tabellen indiziert werden. Die Verwendung eines LEFT JOIN würde sicherstellen, dass auch Verkäufe aus Ländern ohne definierten Steuersatz verarbeitet werden."
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung des Netto-Betrags durch Division des zu einer Ganzzahl konvertierten Brutto-Betrags durch den Faktor (1 + Mehrwertsteuersatz) und anschließende Rundung auf null Dezimalstellen.",
+            "formula": "ROUND(CAST(s.GROSS_AMT_EUR AS INT) / (1 + v.VAT_RATE), 0)",
+            "improvement": "Die Formel sollte ohne den CAST zu INT und mit Rundung auf zwei Dezimalstellen implementiert werden, um Präzisionsverluste zu vermeiden: ROUND(s.GROSS_AMT_EUR / (1 + v.VAT_RATE), 2)."
+        },
+        {
+            "step_count": 3,
+            "description": "Berechnung des Mehrwertsteuer-Betrags durch Rundung des Brutto-Betrags auf null Dezimalstellen.",
+            "formula": "ROUND(s.GROSS_AMT_EUR, 0)",
+            "improvement": "Die korrekte Formel zur Berechnung des Mehrwertsteuerbetrags lautet 'Bruttobetrag - Nettobetrag'. Beispiel: ROUND(s.GROSS_AMT_EUR - (s.GROSS_AMT_EUR / (1 + v.VAT_RATE)), 2)."
+        },
+        {
+            "step_count": 4,
+            "description": "Einfügen der transformierten Daten in die Zieltabelle SALES_NET.",
+            "formula": "INSERT INTO SALES_NET (SALE_ID, CUSTOMER_ID, NET_AMT_EUR, VAT_AMT_EUR) SELECT ...",
+            "improvement": null
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Berechnungen sind fehlerhaft. Die Konvertierung des Bruttobetrags in einen Integer-Wert vor der Division führt zu einem erheblichen Präzisionsverlust. Die Berechnung des Mehrwertsteuerbetrags ist logisch falsch, da sie den gerundeten Bruttobetrag anstelle des tatsächlichen Steueranteils zuweist. Zudem führt die Rundung der Endergebnisse auf null Dezimalstellen zu einem weiteren Informationsverlust, der dem Datentyp der Zielspalten widerspricht.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Die Join-Bedingung 'v.COUNTRYCODE' enthält einen Tippfehler. Der Spaltenname in der Tabelle VAT_RATES lautet 'COUNTRY_CODE'. Dies führt zu einem SQL-Syntaxfehler und verhindert die Ausführung der Abfrage.",
+            "fix_suggestion": "Korrigieren Sie die Join-Bedingung zu 'ON v.COUNTRY_CODE = s.COUNTRY_CODE'."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Die Berechnung für VAT_AMT_EUR ist logisch falsch. Es wird der gerundete Bruttobetrag in die Spalte für den Mehrwertsteuerbetrag geschrieben.",
+            "fix_suggestion": "Implementieren Sie die korrekte Formel: s.GROSS_AMT_EUR - (s.GROSS_AMT_EUR / (1 + v.VAT_RATE))."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Die Umwandlung von GROSS_AMT_EUR (DECIMAL) zu INT mittels CAST führt zum Abschneiden der Dezimalstellen und damit zu einem signifikanten Genauigkeitsverlust vor der eigentlichen Berechnung.",
+            "fix_suggestion": "Entfernen Sie die 'CAST(... AS INT)'-Operation aus der Berechnung des NET_AMT_EUR."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Die Ergebnisse für NET_AMT_EUR und VAT_AMT_EUR werden auf null Dezimalstellen gerundet, obwohl die Zielspalten eine Genauigkeit von zwei Dezimalstellen unterstützen. Dies führt zu einem unnötigen Präzisionsverlust bei Finanzdaten.",
+            "fix_suggestion": "Ändern Sie die Rundung auf zwei Dezimalstellen, z.B. 'ROUND(..., 2)', um der Definition der Zieltabelle zu entsprechen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Der verwendete INNER JOIN schließt alle Verkäufe aus Ländern aus, für die kein Eintrag in der VAT_RATES-Tabelle existiert. Dies kann zu unbeabsichtigtem Datenverlust im Ziel führen.",
+            "fix_suggestion": "Verwenden Sie einen LEFT JOIN von SALES_GROSS zu VAT_RATES und behandeln Sie resultierende NULL-Werte für VAT_RATE explizit, z.B. mittels COALESCE(v.VAT_RATE, 0)."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Die Spalte VAT_RATE in der Tabelle VAT_RATES ist als 'nullable' definiert. Falls für ein Land ein NULL-Wert als Steuersatz gespeichert ist, führt die Berechnung '(1 + v.VAT_RATE)' zu NULL, was zu leeren Werten in der Zieltabelle führt.",
+            "fix_suggestion": "Stellen Sie durch einen Filter (WHERE v.VAT_RATE IS NOT NULL) oder eine COALESCE-Funktion sicher, dass NULL-Werte im Steuersatz kontrolliert verarbeitet werden."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner aktuellen Form nicht funktionsfähig und logisch fehlerhaft. Ein Syntaxfehler in der JOIN-Klausel verhindert die Ausführung. Die Kernberechnungen für Netto- und Mehrwertsteuerbeträge sind aufgrund von falschen Datentyp-Konvertierungen, Rundungen und einer fehlerhaften Geschäftslogik unbrauchbar. Eine grundlegende Korrektur der SQL-Transformation ist zwingend erforderlich.",
+    "_source_file": "case5.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 2767.352,
+    "_response_char_count": 5753
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 6 Hauptdurchlauf},label={gemini_case6_prompt1}]
+{
+    "transformation_understanding": "Der ETL-Prozess reichert Produktdaten aus 'PRODUCTS_RAW' mit Zielkategorien aus der Mapping-Tabelle 'CATEGORY_MAPPING' an. Das Ergebnis, bestehend aus Produkt-ID und zugeordneter Zielkategorie, wird in die normalisierte Tabelle 'PRODUCTS_NORM' geladen. Fehlende Mappings werden durch einen leeren String ersetzt, um die NOT-NULL-Beschränkung der Zieltabelle zu erfüllen.",
+    "data_lineage": [
+        "PRODUCTS_RAW.PRODUCT_ID -> PRODUCTS_NORM.PRODUCT_ID",
+        "PRODUCTS_RAW.SOURCE_CATEGORY_CODE -> (JOIN) -> CATEGORY_MAPPING.TARGET_CATEGORY -> PRODUCTS_NORM.TARGET_CATEGORY"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Verknüpfung der Rohdaten mit der Mapping-Tabelle mittels LEFT JOIN, um die Zielkategorie zu ermitteln.",
+            "formula": "LEFT JOIN CATEGORY_MAPPING m ON m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE",
+            "improvement": "Die Join-Bedingung sollte auf übereinstimmende Quell-Kategorien korrigiert werden: `ON m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE`. Dies verbessert die logische Korrektheit und Performance."
+        },
+        {
+            "step_count": 2,
+            "description": "Ersetzung von nicht gefundenen Zielkategorien (NULL) durch einen leeren String.",
+            "formula": "COALESCE(m.TARGET_CATEGORY, '')",
+            "improvement": "Die Verwendung von `COALESCE` ist korrekt. Alternativ könnte ein definierter 'Default'-Wert anstelle eines leeren Strings verwendet werden, um die Datenqualität zu erhöhen (z.B. 'Unkategorisiert')."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist aufgrund mehrerer Fehler nicht valide. Ein Spaltenname ('PROD_ID') ist inkorrekt. Die Join-Logik ist fehlerhaft, da sie die Zielkategorie mit der Quellkategorie vergleicht. Zudem besteht ein hohes Risiko der Datentronkierung aufgrund inkompatibler Spaltenlängen zwischen Quelle und Ziel.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "In der SELECT-Klausel wird der Spaltenname 'PROD_ID' verwendet, obwohl die Quelltabelle 'PRODUCTS_RAW' die Spalte 'PRODUCT_ID' enthält. Dies führt zu einem SQL-Syntaxfehler und zum Scheitern der Ausführung.",
+            "fix_suggestion": "Korrigieren des Spaltennamens in der SELECT-Klausel zu 'p.PRODUCT_ID'."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Die JOIN-Bedingung `m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE` ist logisch inkorrekt. Sie vergleicht die Zielkategorie der Mapping-Tabelle mit der Quellkategorie der Produkttabelle, was zu falschen oder keinen Ergebnissen führt.",
+            "fix_suggestion": "Die JOIN-Bedingung muss auf `m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE` korrigiert werden, um eine korrekte Zuordnung zu gewährleisten."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Die Quellspalte `CATEGORY_MAPPING.TARGET_CATEGORY` (VARCHAR(100)) ist länger als die Zielspalte `PRODUCTS_NORM.TARGET_CATEGORY` (VARCHAR(20)). Dies kann bei der Übertragung zu Datenverlust durch Abschneiden (Truncation) und potenziellen Ladefehlern führen.",
+            "fix_suggestion": "Angleichen der Datentypen und Längen. Entweder die Zielspalte auf VARCHAR(100) erweitern oder sicherstellen, dass die Daten in der Mapping-Tabelle die Länge von 20 Zeichen nicht überschreiten."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Die JOIN-Bedingung vergleicht unterschiedliche Datentypen (`ENUM` vs. `VARCHAR`). Dies führt zu impliziter Typkonvertierung, was die Performance beeinträchtigen und die Nutzung von Indizes verhindern kann.",
+            "fix_suggestion": "Die Datentypen der Join-Schlüssel in den Quelltabellen sollten für eine optimale Performance und Datenkonsistenz angeglichen werden (z.B. beide als VARCHAR)."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner aktuellen Form nicht funktionstüchtig. Kritische Fehler in der Spaltenbenennung und der Join-Logik verhindern eine korrekte Ausführung und führen zu falschen Daten. Zusätzlich besteht ein hohes Risiko für Datenverlust durch inkompatible Spaltenlängen. Eine grundlegende Korrektur der SQL-Logik und eine Überprüfung der Datenmodelle sind zwingend erforderlich.",
+    "_source_file": "case6.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 1344.539,
+    "_response_char_count": 4174
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 6 Konsistenzdurchlauf},label={gemini_case6_prompt2}]
+{
+    "transformation_understanding": "Der ETL-Prozess reichert Roh-Produktdaten aus `PRODUCTS_RAW` mit Zielkategorien aus der Mapping-Tabelle `CATEGORY_MAPPING` an und lädt das Ergebnis in die normalisierte Tabelle `PRODUCTS_NORM`. Produkte ohne zugeordnete Kategorie erhalten einen leeren String als Standardwert.",
+    "data_lineage": [
+        "PRODUCTS_NORM.PRODUCT_ID <- PRODUCTS_RAW.PRODUCT_ID",
+        "PRODUCTS_NORM.TARGET_CATEGORY <- CATEGORY_MAPPING.TARGET_CATEGORY (via JOIN on PRODUCTS_RAW.SOURCE_CATEGORY_CODE)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Verknüpfung der Rohdaten mit der Mapping-Tabelle über einen LEFT JOIN, um alle Produkte zu erhalten.",
+            "formula": "FROM PRODUCTS_RAW p LEFT JOIN CATEGORY_MAPPING m ON m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE",
+            "improvement": "Die Join-Logik sollte korrigiert werden zu `ON m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE`. Zudem sollte ein Index auf der Join-Spalte `m.SOURCE_CATEGORY_CODE` für bessere Performance existieren."
+        },
+        {
+            "step_count": 2,
+            "description": "Behandlung von nicht-gemappten Kategorien durch Zuweisung eines Standardwertes.",
+            "formula": "COALESCE(m.TARGET_CATEGORY, '')",
+            "improvement": "Verwendung eines aussagekräftigeren Standardwertes wie 'UNKNOWN' anstelle eines leeren Strings zur Verbesserung der Datenqualität."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist nicht funktionstüchtig. Der Spaltenalias `PROD_ID` ist im Quell-SELECT ungültig. Zudem ist die Join-Bedingung logisch fehlerhaft, da sie die Zielkategorie mit dem Quellcode vergleicht, anstatt die beiden Quellcodes zu vergleichen.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Im SELECT-Statement wird der Spaltenname `PROD_ID` verwendet, obwohl die Quelltabelle `PRODUCTS_RAW` eine Spalte `PRODUCT_ID` enthält. Der Query ist syntaktisch falsch.",
+            "fix_suggestion": "Korrigieren des Spaltennamens im SELECT-Statement zu `p.PRODUCT_ID`."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Die Join-Bedingung `ON m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE` ist logisch fehlerhaft. Sie vergleicht den Zielwert aus der Mapping-Tabelle mit dem Quellwert der Produkttabelle.",
+            "fix_suggestion": "Die Join-Bedingung muss auf die beiden Quell-Schlüssel korrigiert werden: `ON m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE`."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Potenzieller Datenverlust durch Trunkierung, da die Quellspalte `CATEGORY_MAPPING.TARGET_CATEGORY` (VARCHAR(100)) länger ist als die Zielspalte `PRODUCTS_NORM.TARGET_CATEGORY` (VARCHAR(20)).",
+            "fix_suggestion": "Anpassung der Länge der Zielspalte `PRODUCTS_NORM.TARGET_CATEGORY` auf `VARCHAR(100)` oder Sicherstellung, dass die Quelldaten die Maximallänge von 20 Zeichen nicht überschreiten."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Die Join-Bedingung vergleicht unterschiedliche Datentypen (`ENUM` vs. `VARCHAR`). Dies kann die Indexnutzung verhindern und die Performance beeinträchtigen.",
+            "fix_suggestion": "Angleichung der Datentypen der Join-Spalten `p.SOURCE_CATEGORY_CODE` und `m.SOURCE_CATEGORY_CODE`."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist aufgrund kritischer logischer und syntaktischer Fehler in der SQL-Transformation nicht lauffähig. Die Join-Bedingung und ein Spaltenalias müssen korrigiert werden. Zusätzlich bestehen Risiken bezüglich Datenverlust durch Trunkierung und potenzieller Performance-Probleme aufgrund von Datentyp-Inkonsistenzen.",
+    "_source_file": "case6.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 2138.354,
+    "_response_char_count": 3632
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 6 Robustheitsdurchlauf},label={gemini_case6_prompt3}]
+{
+    "transformation_understanding": "Der ETL-Prozess reichert Produktdaten aus der Quelltabelle 'PRODUCTS_RAW' mit Zielkategorien aus der Mapping-Tabelle 'CATEGORY_MAPPING' an. Das Ergebnis wird in die normalisierte Zieltabelle 'PRODUCTS_NORM' geladen. Ein LEFT JOIN stellt sicher, dass alle Produkte aus der Quelle verarbeitet werden. Für Produkte ohne zugeordnete Kategorie wird mittels COALESCE ein Standardwert (leerer String) gesetzt.",
+    "data_lineage": [
+        "PRODUCTS_RAW.PRODUCT_ID -> PRODUCTS_NORM.PRODUCT_ID",
+        "PRODUCTS_RAW.SOURCE_CATEGORY_CODE -> (JOIN-Schlüssel) -> CATEGORY_MAPPING.TARGET_CATEGORY -> PRODUCTS_NORM.TARGET_CATEGORY"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Verknüpfung der Produkt-Rohdaten mit der Mapping-Tabelle über einen LEFT JOIN, um die Zielkategorie zu ermitteln.",
+            "formula": "FROM PRODUCTS_RAW p LEFT JOIN CATEGORY_MAPPING m ON m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE",
+            "improvement": "Die Join-Bedingung sollte auf den Quell-Kategoriecodes basieren, um eine korrekte Zuordnung zu gewährleisten. Zudem sollten die Datentypen der Join-Schlüssel zur Leistungs- und Integritätsverbesserung angeglichen werden. Ein Index auf den Join-Spalten ('p.SOURCE_CATEGORY_CODE', 'm.SOURCE_CATEGORY_CODE') würde die Performance steigern."
+        },
+        {
+            "step_count": 2,
+            "description": "Behandlung von nicht zugeordneten Kategorien durch Setzen eines Standardwerts.",
+            "formula": "COALESCE(m.TARGET_CATEGORY, '')",
+            "improvement": "Anstelle eines leeren Strings sollte ein expliziter Standardwert wie 'UNKNOWN' verwendet werden, um die Datenqualität und Auswertbarkeit zu verbessern."
+        },
+        {
+            "step_count": 3,
+            "description": "Einfügen der transformierten Daten in die Zieltabelle 'PRODUCTS_NORM'.",
+            "formula": "INSERT INTO PRODUCTS_NORM (PRODUCT_ID, TARGET_CATEGORY) SELECT ...",
+            "improvement": null
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist nicht funktionsfähig. Sie enthält einen Syntaxfehler (Spaltenname 'PROD_ID' ist nicht definiert) und einen kritischen Logikfehler in der JOIN-Bedingung. Es wird versucht, den Zielkategorienamen ('m.TARGET_CATEGORY') mit dem Quellkategoriecode ('p.SOURCE_CATEGORY_CODE') zu verknüpfen, was zu fehlerhaften oder keinen Ergebnissen führt.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Die JOIN-Bedingung 'ON m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE' ist logisch fehlerhaft. Sie vergleicht den Zielkategorienamen mit dem Quellcode anstatt die beiden Quellcodes miteinander zu vergleichen.",
+            "fix_suggestion": "Die JOIN-Bedingung muss zu 'ON m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE' korrigiert werden, um eine korrekte Zuordnung der Kategorien zu ermöglichen."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Daten werden von einer Spalte mit Typ VARCHAR(100) ('CATEGORY_MAPPING.TARGET_CATEGORY') in eine Spalte mit Typ VARCHAR(20) ('PRODUCTS_NORM.TARGET_CATEGORY') geladen. Dies birgt ein hohes Risiko für Datenverlust durch Abschneiden (Truncation).",
+            "fix_suggestion": "Die Länge der Zielspalte 'PRODUCTS_NORM.TARGET_CATEGORY' sollte auf VARCHAR(100) erhöht werden, um der Quellspalte zu entsprechen und Datenverlust zu vermeiden."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "In der (fehlerhaften) Join-Bedingung werden unterschiedliche Datentypen verglichen: ENUM ('p.SOURCE_CATEGORY_CODE') und VARCHAR(100) ('m.TARGET_CATEGORY'). Dies kann zu impliziten Typumwandlungen führen, die die Performance beeinträchtigen und unerwartetes Verhalten verursachen können.",
+            "fix_suggestion": "Die Datentypen der für den Join vorgesehenen Schlüsselspalten ('PRODUCTS_RAW.SOURCE_CATEGORY_CODE' und 'CATEGORY_MAPPING.SOURCE_CATEGORY_CODE') sollten konsistent sein (z.B. beide VARCHAR)."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Die SQL-Abfrage enthält einen Syntaxfehler. Die Spalte 'PROD_ID' in der SELECT-Anweisung existiert nicht in den Quelltabellen.",
+            "fix_suggestion": "Der Spaltenname muss auf den korrekten Namen 'p.PRODUCT_ID' geändert werden."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Die Verwendung eines leeren Strings ('') als Standardwert für nicht gemappte Kategorien ist mehrdeutig und erschwert die Datenanalyse.",
+            "fix_suggestion": "Ein expliziter und aussagekräftiger Standardwert wie 'UNKNOWN' oder 'NOT_MAPPED' sollte verwendet werden, um diese Fälle klar zu kennzeichnen."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner aktuellen Form nicht funktionsfähig und birgt erhebliche Risiken für die Datenintegrität. Ein kritischer Logikfehler in der Join-Bedingung verhindert die korrekte Zuordnung von Daten. Zusätzlich führen ein Syntaxfehler zum sofortigen Scheitern der Ausführung und inkonsistente Datentypen zu einem Risiko von Datenverlust und Performance-Problemen. Eine grundlegende Korrektur der SQL-Logik und der Tabellendefinitionen ist zwingend erforderlich.",
+    "_source_file": "case6.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 2805.561,
+    "_response_char_count": 5070
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 7 Hauptdurchlauf},label={gemini_case7_prompt1}]
+{
+    "transformation_understanding": "Der Prozess aggregiert Daten aus der Tabelle TRANSACTIONS pro Kunde. Für jeden Kunden werden die ID, das Datum der ersten Transaktion und ein Inaktivitäts-Flag berechnet. Das Ergebnis wird in die Tabelle CUSTOMER_CHURN eingefügt.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> CUSTOMER_CHURN.CUSTOMER_ID",
+        "TRANSACTIONS.BOOKING_DATE -> CUSTOMER_CHURN.LAST_TX_DATE",
+        "TRANSACTIONS.BOOKING_DATE -> CUSTOMER_CHURN.IS_INACTIVE"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Gruppierung der Transaktionsdaten auf Kundenebene.",
+            "formula": "GROUP BY t.CUSTOMER_ID",
+            "improvement": null
+        },
+        {
+            "step_count": 2,
+            "description": "Ermittlung des angeblich letzten Transaktionsdatums.",
+            "formula": "MIN(t.BOOKING_DATE) AS LAST_TX_DATE",
+            "improvement": "Logischer Fehler: MIN() ermittelt das erste, nicht das letzte Datum. MAX() sollte verwendet werden, um dem Spaltennamen LAST_TX_DATE zu entsprechen."
+        },
+        {
+            "step_count": 3,
+            "description": "Berechnung des Inaktivitäts-Flags basierend auf der Zeitdifferenz zum ersten Buchungsdatum.",
+            "formula": "CASE WHEN DATEDIFF(day, CURRENT_DATE, MIN(t.BOOKING_DATE)) > 180 THEN 'TRUE' ELSE NULL END",
+            "improvement": "Die Logik sollte auf MAX(BOOKING_DATE) basieren. Zudem erzeugt die ELSE-Klausel NULL-Werte, was zu einem Fehler führt, und die DATEDIFF-Argumente sind wahrscheinlich vertauscht."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Der Prozess ist nicht lauffähig. Die Transformation erzeugt NULL-Werte für die Spalte 'IS_INACTIVE', welche als NOT NULL definiert ist. Dies führt zu einem Constraint Violation Error beim INSERT. Zusätzlich ist die Geschäftslogik fehlerhaft: Es wird das erste (MIN) statt des letzten (MAX) Transaktionsdatums zur Churn-Berechnung herangezogen.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Die CASE-Anweisung für 'IS_INACTIVE' generiert NULL-Werte, die Zieltabelle lässt in dieser Spalte jedoch keine NULL-Werte zu (NOT NULL constraint).",
+            "fix_suggestion": "Ergänzen der CASE-Anweisung um einen ELSE-Zweig, der einen Nicht-NULL-Wert zurückgibt, z.B. ELSE 'FALSE'."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Logikfehler bei der Ermittlung des letzten Transaktionsdatums. MIN(BOOKING_DATE) wird verwendet, obwohl der Spaltenname LAST_TX_DATE das letzte Datum (MAX) impliziert.",
+            "fix_suggestion": "Verwendung von MAX(BOOKING_DATE) anstelle von MIN(BOOKING_DATE) zur korrekten Ermittlung des letzten Transaktionsdatums."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Die Logik zur Berechnung der Inaktivität basiert auf dem falschen Datum (MIN statt MAX) und einer wahrscheinlich fehlerhaften DATEDIFF-Syntax, die zu falschen Ergebnissen führt.",
+            "fix_suggestion": "Die Berechnung muss auf MAX(BOOKING_DATE) basieren und die DATEDIFF-Funktion korrekt angewendet werden, z.B. DATEDIFF(day, MAX(t.BOOKING_DATE), CURRENT_DATE) > 180."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Ineffizienter Datentyp VARCHAR(5) für die Speicherung eines booleschen Wertes ('TRUE'/'FALSE') in der Spalte 'IS_INACTIVE'.",
+            "fix_suggestion": "Änderung des Datentyps der Spalte 'IS_INACTIVE' in der Zieltabelle zu BOOLEAN, BIT oder CHAR(1) zur Optimierung von Speicher und Abfrageleistung."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner jetzigen Form nicht funktionstüchtig und würde bei Ausführung aufgrund einer NOT-NULL-Constraint-Verletzung fehlschlagen. Darüber hinaus enthält er schwerwiegende logische Fehler, die zu einer inkorrekten Befüllung der Zieltabelle führen würden. Eine grundlegende Korrektur der Aggregations- und Berechnungslogik ist erforderlich.",
+    "_source_file": "case7.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 1374.437,
+    "_response_char_count": 3804
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 7 Konsistenzdurchlauf},label={gemini_case7_prompt2}]
+{
+    "transformation_understanding": "Der ETL-Prozess aggregiert Daten aus der Tabelle 'TRANSACTIONS' auf Kundenebene. Für jeden Kunden wird das Datum der ersten Transaktion ermittelt und basierend darauf ein Inaktivitäts-Flag abgeleitet. Das Ergebnis wird in die Tabelle 'CUSTOMER_CHURN' geladen.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> CUSTOMER_CHURN.CUSTOMER_ID",
+        "TRANSACTIONS.BOOKING_DATE -> CUSTOMER_CHURN.LAST_TX_DATE",
+        "TRANSACTIONS.BOOKING_DATE -> CUSTOMER_CHURN.IS_INACTIVE"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Gruppierung der Transaktionen pro Kunde zur Aggregation.",
+            "formula": "GROUP BY t.CUSTOMER_ID",
+            "improvement": null
+        },
+        {
+            "step_count": 2,
+            "description": "Ermittlung des ersten Transaktionsdatums pro Kunde.",
+            "formula": "MIN(t.BOOKING_DATE) AS LAST_TX_DATE",
+            "improvement": "Zur Ermittlung des letzten Transaktionsdatums sollte MAX(t.BOOKING_DATE) verwendet werden, um der Benennung der Zielspalte 'LAST_TX_DATE' zu entsprechen."
+        },
+        {
+            "step_count": 3,
+            "description": "Ableitung des Inaktivitäts-Flags basierend auf der Zeitdifferenz zwischen dem aktuellen Datum und dem ersten Transaktionsdatum.",
+            "formula": "CASE WHEN DATEDIFF(day, CURRENT_DATE, MIN(t.BOOKING_DATE)) > 180 THEN 'TRUE' ELSE NULL END AS IS_INACTIVE",
+            "improvement": "Die Logik sollte auf dem letzten Transaktionsdatum (MAX) basieren und einen 'FALSE'-Wert für aktive Kunden liefern, um die NOT NULL-Beschränkung zu erfüllen. Korrigierte Formel: CASE WHEN DATEDIFF(day, MAX(t.BOOKING_DATE), CURRENT_DATE) > 180 THEN 'TRUE' ELSE 'FALSE' END"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist nicht valide. Die CASE-Anweisung für 'IS_INACTIVE' erzeugt NULL-Werte, was die NOT NULL-Beschränkung der Zieltabelle verletzt und zu einem Fehler führt. Zudem ist die Geschäftslogik fehlerhaft, da MIN() statt MAX() zur Bestimmung des letzten Transaktionsdatums verwendet wird.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Die CASE-Anweisung für das Feld 'IS_INACTIVE' generiert einen NULL-Wert, was gegen die NOT NULL-Beschränkung der Zieltabelle 'CUSTOMER_CHURN' verstößt und zum Scheitern des INSERT-Statements führt.",
+            "fix_suggestion": "Die CASE-Anweisung muss einen ELSE-Zweig enthalten, der einen Nicht-NULL-Wert zurückgibt, z.B. 'FALSE'."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Die Berechnung des 'LAST_TX_DATE' verwendet MIN(BOOKING_DATE) anstelle von MAX(BOOKING_DATE). Die Churn-Logik basiert somit auf dem ersten statt dem letzten Transaktionsdatum, was zu fachlich falschen Ergebnissen führt.",
+            "fix_suggestion": "Verwende MAX(t.BOOKING_DATE) zur Ermittlung des letzten Transaktionsdatums und passe die DATEDIFF-Funktion entsprechend an (z.B. DATEDIFF(day, MAX(t.BOOKING_DATE), CURRENT_DATE))."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Die Reihenfolge der Argumente in DATEDIFF(day, CURRENT_DATE, MIN(t.BOOKING_DATE)) ist potenziell fehlerhaft. Üblicherweise wird die Differenz als 'end_date - start_date' berechnet, was hier zu negativen Werten führen würde und die Bedingung '> 180' nie erfüllt wäre.",
+            "fix_suggestion": "Stelle die korrekte Reihenfolge der Argumente sicher, um eine positive Tagesdifferenz zu erhalten: DATEDIFF(day, [letztes_Transaktionsdatum], CURRENT_DATE)."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner aktuellen Form nicht lauffähig, da er eine NOT NULL-Beschränkung verletzt. Darüber hinaus ist die implementierte Geschäftslogik zur Identifizierung inaktiver Kunden grundlegend fehlerhaft. Eine Korrektur der Aggregationsfunktion (MIN zu MAX) und der CASE-Anweisung ist zwingend erforderlich, um korrekte und valide Ergebnisse zu erzielen.",
+    "_source_file": "case7.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 2164.192,
+    "_response_char_count": 3831
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 7 Robustheitsdurchlauf},label={gemini_case7_prompt3}]
+{
+    "transformation_understanding": "Der ETL-Prozess aggregiert Daten aus der Tabelle 'TRANSACTIONS' für jeden Kunden. Ziel ist es, das Datum der ersten Transaktion zu ermitteln und basierend darauf einen Inaktivitätsstatus abzuleiten. Die aggregierten Ergebnisse, bestehend aus Kunden-ID, Transaktionsdatum und Inaktivitätsstatus, werden in die Zieltabelle 'CUSTOMER_CHURN' eingefügt.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> CUSTOMER_CHURN.CUSTOMER_ID",
+        "TRANSACTIONS.BOOKING_DATE -> CUSTOMER_CHURN.LAST_TX_DATE",
+        "TRANSACTIONS.BOOKING_DATE -> CUSTOMER_CHURN.IS_INACTIVE"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Gruppierung der Transaktionsdaten nach Kunde, um eine Aggregation pro Kunde zu ermöglichen.",
+            "formula": "GROUP BY t.CUSTOMER_ID",
+            "improvement": "Zur Verbesserung der Performance sollte ein Index auf der Spalte 'TRANSACTIONS(CUSTOMER_ID)' existieren."
+        },
+        {
+            "step_count": 2,
+            "description": "Ermittlung des ersten Transaktionsdatums für jeden Kunden.",
+            "formula": "MIN(t.BOOKING_DATE) AS LAST_TX_DATE",
+            "improvement": "Logischer Fehler: Der Spaltenname 'LAST_TX_DATE' suggeriert das letzte Datum. Es sollte die Funktion MAX(t.BOOKING_DATE) verwendet werden, um das semantisch korrekte, letzte Transaktionsdatum zu ermitteln."
+        },
+        {
+            "step_count": 3,
+            "description": "Ableitung des Inaktivitätsstatus basierend auf der Zeitdifferenz zwischen dem aktuellen Datum und dem ersten Transaktionsdatum.",
+            "formula": "CASE WHEN DATEDIFF(day, CURRENT_DATE, MIN(t.BOOKING_DATE)) > 180 THEN 'TRUE' ELSE NULL END",
+            "improvement": "Die Logik sollte auf dem letzten Transaktionsdatum basieren. Die Parameter der DATEDIFF-Funktion müssen getauscht und der ELSE-Fall definiert werden: CASE WHEN DATEDIFF(day, MAX(t.BOOKING_DATE), CURRENT_DATE) > 180 THEN 'TRUE' ELSE 'FALSE' END."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist nicht funktionsfähig. Der 'INSERT'-Befehl wird aufgrund einer 'NOT NULL'-Constraint-Verletzung fehlschlagen, da die CASE-Anweisung für die Spalte 'IS_INACTIVE' den Wert NULL erzeugen kann. Zudem ist die Geschäftslogik fehlerhaft: Sie verwendet das erste ('MIN') anstelle des letzten ('MAX') Transaktionsdatums zur Bestimmung der Inaktivität. Die Logik der DATEDIFF-Funktion ist ebenfalls fehlerhaft und würde nicht das erwartete Ergebnis liefern.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Die CASE-Anweisung generiert im ELSE-Zweig einen NULL-Wert für die Spalte 'IS_INACTIVE', welche in der Zieltabelle als 'NOT NULL' definiert ist. Dies führt zum garantierten Fehlschlagen des INSERT-Statements.",
+            "fix_suggestion": "Der ELSE-Zweig der CASE-Anweisung muss einen Nicht-NULL-Wert zurückgeben, z.B. 'FALSE', um die 'NOT NULL'-Beschränkung der Zieltabelle zu erfüllen."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Die Verwendung von MIN(BOOKING_DATE) zur Berechnung von 'LAST_TX_DATE' und des Inaktivitätsstatus ist logisch falsch. Inaktivität wird typischerweise basierend auf der letzten Interaktion bestimmt.",
+            "fix_suggestion": "Zur korrekten Ermittlung des letzten Transaktionsdatums und des darauf basierenden Inaktivitätsstatus muss die Aggregationsfunktion MAX(BOOKING_DATE) anstelle von MIN(BOOKING_DATE) verwendet werden."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Die Parameter der DATEDIFF-Funktion sind in einer Weise angeordnet, die eine Zeitdifferenz von der Zukunft zur Vergangenheit berechnet. Dies führt zu negativen Werten und verhindert, dass die Bedingung '> 180' wie beabsichtigt erfüllt wird.",
+            "fix_suggestion": "Die Reihenfolge der Datumsparameter in der DATEDIFF-Funktion sollte korrigiert werden zu 'DATEDIFF(day, MAX(t.BOOKING_DATE), CURRENT_DATE)', um die korrekte Zeitspanne seit der letzten Transaktion zu berechnen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Der Datentyp VARCHAR(5) für die Spalte 'IS_INACTIVE' ist für die Speicherung von Wahrheitswerten ('TRUE'/'FALSE') ineffizient und weniger robust als spezifische Datentypen.",
+            "fix_suggestion": "Für die Speicherung von booleschen Werten sollte ein nativer BOOLEAN- oder BIT-Datentyp verwendet werden. Dies verbessert die Datenintegrität und Speichereffizienz."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner aktuellen Form nicht lauffähig und enthält schwerwiegende logische Fehler. Ein Fehlschlagen der Transaktion durch eine 'NOT NULL'-Constraint-Verletzung ist garantiert. Die Kernlogik zur Identifizierung inaktiver Kunden ist durch die Verwendung des ersten statt des letzten Transaktionsdatums und eine fehlerhafte Datumsberechnung fundamental falsch. Nach Korrektur dieser Fehler ist der Prozess funktionsfähig. Eine Anpassung des Datentyps und die Sicherstellung von Indizes werden als weitere Optimierungen empfohlen.",
+    "_source_file": "case7.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 2839.158,
+    "_response_char_count": 4963
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 8 Hauptdurchlauf},label={gemini_case8_prompt1}]
+{
+    "transformation_understanding": "Der ETL-Prozess berechnet eine rollierende Summe der Umsätze pro Kunde aus der Tabelle SALES_MONTHLY und fügt die Ergebnisse in die Tabelle SALES_ROLLING3M ein. Die Berechnung erfolgt über ein Fenster, das den aktuellen und die drei vorangegangenen Monate umfasst.",
+    "data_lineage": [
+        "SALES_MONTHLY.CUSTOMER_ID -> SALES_ROLLING3M.CUSTOMER_ID",
+        "SALES_MONTHLY.YEAR -> SALES_ROLLING3M.YEAR",
+        "SALES_MONTHLY.MONTH -> SALES_ROLLING3M.MONTH",
+        "SALES_MONTHLY.AMOUNT_EUR -> SALES_ROLLING3M.ROLLING_3M_SUM_EUR"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Berechnung der rollierenden Summe der Umsätze pro Kunde über ein definiertes Zeitfenster mittels einer Window-Funktion.",
+            "formula": "ROUND(SUM(AMNT_EUR) OVER (PARTITION BY CUSTOMER_ID ORDER BY MONTH, YEAR ROWS BETWEEN 3 PRECEDING AND CURRENT ROW), 2)",
+            "improvement": "Die Sortierreihenfolge sollte `YEAR, MONTH` sein, um korrekte Ergebnisse über Jahresgrenzen hinweg zu gewährleisten. Der Fensterrahmen sollte auf `ROWS BETWEEN 2 PRECEDING AND CURRENT ROW` angepasst werden, um einer 3-Monats-Summe zu entsprechen."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Berechnung ist aufgrund mehrerer Fehler nicht valide. Ein Tippfehler im Spaltennamen ('AMNT_EUR' statt 'AMOUNT_EUR') führt zum Scheitern der Abfrage. Die Sortierreihenfolge ('ORDER BY MONTH, YEAR') ist logisch falsch und führt zu fehlerhaften Summen über Jahresgrenzen hinweg. Zudem berechnet der Fensterrahmen ('3 PRECEDING') eine 4-Monats-Summe, was dem Spaltennamen 'ROLLING_3M_SUM_EUR' widerspricht.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Tippfehler im Spaltennamen 'AMNT_EUR' in der `SUM`-Funktion. Die Quelltabelle enthält die Spalte 'AMOUNT_EUR', was zu einem Syntaxfehler führt.",
+            "fix_suggestion": "Korrigieren des Spaltennamens von 'AMNT_EUR' zu 'AMOUNT_EUR'."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falsche Sortierreihenfolge `ORDER BY MONTH, YEAR` in der Window-Funktion. Dies führt zu inkorrekten Berechnungen über Jahresgrenzen hinweg.",
+            "fix_suggestion": "Ändern der Sortierung zu `ORDER BY YEAR, MONTH` zur Sicherstellung einer chronologisch korrekten Verarbeitung."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Die Fensterdefinition `ROWS BETWEEN 3 PRECEDING AND CURRENT ROW` berechnet eine 4-Monats-Summe, während der Zielspaltenname `ROLLING_3M_SUM_EUR` eine 3-Monats-Summe impliziert. Dies führt zu semantischer Inkonsistenz.",
+            "fix_suggestion": "Anpassen der Fensterdefinition auf `ROWS BETWEEN 2 PRECEDING AND CURRENT ROW`, um der Benennung zu entsprechen, oder Umbenennung der Zielspalte."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Der Zieldatentyp `DECIMAL(8,2)` könnte für die Summe von vier Monaten bei umsatzstarken Kunden zu klein sein und einen arithmetischen Überlauffehler verursachen.",
+            "fix_suggestion": "Prüfen der maximalen Summen und ggf. Erhöhen der Präzision des Zieldatentyps, z.B. auf `DECIMAL(12,2)`."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner aktuellen Form nicht funktionstüchtig und enthält kritische logische Fehler. Ein Syntaxfehler verhindert die Ausführung. Selbst nach Korrektur würde die falsche Sortierlogik zu inkonsistenten und falschen Ergebnissen führen. Eine Überarbeitung der SQL-Transformation ist zwingend erforderlich.",
+    "_source_file": "case8.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 1400.019,
+    "_response_char_count": 3475
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 8 Konsistenzdurchlauf},label={gemini_case8_prompt2}]
+{
+    "transformation_understanding": "Der ETL-Prozess berechnet eine rollierende Summe der Umsätze pro Kunde aus der Tabelle SALES_MONTHLY und schreibt das Ergebnis in die Tabelle SALES_ROLLING3M. Die Berechnung erfolgt mittels einer Fensterfunktion.",
+    "data_lineage": [
+        "SALES_MONTHLY.CUSTOMER_ID -> SALES_ROLLING3M.CUSTOMER_ID",
+        "SALES_MONTHLY.YEAR -> SALES_ROLLING3M.YEAR",
+        "SALES_MONTHLY.MONTH -> SALES_ROLLING3M.MONTH",
+        "SALES_MONTHLY.AMOUNT_EUR -> SALES_ROLLING3M.ROLLING_3M_SUM_EUR"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Anwendung einer Fensterfunktion zur Berechnung einer rollierenden Summe über die Umsätze.",
+            "formula": "SUM(AMNT_EUR) OVER (PARTITION BY CUSTOMER_ID ORDER BY MONTH, YEAR ROWS BETWEEN 3 PRECEDING AND CURRENT ROW)",
+            "improvement": "Zur Sicherstellung der Datenintegrität bei NULL-Werten in der Quelle sollte die Aggregation mit COALESCE gekapselt werden: COALESCE(SUM(...), 0)."
+        },
+        {
+            "step_count": 2,
+            "description": "Rundung des Ergebnisses auf zwei Dezimalstellen.",
+            "formula": "ROUND(..., 2)",
+            "improvement": null
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist nicht valide. Ein Tippfehler im Spaltennamen ('AMNT_EUR') verhindert die Ausführung. Die Sortierlogik ('ORDER BY MONTH, YEAR') ist fehlerhaft und führt zu falschen Ergebnissen. Zudem berechnet das Fenster ('3 PRECEDING') eine 4-Monats-Summe anstatt einer 3-Monats-Summe.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Tippfehler im Spaltennamen 'AMNT_EUR' in der SUM-Funktion. Die Abfrage ist nicht ausführbar.",
+            "fix_suggestion": "Korrigieren des Spaltennamens zu 'AMOUNT_EUR'."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falsche Sortierreihenfolge 'ORDER BY MONTH, YEAR' in der Fensterfunktion. Dies führt zu einer nicht-chronologischen Aggregation über die Jahre hinweg.",
+            "fix_suggestion": "Ändern der Sortierung zu 'ORDER BY YEAR, MONTH', um eine korrekte chronologische Reihenfolge sicherzustellen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Das Fenster 'ROWS BETWEEN 3 PRECEDING AND CURRENT ROW' berechnet eine 4-Monats-Summe, was dem Zielspaltennamen 'ROLLING_3M_SUM_EUR' widerspricht.",
+            "fix_suggestion": "Anpassen des Fensters zu 'ROWS BETWEEN 2 PRECEDING AND CURRENT ROW' für eine korrekte 3-Monats-Summe."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Die Quellspalte 'AMOUNT_EUR' ist nullable. Eine Aggregation über ausschließlich NULL-Werte resultiert in NULL, was bei der NOT NULL-Zielspalte 'ROLLING_3M_SUM_EUR' zu einem Ladefehler führt.",
+            "fix_suggestion": "Verwendung von 'COALESCE(SUM(AMOUNT_EUR) OVER (...), 0)' zur Absicherung gegen NULL-Ergebnisse."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner aktuellen Form aufgrund mehrerer kritischer Fehler nicht funktionstüchtig und liefert logisch falsche Ergebnisse. Eine Korrektur des Spaltentippfehlers, der Sortierlogik und des Fensterrahmens ist zwingend erforderlich.",
+    "_source_file": "case8.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 2193.63,
+    "_response_char_count": 3113
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 8 Robustheitsdurchlauf},label={gemini_case8_prompt3}]
+{
+    "transformation_understanding": "Der ETL-Prozess aggregiert monatliche Umsatzdaten aus der Tabelle 'SALES_MONTHLY', um für jeden Kunden einen gleitenden 3-Monats-Durchschnitt zu berechnen. Das Ergebnis wird in die Zieltabelle 'SALES_ROLLING3M' geschrieben. Die Berechnung erfolgt mittels einer SQL-Fensterfunktion, die die Daten pro Kunde partitioniert und über einen definierten Zeitrahmen summiert.",
+    "data_lineage": [
+        "SALES_MONTHLY.CUSTOMER_ID -> SALES_ROLLING3M.CUSTOMER_ID",
+        "SALES_MONTHLY.YEAR -> SALES_ROLLING3M.YEAR",
+        "SALES_MONTHLY.MONTH -> SALES_ROLLING3M.MONTH",
+        "SALES_MONTHLY.AMOUNT_EUR -> SALES_ROLLING3M.ROLLING_3M_SUM_EUR"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Partitionierung der Daten nach Kunde, um die Berechnungen für jeden Kunden separat durchzuführen.",
+            "formula": "PARTITION BY CUSTOMER_ID",
+            "improvement": "Ein Index auf der Spalte 'CUSTOMER_ID' in der Quelltabelle kann die Performance der Partitionierung verbessern."
+        },
+        {
+            "step_count": 2,
+            "description": "Sortierung der partitionierten Daten, um eine chronologische Reihenfolge für die gleitende Berechnung herzustellen.",
+            "formula": "ORDER BY MONTH, YEAR",
+            "improvement": "Ein zusammengesetzter Index auf (CUSTOMER_ID, YEAR, MONTH) in der Quelltabelle beschleunigt die Sortierung innerhalb der Partitionen erheblich."
+        },
+        {
+            "step_count": 3,
+            "description": "Berechnung der Summe über ein Fenster von vier statt drei Monaten (aktuelle Zeile plus drei vorhergehende).",
+            "formula": "SUM(AMNT_EUR) OVER (... ROWS BETWEEN 3 PRECEDING AND CURRENT ROW)",
+            "improvement": null
+        },
+        {
+            "step_count": 4,
+            "description": "Rundung des Summen-Ergebnisses auf zwei Dezimalstellen.",
+            "formula": "ROUND(..., 2)",
+            "improvement": null
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist aufgrund mehrerer Fehler nicht funktionsfähig und liefert ein logisch falsches Ergebnis. Es liegt ein Syntaxfehler durch einen Tippfehler im Spaltennamen ('AMNT_EUR' statt 'AMOUNT_EUR') vor. Die Sortierreihenfolge ('ORDER BY MONTH, YEAR') ist logisch falsch und führt zu einer fehlerhaften chronologischen Anordnung. Das Berechnungsfenster ('ROWS BETWEEN 3 PRECEDING AND CURRENT ROW') umfasst vier statt der beabsichtigten drei Monate. Zudem fehlt eine Behandlung von NULL-Werten, was bei einer NOT-NULL-Spalte im Ziel zu Laufzeitfehlern führen kann.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Im SQL-Code wird der Spaltenname 'AMNT_EUR' verwendet, in der Quelltabelle lautet dieser jedoch 'AMOUNT_EUR'. Dies führt zu einem Syntaxfehler und zum sofortigen Abbruch der Abfrage.",
+            "fix_suggestion": "Korrigieren Sie den Spaltennamen im SUM-Aggregat zu 'AMOUNT_EUR'."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Die Sortierung 'ORDER BY MONTH, YEAR' ist logisch fehlerhaft. Sie sortiert alle Januar-Werte aller Jahre zusammen, dann alle Februar-Werte etc. Dies zerstört die chronologische Reihenfolge und führt zu einer komplett falschen Berechnung des gleitenden Wertes.",
+            "fix_suggestion": "Ändern Sie die Sortierung zu 'ORDER BY YEAR, MONTH', um eine korrekte chronologische Sequenz sicherzustellen."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Das Fenster 'ROWS BETWEEN 3 PRECEDING AND CURRENT ROW' summiert den aktuellen Monat und die drei vorhergehenden Monate, also insgesamt vier Monate. Der Spaltenname 'ROLLING_3M_SUM_EUR' suggeriert jedoch eine 3-Monats-Summe.",
+            "fix_suggestion": "Passen Sie das Fenster an die Anforderung an: 'ROWS BETWEEN 2 PRECEDING AND CURRENT ROW' für eine 3-Monats-Summe (inklusive des aktuellen Monats)."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Die Quellspalte 'AMOUNT_EUR' ist 'nullable'. Wenn alle Werte in einem Berechnungsfenster NULL sind, liefert SUM() ebenfalls NULL. Der Versuch, NULL in die als 'NOT NULL' definierte Zielspalte 'ROLLING_3M_SUM_EUR' einzufügen, verursacht einen Laufzeitfehler.",
+            "fix_suggestion": "Verwenden Sie 'COALESCE(SUM(AMOUNT_EUR) OVER (...), 0)' um sicherzustellen, dass anstelle von NULL der Wert 0 eingefügt wird."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner aktuellen Form nicht funktionsfähig und logisch fehlerhaft. Er enthält kritische Syntax- und Logikfehler, die zu einem Abbruch der Ausführung bzw. zu falschen Ergebnissen führen. Nach Behebung der identifizierten Probleme, insbesondere der Sortierreihenfolge und des Berechnungsfensters, kann der Prozess die gewünschte Funktionalität korrekt abbilden.",
+    "_source_file": "case8.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 2865.989,
+    "_response_char_count": 4686
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 9 Hauptdurchlauf},label={gemini_case9_prompt1}]
+{
+    "transformation_understanding": "Der ETL-Prozess implementiert eine Slowly Changing Dimension (SCD) Type 2 Logik für Kundenadressen. In einem ersten Schritt werden bestehende, aktive Datensätze historisiert, falls eine Änderung in der Staging-Tabelle erkannt wird. Im zweiten Schritt werden neue Kunden oder die geänderten Adressdaten als neuer, aktuell gültiger Datensatz in die Dimensionstabelle eingefügt.",
+    "data_lineage": [
+        "CUSTOMER_ADDRESS_STG -> DIM_CUSTOMER_ADDRESS"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Historisierung veränderter, aktiver Datensätze durch Setzen des Gültigkeitsendes. Die Änderungserkennung vergleicht die Attribute STREET, CITY, POSTAL_CODE und COUNTRY.",
+            "formula": "SET VALID_TO = NULL FROM CUSTOMER_ADDRESS_STG s WHERE d.CUSTOMER_ID = s.CUSTOMER_ID AND d.IS_CURRENT = TRUE AND (d.STREET <> s.STREET OR d.CITY <> s.CITY OR d.POSTCODE <> s.POSTAL_CODE OR d.COUNTRY = s.COUNTRY);",
+            "improvement": "Zusammenführung der beiden SQL-Statements in ein einziges MERGE-Statement zur Verbesserung der Performance und Atomarität."
+        },
+        {
+            "step_count": 2,
+            "description": "Einfügen neuer oder geänderter Adressdatensätze als neuer, aktuell gültiger Eintrag. Die Logik zur Identifizierung neuer/geänderter Datensätze ist identisch zu Schritt 1.",
+            "formula": "INSERT INTO DIM_CUSTOMER_ADDRESS (CUSTOMER_ID, STREET, CITY, POSTAL_CODE, COUNTRY, VALID_FROM, VALID_TO, IS_CURRENT) SELECT s.CUSTOMER_ID, s.STREET, s.CITY, s.POSTAL_CODE, s.COUNTRY, s.CHANGE_TS AS VALID_FROM, NULL AS VALID_TO, TRUE AS IS_CURRENT FROM CUSTOMER_ADDRESS_STG s LEFT JOIN DIM_CUSTOMER_ADDRESS d ON d.CUSTOMER_ID = s.CUSTOMER_ID AND d.IS_CURRENT = TRUE WHERE d.CUSTOMER_ID IS NULL OR d.STREET <> s.STREET OR d.CITY <> s.CITY OR d.POSTCODE <> s.POSTAL_CODE OR d.COUNTRY = s.COUNTRY;",
+            "improvement": "Die Logik zur Änderungserkennung ist redundant und sollte zentralisiert werden, idealerweise in einem CTE oder Subquery, um Fehleranfälligkeit zu reduzieren."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist nicht lauffähig. Sie enthält Syntaxfehler (falscher Spaltenname), Datentyp-Konflikte (NULL-Insert in NOT NULL Spalte) und schwere logische Fehler in der Änderungserkennung, die zu inkonsistenten Daten führen würden.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "SQL-Statement 1 und 2 versuchen, den Wert NULL in die Spalte 'VALID_TO' zu schreiben, welche als NOT NULL definiert ist. Dies führt zum sofortigen Abbruch der Transaktion.",
+            "fix_suggestion": "Für aktuell gültige Datensätze sollte 'VALID_TO' auf ein Zukunftsdatum (z.B. '9999-12-31') gesetzt werden. Beim Historisieren sollte das Datum des neuen Eintrags (z.B. `CAST(s.CHANGE_TS AS DATE) - 1`) verwendet werden."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "In beiden SQL-Statements wird auf die Spalte 'd.POSTCODE' zugegriffen. Laut Schema heißt die Spalte in 'DIM_CUSTOMER_ADDRESS' jedoch 'POSTAL_CODE'. Dies führt zu einem 'invalid identifier'-Fehler.",
+            "fix_suggestion": "Korrektur des Spaltennamens von 'd.POSTCODE' zu 'd.POSTAL_CODE' in beiden SQL-Statements."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Die Bedingung 'd.COUNTRY = s.COUNTRY' in der WHERE-Klausel beider Statements ist logisch fehlerhaft. Sie identifiziert Datensätze fälschlicherweise als geändert, wenn das Land gleich geblieben ist, und ignoriert tatsächliche Änderungen im Land-Attribut.",
+            "fix_suggestion": "Änderung der Bedingung zu 'd.COUNTRY <> s.COUNTRY', um Änderungen im Land-Attribut korrekt zu erkennen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Der Vergleichsoperator '<>' behandelt NULL-Werte inkorrekt. Ein Vergleich zwischen einem Wert und NULL ergibt 'UNKNOWN' und nicht 'TRUE', wodurch Änderungen bei NULL-Werten nicht erkannt werden.",
+            "fix_suggestion": "Verwendung von 'IS DISTINCT FROM' anstelle von '<>' für alle Spaltenvergleiche, um NULL-Werte korrekt zu behandeln und eine robuste Änderungserkennung sicherzustellen."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in der vorliegenden Form nicht funktionstüchtig. Er enthält mehrere kritische SQL-Syntaxfehler und schwere logische Fehler in der Änderungserkennung. Eine grundlegende Überarbeitung der SQL-Logik ist zwingend erforderlich, um die Funktionalität und Datenintegrität sicherzustellen.",
+    "_source_file": "case9.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 1429.836,
+    "_response_char_count": 4470
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 9 Konsistenzdurchlauf},label={gemini_case9_prompt2}]
+{
+    "transformation_understanding": "Der ETL-Prozess zielt darauf ab, eine Slowly Changing Dimension (SCD) Typ 2 für Kundenadressen zu implementieren. In einem ersten Schritt sollen bestehende, als aktuell markierte Datensätze in der Zieltabelle 'DIM_CUSTOMER_ADDRESS' historisiert werden, wenn sich Daten in der Staging-Tabelle 'CUSTOMER_ADDRESS_STG' geändert haben. Im zweiten Schritt werden neue oder geänderte Datensätze aus der Staging-Tabelle in die Zieltabelle eingefügt.",
+    "data_lineage": [
+        "CUSTOMER_ADDRESS_STG -> DIM_CUSTOMER_ADDRESS"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Aktualisierung der Zieltabelle, um den Gültigkeitszeitraum für geänderte Adressdatensätze zu beenden.",
+            "formula": "SET VALID_TO = NULL FROM CUSTOMER_ADDRESS_STG s WHERE d.CUSTOMER_ID = s.CUSTOMER_ID AND d.IS_CURRENT = TRUE AND (d.STREET <> s.STREET OR d.CITY <> s.CITY OR d.POSTCODE <> s.POSTAL_CODE OR d.COUNTRY = s.COUNTRY);",
+            "improvement": "Die Logik zur Änderungserkennung ist fehlerhaft. Ein korrekter SCD-2-Prozess würde hier `IS_CURRENT` auf `FALSE` und `VALID_TO` auf das Änderungsdatum des neuen Datensatzes setzen."
+        },
+        {
+            "step_count": 2,
+            "description": "Einfügen neuer Kundenadressen oder der neuen Version einer geänderten Adresse in die Zieltabelle.",
+            "formula": "INSERT INTO DIM_CUSTOMER_ADDRESS (CUSTOMER_ID, STREET, CITY, POSTAL_CODE, COUNTRY, VALID_FROM, VALID_TO, IS_CURRENT) SELECT s.CUSTOMER_ID, s.STREET, s.CITY, s.POSTAL_CODE, s.COUNTRY, s.CHANGE_TS AS VALID_FROM, NULL AS VALID_TO, TRUE AS IS_CURRENT FROM CUSTOMER_ADDRESS_STG s LEFT JOIN DIM_CUSTOMER_ADDRESS d ON d.CUSTOMER_ID = s.CUSTOMER_ID AND d.IS_CURRENT = TRUE WHERE d.CUSTOMER_ID IS NULL OR d.STREET <> s.STREET OR d.CITY <> s.CITY OR d.POSTCODE <> s.POSTAL_CODE OR d.COUNTRY = s.COUNTRY;",
+            "improvement": "Die Zusammenführung beider Schritte in einem `MERGE`-Statement würde die Atomarität sicherstellen, die Performance verbessern und die Lesbarkeit erhöhen."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist aufgrund mehrerer kritischer Fehler nicht funktionstüchtig. Ein Syntaxfehler durch einen falschen Spaltennamen ('POSTCODE' statt 'POSTAL_CODE') verhindert die Ausführung. Ein schwerwiegender Logikfehler in der `WHERE`-Klausel (`d.COUNTRY = s.COUNTRY`) führt zu einer fehlerhaften Änderungserkennung und würde zu massiver Datenvervielfältigung führen. Zudem wird versucht, `NULL` in eine `NOT NULL`-Spalte (`VALID_TO`) zu schreiben, was einen Constraint-Verstoß auslöst. Die SCD-Typ-2-Logik ist grundsätzlich falsch implementiert.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "In beiden SQL-Statements wird auf die Spalte `d.POSTCODE` verwiesen, die in der Tabelle `DIM_CUSTOMER_ADDRESS` nicht existiert. Der korrekte Spaltenname lautet `POSTAL_CODE`.",
+            "fix_suggestion": "Korrigieren des Spaltennamens von `d.POSTCODE` zu `d.POSTAL_CODE` in beiden SQL-Abfragen."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Die Bedingung `d.COUNTRY = s.COUNTRY` in der `WHERE`-Klausel beider Statements ist logisch fehlerhaft. Sie führt dazu, dass bei bestehenden Kunden fälschlicherweise immer ein neuer Datensatz erzeugt wird, anstatt nur bei Änderungen.",
+            "fix_suggestion": "Die Bedingung muss zu `d.COUNTRY <> s.COUNTRY` geändert und mit `OR` verknüpft werden, um eine korrekte Änderungserkennung zu gewährleisten."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Die Spalte `DIM_CUSTOMER_ADDRESS.VALID_TO` ist als `NOT NULL` definiert. Beide SQL-Statements versuchen, `NULL` in diese Spalte zu schreiben, was zu einem Constraint-Verstoß führt.",
+            "fix_suggestion": "Für den jeweils aktuellen Datensatz sollte `VALID_TO` auf ein festes Zukunftsdatum (z.B. '9999-12-31') gesetzt werden. Beim Historisieren eines Datensatzes sollte `VALID_TO` auf das `CHANGE_TS` des neuen Datensatzes gesetzt werden."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Die SCD-Typ-2-Logik ist unvollständig. Das `UPDATE`-Statement aktualisiert nur `VALID_TO`, setzt aber nicht `IS_CURRENT` auf `FALSE`, was zu mehreren aktiven Datensätzen pro Kunde führen würde.",
+            "fix_suggestion": "Das `UPDATE`-Statement muss erweitert werden, um `IS_CURRENT = FALSE` zu setzen und `VALID_TO` mit einem korrekten Datum zu versehen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Der Vergleich von Spalten mit `<>` behandelt `NULL`-Werte nicht korrekt. Eine Änderung von einem Wert zu `NULL` oder umgekehrt wird nicht als Änderung erkannt.",
+            "fix_suggestion": "NULL-sichere Vergleichsoperatoren verwenden, z.B. `IS DISTINCT FROM`, oder die Logik explizit um `IS NULL`-Prüfungen erweitern."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner jetzigen Form nicht lauffähig und logisch fehlerhaft. Er enthält Syntaxfehler, `NOT NULL`-Verletzungen und eine falsche Logik zur Änderungserkennung, die zu inkonsistenten und fehlerhaften Daten führen würde. Eine vollständige Überarbeitung der SQL-Logik, vorzugsweise durch die Implementierung eines einzigen `MERGE`-Statements mit korrekter SCD-2-Logik und NULL-sicherem Spaltenvergleich, ist zwingend erforderlich.",
+    "_source_file": "case9.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 2228.544,
+    "_response_char_count": 5274
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 9 Robustheitsdurchlauf},label={gemini_case9_prompt3}]
+{
+    "transformation_understanding": "Der ETL-Prozess implementiert eine Slowly Changing Dimension (SCD) Typ 2 für Kundenadressen. In einem ersten Schritt sollen veraltete, aber aktuell gültige Einträge in der Zieltabelle 'DIM_CUSTOMER_ADDRESS' durch Setzen eines Gültigkeitsdatums historisiert werden. Im zweiten Schritt werden neue oder geänderte Adressdatensätze aus der Staging-Tabelle 'CUSTOMER_ADDRESS_STG' als neue, aktuell gültige Einträge in die Zieltabelle eingefügt.",
+    "data_lineage": [
+        "CUSTOMER_ADDRESS_STG",
+        "SQL-Transformation",
+        "DIM_CUSTOMER_ADDRESS"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Identifiziert geänderte Adressdatensätze und markiert die bisherigen Einträge in der Zieltabelle als nicht mehr aktuell. Die Logik versucht, das 'VALID_TO'-Datum zu setzen.",
+            "formula": "SET VALID_TO = NULL FROM CUSTOMER_ADDRESS_STG s WHERE d.CUSTOMER_ID = s.CUSTOMER_ID AND d.IS_CURRENT = TRUE AND (d.STREET <> s.STREET OR d.CITY <> s.CITY OR d.POSTCODE <> s.POSTAL_CODE OR d.COUNTRY = s.COUNTRY);",
+            "improvement": "Die separate Ausführung von UPDATE und INSERT ist ineffizient und fehleranfällig. Ein atomarer MERGE-Befehl ist vorzuziehen, um beide Operationen (UPDATE für geänderte Datensätze, INSERT für neue) in einer einzigen, transaktionssicheren Anweisung zu kombinieren."
+        },
+        {
+            "step_count": 2,
+            "description": "Fügt neue Kundenadressen oder die aktualisierte Version einer bestehenden Adresse in die Zieltabelle ein. Diese neuen Einträge werden als aktuell gültig markiert.",
+            "formula": "INSERT INTO DIM_CUSTOMER_ADDRESS (...) SELECT s.CUSTOMER_ID, ..., TRUE AS IS_CURRENT FROM CUSTOMER_ADDRESS_STG s LEFT JOIN DIM_CUSTOMER_ADDRESS d ON ... WHERE d.CUSTOMER_ID IS NULL OR ...;",
+            "improvement": "Die Änderungslogik sollte in die MERGE-Anweisung integriert werden. Dies vermeidet redundanten Code und stellt sicher, dass die Bedingungen für das Erkennen von Änderungen konsistent sind."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist aufgrund mehrerer kritischer Fehler nicht funktionsfähig. Es gibt einen Tippfehler im Spaltennamen ('POSTCODE' statt 'POSTAL_CODE'), einen schweren Logikfehler in der Änderungsabfrage ('d.COUNTRY = s.COUNTRY' statt '<>') und eine Verletzung der NOT-NULL-Beschränkung der Spalte 'VALID_TO'. Die SCD-Typ-2-Logik selbst ist fehlerhaft implementiert, da 'IS_CURRENT' nicht aktualisiert und 'VALID_TO' mit falschen Werten belegt wird.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "In beiden SQL-Anweisungen wird auf die nicht existierende Spalte 'd.POSTCODE' verwiesen. Der korrekte Spaltenname lautet 'POSTAL_CODE'.",
+            "fix_suggestion": "Ersetzen Sie alle Vorkommen von 'POSTCODE' durch 'POSTAL_CODE'."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Die Bedingung 'd.COUNTRY = s.COUNTRY' in der WHERE-Klausel beider Anweisungen ist logisch falsch. Sie würde eine Änderung auslösen, wenn das Land identisch ist, anstatt wenn es sich unterscheidet. Dies führt zu fehlerhafter Datenverarbeitung.",
+            "fix_suggestion": "Ändern Sie die Bedingung zu 'd.COUNTRY <> s.COUNTRY', um auf eine tatsächliche Änderung des Landes zu prüfen."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Die Spalte 'VALID_TO' in 'DIM_CUSTOMER_ADDRESS' ist als 'NOT NULL' definiert. Beide SQL-Anweisungen versuchen, einen 'NULL'-Wert zu setzen, was zu einem Ausführungsfehler führt.",
+            "fix_suggestion": "Für neue, aktuelle Datensätze sollte 'VALID_TO' auf ein fiktives Enddatum (z.B. '9999-12-31') gesetzt werden. Bei der Historisierung eines alten Datensatzes sollte 'VALID_TO' auf den Zeitstempel der Änderung (s.CHANGE_TS) gesetzt werden."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Die SCD-Typ-2-Logik ist unvollständig. Das erste SQL-Statement aktualisiert nicht das Flag 'IS_CURRENT' auf 'FALSE', um einen Datensatz als veraltet zu kennzeichnen.",
+            "fix_suggestion": "Ergänzen Sie das erste Statement um 'SET IS_CURRENT = FALSE', um die Historisierung korrekt abzuschließen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Der Vergleich von Attributen mit dem Operator '<>' ist nicht NULL-sicher. Falls ein Adressfeld (z.B. 'STREET') in einer Tabelle 'NULL' und in der anderen einen Wert enthält, wird die Änderung nicht erkannt.",
+            "fix_suggestion": "Verwenden Sie einen NULL-sicheren Vergleichsoperator, wie z.B. 'IS DISTINCT FROM', um Änderungen bei NULL-Werten korrekt zu identifizieren."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner jetzigen Form nicht lauffähig und würde zu Datenfehlern und Inkonsistenzen führen. Kritische Syntax- und Logikfehler verhindern eine korrekte Ausführung. Eine grundlegende Überarbeitung ist erforderlich. Es wird empfohlen, den Prozess durch eine einzelne, atomare MERGE-Anweisung zu ersetzen, welche die korrigierte Änderungslogik und die korrekte Handhabung der SCD-Typ-2-Felder ('VALID_FROM', 'VALID_TO', 'IS_CURRENT') implementiert.",
+    "_source_file": "case9.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 2904.641,
+    "_response_char_count": 5087
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 10 Hauptdurchlauf},label={gemini_case10_prompt1}]
+{
+    "transformation_understanding": "Der ETL-Prozess berechnet Schadenreserven. Schadensdaten aus der Tabelle 'CLAIMS' werden mit sparten-spezifischen Obergrenzen aus 'LOB_RESERVE_CAP' verknüpft. Die Reserve wird als Differenz aus gemeldetem und gezahltem Betrag ermittelt, wobei sie durch das Deckungslimit und die Sparten-Obergrenze gedeckelt wird. Ein negativer Wert wird ausgeschlossen. Das Ergebnis wird in die Zieltabelle 'CLAIM_RESERVES' geladen.",
+    "data_lineage": [
+        "CLAIMS.CLAIM_ID -> CLAIM_RESERVES.CLAIM_ID",
+        "{CLAIMS.REPORTED_AMT, CLAIMS.PAID_AMT, CLAIMS.COVER_LIMIT_AMT, LOB_RESERVE_CAP.MAX_RESERVE_AMT} -> CLAIM_RESERVES.CALC_RESERVE_AMT"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Verknüpfung der Schadensdaten mit den sparten-spezifischen Obergrenzen mittels LEFT JOIN.",
+            "formula": "FROM CLAIMS c LEFT JOIN LOB_RESERVE_CAP cap ON cap.LINE_BUSINESS = c.LINE_OF_BUSINESS",
+            "improvement": "Die Korrektheit des Spaltennamens 'LINE_BUSINESS' sollte geprüft werden. Ein INNER JOIN könnte performanter sein, falls für jede Sparte ein Eintrag in LOB_RESERVE_CAP garantiert ist."
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung des ausstehenden Betrags, begrenzt durch das Deckungslimit.",
+            "formula": "MIN(c.COVER_LIMIT_AMT, (c.REPORTED_AMT - c.PAID_AMT))",
+            "improvement": null
+        },
+        {
+            "step_count": 3,
+            "description": "Anwendung einer Untergrenze von Null, um negative Reserven zu verhindern.",
+            "formula": "GREATEST(0, ...)",
+            "improvement": null
+        },
+        {
+            "step_count": 4,
+            "description": "Anwendung der sparten-spezifischen Obergrenze auf die berechnete Reserve.",
+            "formula": "MIN(cap.MAX_RESERVE_AMT, ...)",
+            "improvement": null
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist nicht lauffähig. Es wird eine arithmetische Operation auf einer Spalte vom Typ CLOB ('REPORTED_AMT') durchgeführt. Zusätzlich enthält die Abfrage Syntaxfehler durch inkorrekte Spaltennamen ('CLM_ID' und 'LINE_BUSINESS').",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Arithmetische Operation (Subtraktion) auf der Spalte 'REPORTED_AMT' vom Typ CLOB. Dieser Datentyp unterstützt keine direkten mathematischen Berechnungen.",
+            "fix_suggestion": "Explizite Typumwandlung von 'c.REPORTED_AMT' in einen numerischen Datentyp, z.B. `CAST(c.REPORTED_AMT AS DECIMAL(16,2))`."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Syntaxfehler durch Verwendung nicht existierender Spaltennamen: 'CLM_ID' in der SELECT-Liste und 'LINE_BUSINESS' in der JOIN-Bedingung.",
+            "fix_suggestion": "Korrigieren der Spaltennamen zu 'c.CLAIM_ID' bzw. 'cap.LINE_OF_BUSINESS' gemäß Tabellendefinition."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Der LEFT JOIN kann zu NULL-Werten für 'cap.MAX_RESERVE_AMT' führen, falls eine Sparte in 'CLAIMS' keine Entsprechung in 'LOB_RESERVE_CAP' hat. Dies resultiert in einer NULL-Reserve.",
+            "fix_suggestion": "Verwendung von `COALESCE(cap.MAX_RESERVE_AMT, <hoher_Standardwert>)` zur Vermeidung von NULL-Ergebnissen oder Umstellung auf INNER JOIN, falls eine Obergrenze obligatorisch ist."
+        }
+    ],
+    "final_feedback": "Die fachliche Logik zur Reservenberechnung ist nachvollziehbar. Die technische Umsetzung ist jedoch aufgrund kritischer Datentyp- und Syntaxfehler fehlerhaft und nicht ausführbar. Nach Behebung dieser Fehler ist die Handhabung von nicht übereinstimmenden Sparten im JOIN zu überprüfen, um die Datenqualität sicherzustellen.",
+    "_source_file": "case10.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 1199.027,
+    "_response_char_count": 3537
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 10 Konsistenzdurchlauf},label={gemini_case10_prompt2}]
+{
+    "transformation_understanding": "Der Prozess berechnet Schadenrückstellungen. Für jeden Schaden wird der gemeldete Betrag um den bereits gezahlten Betrag reduziert. Dieses Ergebnis wird nach unten durch Null und nach oben durch das Deckungslimit der Police begrenzt. Abschließend wird eine spartenabhängige Obergrenze (Reserve Cap) angewendet. Die berechneten Werte werden in die Zieltabelle CLAIM_RESERVES geladen.",
+    "data_lineage": [
+        "CLAIMS.CLAIM_ID -> CLAIM_RESERVES.CLAIM_ID",
+        "CLAIMS.REPORTED_AMT, CLAIMS.PAID_AMT, CLAIMS.COVER_LIMIT_AMT, LOB_RESERVE_CAP.MAX_RESERVE_AMT -> CLAIM_RESERVES.CALC_RESERVE_AMT"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Join der Tabellen CLAIMS und LOB_RESERVE_CAP über die Sparte (Line of Business).",
+            "formula": "FROM CLAIMS c LEFT JOIN LOB_RESERVE_CAP cap ON cap.LINE_BUSINESS = c.LINE_OF_BUSINESS",
+            "improvement": null
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung des ausstehenden Schadenbetrags.",
+            "formula": "c.REPORTED_AMT - c.PAID_AMT",
+            "improvement": "Fehlende Beträge sollten mit COALESCE behandelt werden, z.B. COALESCE(c.PAID_AMT, 0)."
+        },
+        {
+            "step_count": 3,
+            "description": "Anwendung des Deckungslimits der Police.",
+            "formula": "MIN(c.COVER_LIMIT_AMT, ...)",
+            "improvement": null
+        },
+        {
+            "step_count": 4,
+            "description": "Sicherstellung einer nicht-negativen Rückstellung.",
+            "formula": "GREATEST(0, ...)",
+            "improvement": null
+        },
+        {
+            "step_count": 5,
+            "description": "Anwendung der spartenabhängigen Rückstellungsobergrenze.",
+            "formula": "MIN(cap.MAX_RESERVE_AMT, ...)",
+            "improvement": "Zur Vermeidung von NULL-Ergebnissen durch den LEFT JOIN sollte COALESCE verwendet werden, z.B. COALESCE(cap.MAX_RESERVE_AMT, 99999999999999.99)."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist nicht valide. Sie enthält Syntaxfehler durch Tippfehler in Spaltennamen ('CLM_ID' statt 'CLAIM_ID'; 'LINE_BUSINESS' statt 'LINE_OF_BUSINESS'). Zudem führt die arithmetische Operation auf dem CLOB-Datentyp 'REPORTED_AMT' zu einem fatalen Typenkonflikt.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Tippfehler im Spaltennamen 'CLM_ID' in der SELECT-Klausel.",
+            "fix_suggestion": "Korrigieren des Spaltennamens zu 'CLAIM_ID'."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Tippfehler im Spaltennamen 'LINE_BUSINESS' in der JOIN-Bedingung.",
+            "fix_suggestion": "Korrigieren des Spaltennamens zu 'LINE_OF_BUSINESS'."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Arithmetische Subtraktion wird auf dem Attribut 'REPORTED_AMT' vom Typ CLOB ausgeführt.",
+            "fix_suggestion": "Das Attribut 'REPORTED_AMT' muss explizit in einen numerischen Datentyp (z.B. DECIMAL) konvertiert werden. Der Quelldatentyp sollte grundsätzlich korrigiert werden."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Der LEFT JOIN kann zu NULL-Werten für 'MAX_RESERVE_AMT' führen, falls eine Sparte nicht in 'LOB_RESERVE_CAP' existiert. Dies resultiert in einer NULL-Rückstellung.",
+            "fix_suggestion": "Verwendung von COALESCE, um einen Standardwert für nicht gematchte Sparten zu setzen, oder Wechsel zu einem INNER JOIN, falls eine Obergrenze obligatorisch ist."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Inkonsistente Datentypen für monetäre Beträge. 'MAX_RESERVE_AMT' (DECIMAL(8,2)) hat eine geringere Präzision als andere Betragsfelder (DECIMAL(16,2)).",
+            "fix_suggestion": "Angleichung der DECIMAL-Präzisionen über alle relevanten Betragsfelder zur Wahrung der Datenintegrität und Vermeidung von Überlauffehlern."
+        }
+    ],
+    "final_feedback": "Die fachliche Logik zur Berechnung der Rückstellungen ist nachvollziehbar. Die technische Umsetzung ist jedoch aufgrund mehrerer kritischer Fehler (Tippfehler in Spaltennamen, inkompatible Datentypen) nicht lauffähig. Weitere Risiken wie die Handhabung von NULL-Werten durch den LEFT JOIN und inkonsistente Datentypen müssen vor der Produktivsetzung adressiert werden.",
+    "_source_file": "case10.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 1984.102,
+    "_response_char_count": 4109
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 10 Robustheitsdurchlauf},label={gemini_case10_prompt3}]
+{
+    "transformation_understanding": "Der ETL-Prozess berechnet die Schadenrückstellung (Claim Reserve) für Versicherungsfälle. Für jeden Fall wird die gemeldete Schadensumme um die bereits gezahlte Summe reduziert. Dieses Ergebnis wird anschließend durch das Deckungslimit des Vertrags und eine spartenabhängige Obergrenze (Reserve Cap) gedeckelt. Ein negativer Wert wird auf null gesetzt. Das Endergebnis wird zusammen mit der Schaden-ID in die Zieltabelle 'CLAIM_RESERVES' eingefügt.",
+    "data_lineage": [
+        "CLAIMS.CLAIM_ID -> CLAIM_RESERVES.CLAIM_ID",
+        "CLAIMS.REPORTED_AMT, CLAIMS.PAID_AMT, CLAIMS.COVER_LIMIT_AMT, LOB_RESERVE_CAP.MAX_RESERVE_AMT -> CLAIM_RESERVES.CALC_RESERVE_AMT"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Verknüpfung der Schaden-Tabelle (CLAIMS) mit der spartenabhängigen Rückstellungsobergrenze (LOB_RESERVE_CAP) über die Sparte (LINE_OF_BUSINESS).",
+            "formula": "FROM CLAIMS c LEFT JOIN LOB_RESERVE_CAP cap ON cap.LINE_BUSINESS = c.LINE_OF_BUSINESS",
+            "improvement": "Sicherstellen, dass auf den Join-Spalten 'CLAIMS.LINE_OF_BUSINESS' und 'LOB_RESERVE_CAP.LINE_OF_BUSINESS' Indizes vorhanden sind, um die Performance zu optimieren."
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung der vorläufigen Rückstellung durch Subtraktion der gezahlten von der gemeldeten Summe. Das Ergebnis wird durch das Deckungslimit begrenzt und auf ein Minimum von 0 gesetzt.",
+            "formula": "GREATEST(0, MIN(c.COVER_LIMIT_AMT, (c.REPORTED_AMT - c.PAID_AMT)))",
+            "improvement": "Die explizite Umwandlung des CLOB-Feldes 'REPORTED_AMT' in einen numerischen Datentyp ist für die Berechnung erforderlich und sollte mittels CAST-Funktion erfolgen."
+        },
+        {
+            "step_count": 3,
+            "description": "Anwendung der spartenabhängigen Obergrenze auf die berechnete Rückstellung.",
+            "formula": "MIN(cap.MAX_RESERVE_AMT, ...)",
+            "improvement": "Die Verwendung von COALESCE für 'cap.MAX_RESERVE_AMT' kann unbeabsichtigte Ergebnisse durch NULL-Werte aus dem LEFT JOIN verhindern, falls eine Sparte keine Obergrenze hat."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist in der vorliegenden Form nicht lauffähig. Es existieren Syntaxfehler bei Spaltennamen ('CLM_ID' statt 'c.CLAIM_ID', 'cap.LINE_BUSINESS' statt 'cap.LINE_OF_BUSINESS'). Zudem führt der Versuch, eine arithmetische Operation auf einem CLOB-Datentyp ('REPORTED_AMT') durchzuführen, zu einem kritischen Typkonfliktfehler.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Die arithmetische Operation 'c.REPORTED_AMT - c.PAID_AMT' verwendet das Feld 'REPORTED_AMT' vom Typ CLOB. Mathematische Berechnungen sind auf diesem Datentyp nicht direkt möglich.",
+            "fix_suggestion": "Wandeln Sie 'REPORTED_AMT' vor der Berechnung explizit in einen numerischen Datentyp um, z.B. mittels 'CAST(c.REPORTED_AMT AS DECIMAL(16,2))'."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Im SQL-Statement werden inkorrekte Spaltennamen verwendet: 'CLM_ID' anstelle von 'c.CLAIM_ID' und 'cap.LINE_BUSINESS' anstelle von 'cap.LINE_OF_BUSINESS'.",
+            "fix_suggestion": "Korrigieren Sie die Spaltennamen entsprechend der Tabellendefinition zu 'c.CLAIM_ID' und 'cap.LINE_OF_BUSINESS'."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Durch den LEFT JOIN kann 'cap.MAX_RESERVE_AMT' NULL sein, falls eine Sparte in 'LOB_RESERVE_CAP' nicht existiert. Die Funktion MIN kann NULL-Werte je nach Datenbanksystem ignorieren, was dazu führt, dass für diese Schäden keine Obergrenze angewendet wird.",
+            "fix_suggestion": "Erwägen Sie einen INNER JOIN, falls eine Obergrenze für jede Sparte zwingend erforderlich ist. Alternativ kann COALESCE verwendet werden, um NULL-Werte durch einen Standardwert zu ersetzen, z.B. 'COALESCE(cap.MAX_RESERVE_AMT, c.COVER_LIMIT_AMT)'."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Der Datentyp von 'MAX_RESERVE_AMT' ist DECIMAL(8,2), was einen Maximalwert von 999.999,99 zulässt. Dies könnte für manche Rückstellungen zu niedrig sein, die auf DECIMAL(16,2) basieren.",
+            "fix_suggestion": "Prüfen Sie, ob der Wertebereich von DECIMAL(8,2) für 'MAX_RESERVE_AMT' ausreichend ist. Gegebenenfalls sollte der Datentyp an den von 'CALC_RESERVE_AMT' (DECIMAL(16,2)) angepasst werden."
+        }
+    ],
+    "final_feedback": "Die Geschäftslogik zur Berechnung der Schadenrückstellung ist nachvollziehbar und fachlich korrekt strukturiert. Die technische Umsetzung ist jedoch aufgrund kritischer Syntax- und Datentypfehler nicht funktionsfähig. Nach Behebung dieser Fehler sollte die Logik des LEFT JOINs überprüft werden, um eine korrekte Handhabung von Fällen ohne spartenabhängige Obergrenze sicherzustellen. Eine Optimierung der Join-Performance durch Indizierung wird empfohlen.",
+    "_source_file": "case10.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 2589.207,
+    "_response_char_count": 4865
+}
+\end{lstlisting}
+

@@ -1,0 +1,1830 @@
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 1 Hauptdurchlauf},label={claude_case1_prompt1}]
+{
+    "transformation_understanding": "ETL-Prozess zur monatlichen Aggregation von Transaktionsdaten. Liest Transaktionen aus TRANSACTIONS-Tabelle, extrahiert Jahr und Monat aus BOOKING_DATE, summiert AMOUNT_EUR pro Kunde und Monat, und schreibt Ergebnisse in TARGET_AGG_MONTH.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> TARGET_AGG_MONTH.CUSTOMER_ID",
+        "TRANSACTIONS.BOOKING_DATE -> TARGET_AGG_MONTH.YEAR (via YEAR())",
+        "TRANSACTIONS.BOOKING_DATE -> TARGET_AGG_MONTH.MONTH (via MONTH())",
+        "TRANSACTIONS.AMOUNT_EUR -> TARGET_AGG_MONTH.SUM_AMOUNT_EUR (via SUM())"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Extraktion von Jahr aus BOOKING_DATE",
+            "formula": "YEAR(BOOKING_DATE) AS MONTH",
+            "improvement": "Korrektur: YEAR(BOOKING_DATE) AS YEAR"
+        },
+        {
+            "step_count": 2,
+            "description": "Extraktion von Monat aus BOOKING_DATE",
+            "formula": "MONTH(BOOKIN_DATE) AS YEAR",
+            "improvement": "Korrektur: MONTH(BOOKING_DATE) AS MONTH"
+        },
+        {
+            "step_count": 3,
+            "description": "Summierung der Beträge pro Gruppe",
+            "formula": "SUM(AMOUNT_EUR) AS SUM_AMOUNT_EUR",
+            "improvement": null
+        },
+        {
+            "step_count": 4,
+            "description": "Gruppierung nach Kunde und Zeitraum",
+            "formula": "GROUP BY AMOUNT_EUR, YEAR(BOOKIN_DATE), MONTH(BOOKIN_DATE)",
+            "improvement": "Korrektur: GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE)"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Mehrere kritische Fehler: 1) Spalten-Mapping vertauscht (YEAR->MONTH, MONTH->YEAR), 2) Tippfehler in Spaltennamen (BOOKIN_DATE), 3) Falsche GROUP BY Klausel (AMOUNT_EUR statt CUSTOMER_ID), 4) Inkonsistente Spaltennamen in GROUP BY.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Vertauschte Spalten-Zuordnung: YEAR(BOOKING_DATE) AS MONTH und MONTH(BOOKIN_DATE) AS YEAR",
+            "fix_suggestion": "Korrekte Zuordnung: YEAR(BOOKING_DATE) AS YEAR, MONTH(BOOKING_DATE) AS MONTH"
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Tippfehler in Spaltenname BOOKIN_DATE (fehlendes G)",
+            "fix_suggestion": "Korrektur zu BOOKING_DATE in allen Vorkommen"
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "GROUP BY enthält AMOUNT_EUR statt CUSTOMER_ID - führt zu falscher Aggregation",
+            "fix_suggestion": "GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE)"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Inkonsistente Spaltennamen in GROUP BY (BOOKIN_DATE vs BOOKING_DATE)",
+            "fix_suggestion": "Einheitliche Verwendung von BOOKING_DATE"
+        }
+    ],
+    "final_feedback": "Transformation ist nicht funktionsfähig aufgrund kritischer Syntax- und Logikfehler. Spalten-Mapping ist vertauscht, Tippfehler verhindern Ausführung, und GROUP BY-Klausel führt zu falscher Aggregation. Nach Korrektur der identifizierten Fehler wäre die Transformation funktional.",
+    "_source_file": "case1.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 966.935,
+    "_response_char_count": 2971
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 1 Konsistenzdurchlauf},label={claude_case1_prompt2}]
+{
+    "transformation_understanding": "ETL-Prozess zur monatlichen Aggregation von Transaktionsdaten. Liest Transaktionen aus TRANSACTIONS-Tabelle, extrahiert Jahr und Monat aus BOOKING_DATE, summiert AMOUNT_EUR pro Kunde und Monat, und schreibt Ergebnisse in TARGET_AGG_MONTH.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> TARGET_AGG_MONTH.CUSTOMER_ID",
+        "TRANSACTIONS.BOOKING_DATE -> TARGET_AGG_MONTH.YEAR (via YEAR function)",
+        "TRANSACTIONS.BOOKING_DATE -> TARGET_AGG_MONTH.MONTH (via MONTH function)",
+        "TRANSACTIONS.AMOUNT_EUR -> TARGET_AGG_MONTH.SUM_AMOUNT_EUR (via SUM aggregation)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Extraktion von Jahr aus BOOKING_DATE",
+            "formula": "YEAR(BOOKING_DATE) AS MONTH",
+            "improvement": "Korrektur der Spaltenzuordnung: YEAR(BOOKING_DATE) AS YEAR"
+        },
+        {
+            "step_count": 2,
+            "description": "Extraktion von Monat aus BOOKING_DATE",
+            "formula": "MONTH(BOOKIN_DATE) AS YEAR",
+            "improvement": "Korrektur Tippfehler und Spaltenzuordnung: MONTH(BOOKING_DATE) AS MONTH"
+        },
+        {
+            "step_count": 3,
+            "description": "Summierung der Transaktionsbeträge",
+            "formula": "SUM(AMOUNT_EUR) AS SUM_AMOUNT_EUR",
+            "improvement": null
+        },
+        {
+            "step_count": 4,
+            "description": "Gruppierung nach Kunde und Zeitraum",
+            "formula": "GROUP BY AMOUNT_EUR, YEAR(BOOKIN_DATE), MONTH(BOOKIN_DATE)",
+            "improvement": "Korrektur der GROUP BY Klausel: GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE)"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Multiple kritische Fehler: Vertauschte Spaltenzuordnung (YEAR->MONTH, MONTH->YEAR), Tippfehler in Spaltennamen (BOOKIN_DATE), falsche GROUP BY Klausel ohne CUSTOMER_ID aber mit AMOUNT_EUR.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Vertauschte Spaltenzuordnung: YEAR(BOOKING_DATE) wird als MONTH gespeichert und MONTH(BOOKING_DATE) als YEAR",
+            "fix_suggestion": "Korrekte Zuordnung: YEAR(BOOKING_DATE) AS YEAR, MONTH(BOOKING_DATE) AS MONTH"
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Tippfehler in Spaltenname BOOKIN_DATE statt BOOKING_DATE führt zu SQL-Fehler",
+            "fix_suggestion": "Korrektur zu BOOKING_DATE in allen Funktionsaufrufen"
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "GROUP BY enthält AMOUNT_EUR statt CUSTOMER_ID, führt zu falscher Aggregation",
+            "fix_suggestion": "GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE)"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Performance-Problem durch Gruppierung nach AMOUNT_EUR statt logischen Dimensionen",
+            "fix_suggestion": "Verwendung von CUSTOMER_ID als Gruppierungskriterium für korrekte monatliche Aggregation"
+        }
+    ],
+    "final_feedback": "Transformation ist nicht funktionsfähig aufgrund multipler kritischer Fehler. SQL wird aufgrund Tippfehler und falscher Spaltenzuordnung fehlschlagen. Nach Korrektur der Syntax- und Logikfehler ist die grundlegende Aggregationslogik korrekt implementierbar.",
+    "_source_file": "case1.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 1752.08,
+    "_response_char_count": 3116
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 1 Robustheitsdurchlauf},label={claude_case1_prompt3}]
+{
+    "transformation_understanding": "Der ETL-Prozess soll Transaktionsdaten aus der TRANSACTIONS-Tabelle nach Kunde und Monat aggregieren. Dabei werden die Beträge (AMOUNT_EUR) pro Kunde und Monat summiert und in die Zieltabelle TARGET_AGG_MONTH geschrieben. Die Transformation extrahiert Jahr und Monat aus dem BOOKING_DATE und gruppiert die Daten entsprechend.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> TARGET_AGG_MONTH.CUSTOMER_ID",
+        "TRANSACTIONS.BOOKING_DATE -> TARGET_AGG_MONTH.YEAR (via YEAR function)",
+        "TRANSACTIONS.BOOKING_DATE -> TARGET_AGG_MONTH.MONTH (via MONTH function)",
+        "TRANSACTIONS.AMOUNT_EUR -> TARGET_AGG_MONTH.SUM_AMOUNT_EUR (via SUM aggregation)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Extraktion von Jahr aus BOOKING_DATE",
+            "formula": "YEAR(BOOKING_DATE) AS MONTH",
+            "improvement": "Korrektur: YEAR(BOOKING_DATE) AS YEAR"
+        },
+        {
+            "step_count": 2,
+            "description": "Extraktion von Monat aus BOOKING_DATE",
+            "formula": "MONTH(BOOKIN_DATE) AS YEAR",
+            "improvement": "Korrektur: MONTH(BOOKING_DATE) AS MONTH"
+        },
+        {
+            "step_count": 3,
+            "description": "Summierung der Beträge pro Gruppe",
+            "formula": "SUM(AMOUNT_EUR) AS SUM_AMOUNT_EUR",
+            "improvement": null
+        },
+        {
+            "step_count": 4,
+            "description": "Gruppierung nach Attributen",
+            "formula": "GROUP BY AMOUNT_EUR, YEAR(BOOKIN_DATE), MONTH(BOOKIN_DATE)",
+            "improvement": "Korrektur: GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE)"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation enthält mehrere kritische Fehler: Spalten-Aliase sind vertauscht (YEAR wird als MONTH bezeichnet und umgekehrt), Tippfehler im Spaltennamen (BOOKIN_DATE statt BOOKING_DATE), und falsche GROUP BY-Klausel (gruppiert nach AMOUNT_EUR statt CUSTOMER_ID). Diese Fehler führen zu falschen Ergebnissen und Laufzeitfehlern.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Spalten-Aliase sind vertauscht: YEAR(BOOKING_DATE) AS MONTH und MONTH(BOOKIN_DATE) AS YEAR",
+            "fix_suggestion": "Korrekte Zuordnung: YEAR(BOOKING_DATE) AS YEAR und MONTH(BOOKING_DATE) AS MONTH"
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Tippfehler im Spaltennamen: BOOKIN_DATE statt BOOKING_DATE in MONTH-Funktion und GROUP BY",
+            "fix_suggestion": "Korrektur zu BOOKING_DATE in allen Vorkommen"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "GROUP BY enthält AMOUNT_EUR statt CUSTOMER_ID, was zu falscher Aggregation führt",
+            "fix_suggestion": "GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE)"
+        }
+    ],
+    "final_feedback": "Die Transformation ist nicht funktionsfähig und enthält kritische Syntaxfehler sowie logische Fehler in der Aggregationslogik. Nach Korrektur der Spalten-Aliase, Tippfehler und GROUP BY-Klausel würde der ETL-Prozess korrekt monatliche Kundenaggregationen erstellen. Für bessere Performance sollte ein Index auf (CUSTOMER_ID, BOOKING_DATE) in der Quelltabelle erstellt werden.",
+    "_source_file": "case1.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 1945.717,
+    "_response_char_count": 3110
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 2 Hauptdurchlauf},label={claude_case2_prompt1}]
+{
+    "transformation_understanding": "ETL-Prozess zur Deduplizierung von Kundendaten aus CUSTOMER_STAGING in CUSTOMER_DEDUPED. Verwendet Window-Function RANK() zur Identifikation der neuesten Datensätze pro CUSTOMER_ID basierend auf UPDATED_AT. Führt gleichzeitig Datentyp-Konvertierung von TIMESTAMP zu DATE durch.",
+    "data_lineage": [
+        "CUSTOMER_STAGING -> Window Function (RANK) -> CUSTOMER_DEDUPED"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Ranking der Datensätze nach UPDATED_AT pro CUSTOMER_ID",
+            "formula": "RANK() OVER (PARTITION BY CUSTOMER_ID ORDER BY UPDATED_AT DESC)",
+            "improvement": "ROW_NUMBER() verwenden für bessere Performance bei eindeutiger Rangfolge"
+        },
+        {
+            "step_count": 2,
+            "description": "Filterung auf neueste Datensätze",
+            "formula": "WHERE rn = 1",
+            "improvement": null
+        },
+        {
+            "step_count": 3,
+            "description": "Datentyp-Konvertierung TIMESTAMP zu VARCHAR",
+            "formula": "CAST(UPDATED_AT AS VARCHAR)",
+            "improvement": "CAST(UPDATED_AT AS DATE) verwenden für korrekten Zieldatentyp"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Transformation enthält kritische Fehler: Tippfehler im Spaltennamen (EMIAL statt EMAIL) und falsche Datentyp-Konvertierung (VARCHAR statt DATE). NULL-Handling für EMAIL-Spalte problematisch.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Tippfehler im SELECT: 'EMIAL' statt 'EMAIL' führt zu Spalten-nicht-gefunden-Fehler",
+            "fix_suggestion": "Korrektur zu 'EMAIL' im SELECT-Statement"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falsche Datentyp-Konvertierung: CAST(UPDATED_AT AS VARCHAR) statt DATE für Zieltabelle",
+            "fix_suggestion": "Änderung zu CAST(UPDATED_AT AS DATE) entsprechend Zielschema"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Werte in EMAIL-Spalte bei NOT NULL Constraint in Zieltabelle",
+            "fix_suggestion": "WHERE EMAIL IS NOT NULL hinzufügen oder DEFAULT-Wert definieren"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "RANK() statt ROW_NUMBER() kann bei identischen UPDATED_AT-Werten zu Duplikaten führen",
+            "fix_suggestion": "ROW_NUMBER() für eindeutige Rangfolge verwenden"
+        }
+    ],
+    "final_feedback": "Transformation nicht ausführbar aufgrund kritischer Syntaxfehler und Datentyp-Inkompatibilität. Nach Korrektur der Spaltennamen und Datentyp-Konvertierung sowie Behandlung der NULL-Werte ist der ETL-Prozess funktionsfähig. Performance-Optimierung durch ROW_NUMBER() empfohlen.",
+    "_source_file": "case2.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 1007.339,
+    "_response_char_count": 2589
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 2 Konsistenzdurchlauf},label={claude_case2_prompt2}]
+{
+    "transformation_understanding": "ETL-Prozess zur Deduplizierung von Kundendaten aus CUSTOMER_STAGING in CUSTOMER_DEDUPED. Verwendet Window-Function RANK() zur Identifikation des neuesten Datensatzes pro CUSTOMER_ID basierend auf UPDATED_AT. Führt gleichzeitig Datentyp-Konvertierung für UPDATED_AT durch.",
+    "data_lineage": [
+        "CUSTOMER_STAGING -> Window Function (RANK) -> CUSTOMER_DEDUPED"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Window-Function zur Deduplizierung nach CUSTOMER_ID",
+            "formula": "RANK() OVER (PARTITION BY CUSTOMER_ID ORDER BY UPDATED_AT DESC)",
+            "improvement": "ROW_NUMBER() statt RANK() verwenden für eindeutige Rangfolge bei identischen UPDATED_AT-Werten"
+        },
+        {
+            "step_count": 2,
+            "description": "Filterung auf neuesten Datensatz pro Kunde",
+            "formula": "WHERE rn = 1",
+            "improvement": null
+        },
+        {
+            "step_count": 3,
+            "description": "Datentyp-Konvertierung TIMESTAMP zu VARCHAR",
+            "formula": "CAST(UPDATED_AT AS VARCHAR)",
+            "improvement": "CAST(UPDATED_AT AS DATE) verwenden entsprechend Ziel-Schema"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Transformation enthält kritische Syntax- und Datentyp-Fehler. Spaltenname falsch geschrieben, Datentyp-Konvertierung inkompatibel mit Ziel-Schema, NULL-Constraint-Verletzung möglich.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Tippfehler in SELECT-Klausel: 'EMIAL' statt 'EMAIL'",
+            "fix_suggestion": "Spaltenname zu 'EMAIL' korrigieren"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Inkompatible Datentyp-Konvertierung: CAST(UPDATED_AT AS VARCHAR) für DATE-Zielfeld",
+            "fix_suggestion": "CAST(UPDATED_AT AS DATE) verwenden"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Constraint-Verletzung: EMAIL ist NOT NULL in Zieltabelle, aber nullable in Quelltabelle",
+            "fix_suggestion": "WHERE EMAIL IS NOT NULL hinzufügen oder DEFAULT-Wert setzen"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "RANK() kann bei identischen UPDATED_AT-Werten mehrere Datensätze mit rn=1 erzeugen",
+            "fix_suggestion": "ROW_NUMBER() statt RANK() für eindeutige Deduplizierung verwenden"
+        }
+    ],
+    "final_feedback": "Transformation nicht ausführbar aufgrund kritischer Syntax- und Schema-Fehler. Nach Korrektur der Spaltenbezeichnung und Datentyp-Konvertierung sowie Behandlung der NULL-Constraints ist der ETL-Prozess funktionsfähig. Performance-optimiert durch Window-Function, jedoch Verbesserung durch ROW_NUMBER() empfohlen.",
+    "_source_file": "case2.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 1791.054,
+    "_response_char_count": 2609
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 2 Robustheitsdurchlauf},label={claude_case2_prompt3}]
+{
+    "transformation_understanding": "Der ETL-Prozess führt eine Deduplizierung von Kundendaten durch. Aus der Staging-Tabelle CUSTOMER_STAGING werden für jeden CUSTOMER_ID nur die neuesten Datensätze basierend auf UPDATED_AT ausgewählt und in die Zieltabelle CUSTOMER_DEDUPED eingefügt. Die Transformation verwendet eine Window-Function mit RANK() zur Identifikation der aktuellsten Einträge pro Kunde.",
+    "data_lineage": [
+        "CUSTOMER_STAGING -> Window Function (RANK) -> CUSTOMER_DEDUPED"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Ranking der Datensätze nach UPDATED_AT pro CUSTOMER_ID",
+            "formula": "RANK() OVER (PARTITION BY CUSTOMER_ID ORDER BY UPDATED_AT DESC) AS rn",
+            "improvement": null
+        },
+        {
+            "step_count": 2,
+            "description": "Filterung auf den neuesten Datensatz pro Kunde",
+            "formula": "WHERE rn = 1",
+            "improvement": null
+        },
+        {
+            "step_count": 3,
+            "description": "Datentyp-Konvertierung von TIMESTAMP zu VARCHAR",
+            "formula": "CAST(UPDATED_AT AS VARCHAR)",
+            "improvement": "CAST(UPDATED_AT AS DATE) verwenden, um dem Zielschema zu entsprechen"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation enthält kritische Fehler: Tippfehler im Spaltennamen EMAIL (geschrieben als EMIAL), inkompatible Datentyp-Konvertierung (TIMESTAMP zu VARCHAR statt DATE), und potenzielle NULL-Wert-Verletzung bei EMAIL-Spalte.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Tippfehler im SELECT-Statement: 'EMIAL' statt 'EMAIL'",
+            "fix_suggestion": "Korrektur zu 'EMAIL' im SELECT-Statement"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Inkompatible Datentyp-Konvertierung: CAST(UPDATED_AT AS VARCHAR) bei Zieltyp DATE",
+            "fix_suggestion": "Verwendung von CAST(UPDATED_AT AS DATE) für korrekte Typkonvertierung"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Werte in EMAIL-Spalte bei NOT NULL Constraint in Zieltabelle",
+            "fix_suggestion": "Hinzufügung einer WHERE-Klausel: WHERE EMAIL IS NOT NULL oder Verwendung von COALESCE/ISNULL"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Potenzielle Performance-Probleme bei großen Datenmengen durch Window-Function ohne Index",
+            "fix_suggestion": "Index auf (CUSTOMER_ID, UPDATED_AT) erstellen für bessere Performance"
+        }
+    ],
+    "final_feedback": "Die Transformation ist in der aktuellen Form nicht funktionsfähig. Der kritische Tippfehler und die falsche Datentyp-Konvertierung führen zu Laufzeitfehlern. Nach Korrektur dieser Fehler und Behandlung der NULL-Werte ist der ETL-Prozess grundsätzlich funktional, jedoch sollten Performance-Optimierungen durch geeignete Indizierung vorgenommen werden.",
+    "_source_file": "case2.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 2378.984,
+    "_response_char_count": 2751
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 3 Hauptdurchlauf},label={claude_case3_prompt1}]
+{
+    "transformation_understanding": "ETL-Prozess zur Normalisierung von Telefonnummern aus CONTACTS_RAW in das E.164-Format in CONTACTS_CLEAN. Rohdaten werden bereinigt und je nach Format (mit +, 00-Präfix, 0-Präfix oder ohne Präfix) in standardisiertes internationales Format konvertiert.",
+    "data_lineage": [
+        "CONTACTS_RAW.CUSTOMER_ID -> CONTACTS_CLEAN.CUSTOMER_ID",
+        "CONTACTS_RAW.PHONE_RAW -> CONTACTS_CLEAN.PHONE_E164"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Mapping der Kunden-ID",
+            "formula": "CUST_ID",
+            "improvement": "Spaltenname sollte CUSTOMER_ID sein, nicht CUST_ID"
+        },
+        {
+            "step_count": 2,
+            "description": "Bereinigung und Normalisierung der Telefonnummer in E.164-Format",
+            "formula": "CASE WHEN LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 1) = '+' THEN REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '') WHEN LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 2) = '00' THEN CONCAT('+', SUBSTRING(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 3)) WHEN LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 1) = '0' THEN CONCAT('+49', SUBSTRING(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 2)) ELSE REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '') END",
+            "improvement": "REGEXP_REPLACE mehrfach ausgeführt - sollte in CTE oder Variable zwischengespeichert werden für bessere Performance"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation enthält logische Fehler: Nach REGEXP_REPLACE('[^0-9]', '') können keine '+'-Zeichen mehr vorhanden sein, da diese entfernt wurden. Die erste CASE-Bedingung ist daher nie erfüllbar.",
+    "error_risks": [
+        {
+            "severity": "high",
+            "source_of_risk": "Spaltenname CUST_ID existiert nicht in Quelltabelle CONTACTS_RAW (erwartet: CUSTOMER_ID)",
+            "fix_suggestion": "CUST_ID durch CUSTOMER_ID ersetzen"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Logikfehler in CASE-Bedingungen: Nach REGEXP_REPLACE('[^0-9]', '') sind keine '+'-Zeichen mehr vorhanden",
+            "fix_suggestion": "Prüfung auf '+' vor der Bereinigung durchführen oder separate Logik für bereits bereinigte Nummern"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Mehrfache Ausführung von REGEXP_REPLACE in verschiedenen CASE-Bedingungen führt zu Performance-Problemen",
+            "fix_suggestion": "REGEXP_REPLACE-Ergebnis in CTE oder Subquery zwischenspeichern"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Keine Validierung der resultierenden E.164-Nummernlänge (max. 15 Zeichen)",
+            "fix_suggestion": "LENGTH-Prüfung hinzufügen und ungültige Nummern behandeln"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Hardcodierte deutsche Ländervorwahl (+49) ohne Konfigurierbarkeit",
+            "fix_suggestion": "Ländervorwahl als Parameter oder aus Konfigurationstabelle laden"
+        }
+    ],
+    "final_feedback": "Die Transformation ist nicht funktionsfähig aufgrund von Spaltenname-Mismatch und logischen Fehlern in der CASE-Logik. Die Bereinigungslogik entfernt '+'-Zeichen vor der Prüfung darauf. Performance-Optimierung durch Zwischenspeicherung der REGEXP_REPLACE-Ergebnisse erforderlich.",
+    "_source_file": "case3.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 1032.934,
+    "_response_char_count": 3177
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 3 Konsistenzdurchlauf},label={claude_case3_prompt2}]
+{
+    "transformation_understanding": "ETL-Prozess zur Bereinigung und Standardisierung von Telefonnummern aus CONTACTS_RAW in das E.164-Format in CONTACTS_CLEAN. Die Transformation entfernt nicht-numerische Zeichen und konvertiert verschiedene Eingabeformate (mit +, 00-Präfix, 0-Präfix) in das internationale E.164-Format mit deutscher Ländervorwahl (+49) als Standard.",
+    "data_lineage": [
+        "CONTACTS_RAW.CUSTOMER_ID -> CONTACTS_CLEAN.CUSTOMER_ID",
+        "CONTACTS_RAW.PHONE_RAW -> CONTACTS_CLEAN.PHONE_E164"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Mapping der CUSTOMER_ID von CUST_ID Spalte",
+            "formula": "CUST_ID",
+            "improvement": "Spaltennamen sollten konsistent sein - CUSTOMER_ID statt CUST_ID verwenden"
+        },
+        {
+            "step_count": 2,
+            "description": "Entfernung aller nicht-numerischen Zeichen aus PHONE_RAW",
+            "formula": "REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '')",
+            "improvement": "Regex sollte auch '+' Zeichen erhalten: '[^0-9+]'"
+        },
+        {
+            "step_count": 3,
+            "description": "Bedingte Formatierung basierend auf Präfix-Erkennung",
+            "formula": "CASE WHEN LEFT(..., 1) = '+' THEN ... WHEN LEFT(..., 2) = '00' THEN CONCAT('+', SUBSTRING(..., 3)) WHEN LEFT(..., 1) = '0' THEN CONCAT('+49', SUBSTRING(..., 2)) ELSE ... END",
+            "improvement": null
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation enthält logische Fehler: Nach REGEXP_REPLACE('[^0-9]', '') werden alle '+' Zeichen entfernt, aber die erste CASE-Bedingung prüft auf '+' am Anfang. Diese Bedingung kann nie erfüllt werden. Die Längenvalidierung für E.164-Format (max. 15 Ziffern) fehlt.",
+    "error_risks": [
+        {
+            "severity": "high",
+            "source_of_risk": "Logikfehler in CASE-Bedingung: '+' Zeichen werden durch REGEXP_REPLACE entfernt, aber erste Bedingung prüft auf '+'",
+            "fix_suggestion": "Regex zu '[^0-9+]' ändern oder Reihenfolge der Bedingungen anpassen"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Spaltenname-Mismatch: CUST_ID in SELECT, aber CUSTOMER_ID in Zieltabelle erwartet",
+            "fix_suggestion": "Konsistente Spaltennamen verwenden oder korrektes Mapping sicherstellen"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Fehlende Längenvalidierung für E.164-Format (max. 15 Ziffern)",
+            "fix_suggestion": "LENGTH-Prüfung hinzufügen und zu lange Nummern abschneiden oder als NULL setzen"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Mehrfache Ausführung von REGEXP_REPLACE in jeder CASE-Bedingung",
+            "fix_suggestion": "Bereinigten Wert in CTE oder Subquery vorab berechnen"
+        }
+    ],
+    "final_feedback": "Die Transformation ist aufgrund des Logikfehlers in der CASE-Bedingung nicht funktionsfähig. Das Entfernen aller '+' Zeichen macht die erste Bedingung unerreichbar. Zusätzlich fehlen wichtige Validierungen für das E.164-Format und es gibt Performance-Optimierungspotenzial durch Vermeidung redundanter REGEXP_REPLACE-Aufrufe.",
+    "_source_file": "case3.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 1810.047,
+    "_response_char_count": 3013
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 3 Robustheitsdurchlauf},label={claude_case3_prompt3}]
+{
+    "transformation_understanding": "Der ETL-Prozess transformiert Rohtelefonummern aus CONTACTS_RAW in standardisierte E.164-Formatierung für CONTACTS_CLEAN. Die Transformation bereinigt zunächst alle Nicht-Ziffern-Zeichen und wendet dann länderspezifische Formatierungsregeln an: '+'-Präfix wird beibehalten, '00'-Präfix wird zu '+' konvertiert, '0'-Präfix wird zu deutscher Vorwahl '+49' erweitert, andere Formate bleiben unverändert.",
+    "data_lineage": [
+        "CONTACTS_RAW.CUSTOMER_ID -> CONTACTS_CLEAN.CUSTOMER_ID",
+        "CONTACTS_RAW.PHONE_RAW -> CONTACTS_CLEAN.PHONE_E164"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Spalten-Mapping mit fehlerhafter Referenz",
+            "formula": "CUST_ID -> CUSTOMER_ID",
+            "improvement": "Korrektur der Spaltenreferenz von CUST_ID zu CUSTOMER_ID"
+        },
+        {
+            "step_count": 2,
+            "description": "Bereinigung der Telefonnummer von Nicht-Ziffern-Zeichen",
+            "formula": "REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '')",
+            "improvement": "Regex-Pattern zu '[^0-9+]' ändern, um '+'-Zeichen zu erhalten"
+        },
+        {
+            "step_count": 3,
+            "description": "Bedingte Formatierung basierend auf Präfix-Erkennung",
+            "formula": "CASE WHEN LEFT(..., 1) = '+' THEN ... WHEN LEFT(..., 2) = '00' THEN ... WHEN LEFT(..., 1) = '0' THEN ... ELSE ... END",
+            "improvement": null
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation enthält mehrere logische Fehler: 1) Spaltenreferenz CUST_ID existiert nicht in der Quelltabelle, 2) Das Regex-Pattern entfernt '+'-Zeichen, wodurch die erste CASE-Bedingung nie erfüllt wird, 3) Fehlende Validierung der Zieltabellen-Constraints (CHAR(16) NOT NULL).",
+    "error_risks": [
+        {
+            "severity": "high",
+            "source_of_risk": "Spaltenreferenz CUST_ID existiert nicht in CONTACTS_RAW (korrekt: CUSTOMER_ID)",
+            "fix_suggestion": "Spaltenreferenz von CUST_ID zu CUSTOMER_ID korrigieren"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Regex-Pattern '[^0-9]' entfernt '+'-Zeichen, wodurch erste CASE-Bedingung nie erfüllt wird",
+            "fix_suggestion": "Pattern zu '[^0-9+]' ändern oder '+'-Behandlung vor Regex-Bereinigung implementieren"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Fehlende Längenvalidierung für CHAR(16)-Zielfeld kann zu Truncation führen",
+            "fix_suggestion": "LENGTH()-Prüfung und entsprechende Fehlerbehandlung implementieren"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Hardcodierte deutsche Vorwahl '+49' ohne Konfigurierbarkeit",
+            "fix_suggestion": "Länderspezifische Vorwahl über Parameter oder Lookup-Tabelle konfigurierbar machen"
+        }
+    ],
+    "final_feedback": "Die Transformation ist aufgrund der fehlerhaften Spaltenreferenz und der widersprüchlichen Regex-Logik nicht funktionsfähig. Nach Korrektur der Spaltenreferenz und Anpassung des Regex-Patterns für '+'-Zeichen-Erhaltung wäre der Prozess grundsätzlich funktional, benötigt jedoch zusätzliche Validierungen für Robustheit in Produktionsumgebungen.",
+    "_source_file": "case3.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 2398.842,
+    "_response_char_count": 3060
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 4 Hauptdurchlauf},label={claude_case4_prompt1}]
+{
+    "transformation_understanding": "ETL-Prozess zur Währungskonvertierung von Zahlungen in Euro. Payments werden mit FX-Raten über Währung und Datum verknüpft, Beträge in EUR umgerechnet und in Zieltabelle PAYMENTS_EUR eingefügt.",
+    "data_lineage": [
+        "PAYMENTS.PAYMENT_ID -> PAYMENTS_EUR.PAYMENT_ID",
+        "PAYMENTS.CUSTOMER_ID -> PAYMENTS_EUR.CUSTOMER_ID",
+        "PAYMENTS.AMOUNT * FX_RATES.EUR_RATE -> PAYMENTS_EUR.AMOUNT_EUR",
+        "PAYMENTS.PAY_DATE -> PAYMENTS_EUR.PAY_DATE"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Join von PAYMENTS mit FX_RATES über Währung und Zahlungsdatum",
+            "formula": "LEFT JOIN FX_RATES r ON r.CURRENCY = p.CURRENCY AND r.RATE_DATE = p.PAY_DATE",
+            "improvement": null
+        },
+        {
+            "step_count": 2,
+            "description": "Währungskonvertierung durch Multiplikation mit EUR-Wechselkurs",
+            "formula": "ROUND(CAST(p.AMOUNT AS INT) * r.EUR_RATE, 2) AS AMOUNT_EUR",
+            "improvement": "CAST zu DECIMAL statt INT verwenden: ROUND(CAST(p.AMOUNT AS DECIMAL(14,2)) * r.EUR_RATE, 2)"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "CAST(p.AMOUNT AS INT) führt zu Datenverlust bei Dezimalbeträgen. AMOUNT ist DECIMAL(14,2), wird aber zu INT gecastet, wodurch Nachkommastellen verloren gehen. Ziel-Datentyp DECIMAL(10,2) kann bei großen Beträgen zu Overflow führen.",
+    "error_risks": [
+        {
+            "severity": "high",
+            "source_of_risk": "CAST(p.AMOUNT AS INT) führt zu Datenverlust bei Dezimalbeträgen durch Truncation der Nachkommastellen",
+            "fix_suggestion": "CAST(p.AMOUNT AS DECIMAL(14,2)) verwenden oder CAST komplett entfernen"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "LEFT JOIN kann NULL-Werte in EUR_RATE erzeugen, wenn kein Wechselkurs gefunden wird, was zu NULL-Beträgen führt",
+            "fix_suggestion": "INNER JOIN verwenden oder NULL-Behandlung mit COALESCE/ISNULL implementieren"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Ziel-Datentyp DECIMAL(10,2) ist kleiner als Quell-DECIMAL(14,2), potenzielle Overflow-Gefahr bei großen Beträgen",
+            "fix_suggestion": "Ziel-Datentyp auf DECIMAL(18,2) erweitern oder Overflow-Prüfung implementieren"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Fehlende NULL-Behandlung für p.AMOUNT, obwohl Spalte nullable ist",
+            "fix_suggestion": "WHERE p.AMOUNT IS NOT NULL hinzufügen oder NULL-Behandlung in Berechnung"
+        }
+    ],
+    "final_feedback": "Transformation funktional korrekt, aber kritische Datenqualitätsprobleme durch INT-Cast. Datenverlust bei Dezimalbeträgen und potenzielle NULL-Werte durch LEFT JOIN gefährden Datenintegrität. Datentyp-Anpassungen und robustere NULL-Behandlung erforderlich.",
+    "_source_file": "case4.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 1054.151,
+    "_response_char_count": 2721
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 4 Konsistenzdurchlauf},label={claude_case4_prompt2}]
+{
+    "transformation_understanding": "ETL-Prozess zur Währungskonvertierung von Zahlungen in Euro. Payments werden mit Wechselkursen aus FX_RATES über Währung und Datum verknüpft, Beträge in EUR umgerechnet und in PAYMENTS_EUR gespeichert.",
+    "data_lineage": [
+        "PAYMENTS.PAYMENT_ID -> PAYMENTS_EUR.PAYMENT_ID",
+        "PAYMENTS.CUSTOMER_ID -> PAYMENTS_EUR.CUSTOMER_ID",
+        "PAYMENTS.AMOUNT * FX_RATES.EUR_RATE -> PAYMENTS_EUR.AMOUNT_EUR",
+        "PAYMENTS.PAY_DATE -> PAYMENTS_EUR.PAY_DATE"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Join von PAYMENTS mit FX_RATES über Währung und Datum",
+            "formula": "LEFT JOIN FX_RATES r ON r.CURRENCY = p.CURRENCY AND r.RATE_DATE = p.PAY_DATE",
+            "improvement": null
+        },
+        {
+            "step_count": 2,
+            "description": "Währungskonvertierung durch Multiplikation mit Wechselkurs",
+            "formula": "ROUND(CAST(p.AMOUNT AS INT) * r.EUR_RATE, 2)",
+            "improvement": "CAST zu DECIMAL statt INT verwenden: ROUND(p.AMOUNT * r.EUR_RATE, 2)"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "CAST(p.AMOUNT AS INT) führt zu Datenverlust bei Dezimalbeträgen. NULL-Werte in AMOUNT werden nicht behandelt. LEFT JOIN kann NULL-Wechselkurse erzeugen, die zu NULL-Ergebnissen führen.",
+    "error_risks": [
+        {
+            "severity": "high",
+            "source_of_risk": "CAST(p.AMOUNT AS INT) schneidet Dezimalstellen ab und verfälscht Berechnungen",
+            "fix_suggestion": "CAST entfernen oder zu DECIMAL ändern, da p.AMOUNT bereits DECIMAL(14,2) ist"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Werte in PAYMENTS.AMOUNT führen zu NULL-Ergebnissen trotz NOT NULL Constraint in Zieltabelle",
+            "fix_suggestion": "WHERE p.AMOUNT IS NOT NULL hinzufügen oder COALESCE(p.AMOUNT, 0) verwenden"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "LEFT JOIN kann NULL-Wechselkurse erzeugen wenn kein passender FX_RATE existiert",
+            "fix_suggestion": "INNER JOIN verwenden oder NULL-Behandlung mit COALESCE implementieren"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Präzisionsverlust durch Rundung auf 2 Dezimalstellen bei DECIMAL(18,8) Wechselkursen",
+            "fix_suggestion": "Zieltabelle AMOUNT_EUR auf höhere Präzision erweitern falls erforderlich"
+        }
+    ],
+    "final_feedback": "Transformation funktional korrekt aber mit kritischen Datenqualitätsproblemen. CAST zu INT verursacht Datenverlust, NULL-Behandlung fehlt. Nach Korrektur der Datentyp-Konvertierung und NULL-Behandlung ist der Prozess produktionstauglich.",
+    "_source_file": "case4.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 1826.657,
+    "_response_char_count": 2557
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 4 Robustheitsdurchlauf},label={claude_case4_prompt3}]
+{
+    "transformation_understanding": "Der ETL-Prozess konvertiert Zahlungsbeträge aus verschiedenen Währungen in Euro. Dazu werden Zahlungsdaten (PAYMENTS) mit Wechselkursen (FX_RATES) über Währung und Datum verknüpft. Der ursprüngliche Betrag wird mit dem entsprechenden EUR-Wechselkurs multipliziert und auf 2 Dezimalstellen gerundet. Das Ergebnis wird in die Zieltabelle PAYMENTS_EUR eingefügt.",
+    "data_lineage": [
+        "PAYMENTS.PAYMENT_ID -> PAYMENTS_EUR.PAYMENT_ID",
+        "PAYMENTS.CUSTOMER_ID -> PAYMENTS_EUR.CUSTOMER_ID",
+        "PAYMENTS.AMOUNT * FX_RATES.EUR_RATE -> PAYMENTS_EUR.AMOUNT_EUR",
+        "PAYMENTS.PAY_DATE -> PAYMENTS_EUR.PAY_DATE"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Verknüpfung von Zahlungsdaten mit Wechselkursen über Währung und Zahlungsdatum",
+            "formula": "LEFT JOIN FX_RATES r ON r.CURRENCY = p.CURRENCY AND r.RATE_DATE = p.PAY_DATE",
+            "improvement": null
+        },
+        {
+            "step_count": 2,
+            "description": "Währungskonvertierung durch Multiplikation des Betrags mit dem EUR-Wechselkurs",
+            "formula": "ROUND(CAST(p.AMOUNT AS INT) * r.EUR_RATE, 2)",
+            "improvement": "ROUND(p.AMOUNT * r.EUR_RATE, 2) - Vermeidung der INT-Konvertierung zur Erhaltung der Dezimalstellen"
+        },
+        {
+            "step_count": 3,
+            "description": "Rundung des konvertierten Betrags auf 2 Dezimalstellen und Einfügung in Zieltabelle",
+            "formula": null,
+            "improvement": null
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation enthält einen kritischen Fehler: CAST(p.AMOUNT AS INT) schneidet Dezimalstellen ab, was zu erheblichen Rundungsfehlern führt. Bei einem Betrag von 123.99 würde nur 123 für die Berechnung verwendet. Zusätzlich können NULL-Werte in AMOUNT zu NULL-Ergebnissen führen, obwohl AMOUNT_EUR als NOT NULL definiert ist.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "CAST(p.AMOUNT AS INT) schneidet Dezimalstellen ab und führt zu falschen Berechnungen",
+            "fix_suggestion": "Entfernung der INT-Konvertierung: ROUND(p.AMOUNT * r.EUR_RATE, 2)"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "NULL-Werte in AMOUNT können zu Constraint-Verletzungen führen, da AMOUNT_EUR NOT NULL ist",
+            "fix_suggestion": "Hinzufügung einer WHERE-Klausel: WHERE p.AMOUNT IS NOT NULL"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "LEFT JOIN kann zu NULL-Werten bei fehlenden Wechselkursen führen",
+            "fix_suggestion": "INNER JOIN verwenden oder COALESCE für Standardwechselkurs bei fehlenden Raten"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Potenzielle Präzisionsverluste durch unterschiedliche DECIMAL-Definitionen (14,2 vs 10,2)",
+            "fix_suggestion": "Anpassung der Zielspalte auf DECIMAL(16,2) zur Vermeidung von Überläufen"
+        }
+    ],
+    "final_feedback": "Die Transformation ist aufgrund der INT-Konvertierung nicht funktionsfähig und würde zu erheblichen Datenfehlern führen. Nach Behebung der kritischen Fehler (Entfernung der INT-Konvertierung, NULL-Behandlung) wäre der ETL-Prozess grundsätzlich funktional. Für Produktionsumgebungen sollten zusätzlich fehlende Wechselkurse behandelt und die Datentyp-Kompatibilität überprüft werden.",
+    "_source_file": "case4.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 2417.984,
+    "_response_char_count": 3194
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 5 Hauptdurchlauf},label={claude_case5_prompt1}]
+{
+    "transformation_understanding": "ETL-Prozess zur Berechnung von Netto- und MwSt-Beträgen aus Bruttoumsätzen. Verknüpft Verkaufsdaten mit länderspezifischen MwSt-Sätzen und berechnet Nettobeträge durch Division des Bruttobetrags durch (1 + MwSt-Satz).",
+    "data_lineage": [
+        "SALES_GROSS.SALE_ID -> SALES_NET.SALE_ID",
+        "SALES_GROSS.CUSTOMER_ID -> SALES_NET.CUSTOMER_ID",
+        "SALES_GROSS.GROSS_AMT_EUR + VAT_RATES.VAT_RATE -> SALES_NET.NET_AMT_EUR",
+        "SALES_GROSS.GROSS_AMT_EUR -> SALES_NET.VAT_AMT_EUR"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "JOIN zwischen SALES_GROSS und VAT_RATES über COUNTRY_CODE",
+            "formula": "JOIN VAT_RATES v ON v.COUNTRYCODE = s.COUNTRY_CODE",
+            "improvement": "Spaltenname-Inkonsistenz beheben: v.COUNTRY_CODE statt v.COUNTRYCODE"
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung Nettobetrag durch Division Bruttobetrag / (1 + MwSt-Satz)",
+            "formula": "ROUND(CAST(s.GROSS_AMT_EUR AS INT) / (1 + v.VAT_RATE), 0)",
+            "improvement": "CAST zu DECIMAL(14,2) statt INT zur Präzisionserhaltung"
+        },
+        {
+            "step_count": 3,
+            "description": "Rundung des Bruttobetrags als MwSt-Betrag",
+            "formula": "ROUND(s.GROSS_AMT_EUR, 0) AS VAT_AMT_EUR",
+            "improvement": "Korrekte MwSt-Berechnung: NET_AMT_EUR * VAT_RATE oder GROSS_AMT_EUR - NET_AMT_EUR"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die MwSt-Berechnung ist fehlerhaft - VAT_AMT_EUR wird als gerundeter Bruttobetrag gesetzt statt als tatsächlicher MwSt-Betrag. Die Nettobetrag-Berechnung verliert durch INT-Cast Präzision bei Dezimalwerten.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "JOIN-Bedingung verwendet falschen Spaltennamen 'COUNTRYCODE' statt 'COUNTRY_CODE'",
+            "fix_suggestion": "Spaltenname zu 'COUNTRY_CODE' korrigieren"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "VAT_AMT_EUR wird fälschlicherweise als gerundeter Bruttobetrag berechnet",
+            "fix_suggestion": "Korrekte MwSt-Berechnung: GROSS_AMT_EUR - NET_AMT_EUR"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "CAST zu INT führt zu Präzisionsverlust bei Dezimalbeträgen",
+            "fix_suggestion": "CAST zu DECIMAL(14,2) verwenden"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Keine Behandlung von NULL-Werten in VAT_RATE",
+            "fix_suggestion": "WHERE-Klausel oder COALESCE für NULL-Behandlung hinzufügen"
+        }
+    ],
+    "final_feedback": "Transformation enthält kritische Fehler: JOIN-Spaltenname inkorrekt, MwSt-Berechnung fehlerhaft, Präzisionsverlust durch INT-Cast. Nach Korrektur der Spaltenreferenz und Implementierung korrekter MwSt-Berechnung wäre der Prozess funktionsfähig.",
+    "_source_file": "case5.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 1071.193,
+    "_response_char_count": 2773
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 5 Konsistenzdurchlauf},label={claude_case5_prompt2}]
+{
+    "transformation_understanding": "Der ETL-Prozess berechnet Netto- und Mehrwertsteuerbeträge aus Bruttoumsätzen durch Join mit Mehrwertsteuersätzen nach Ländercode. Bruttobetrag wird durch (1 + MwSt-Satz) geteilt für Nettobetrag, Mehrwertsteuerbetrag entspricht dem gerundeten Bruttobetrag.",
+    "data_lineage": [
+        "SALES_GROSS -> JOIN VAT_RATES -> SALES_NET"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Join von SALES_GROSS mit VAT_RATES über COUNTRY_CODE",
+            "formula": "JOIN VAT_RATES v ON v.COUNTRYCODE = s.COUNTRY_CODE",
+            "improvement": "Spaltenname-Konsistenz prüfen: VAT_RATES.COUNTRY_CODE vs. v.COUNTRYCODE im JOIN"
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung Nettobetrag durch Division des Bruttobetrags durch (1 + MwSt-Satz)",
+            "formula": "ROUND(CAST(s.GROSS_AMT_EUR AS INT) / (1 + v.VAT_RATE), 0)",
+            "improvement": "CAST zu DECIMAL statt INT verwenden, um Präzisionsverlust zu vermeiden"
+        },
+        {
+            "step_count": 3,
+            "description": "Mehrwertsteuerbetrag als gerundeter Bruttobetrag",
+            "formula": "ROUND(s.GROSS_AMT_EUR, 0)",
+            "improvement": "Korrekte MwSt-Berechnung: NET_AMT_EUR * VAT_RATE oder GROSS_AMT_EUR - NET_AMT_EUR"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Mehrwertsteuerberechnung ist fehlerhaft. VAT_AMT_EUR wird als gerundeter Bruttobetrag gesetzt statt als tatsächlicher Mehrwertsteuerbetrag. Zusätzlich führt CAST zu INT zu Präzisionsverlust bei Dezimalbeträgen.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falsche Mehrwertsteuerberechnung: VAT_AMT_EUR = ROUND(GROSS_AMT_EUR, 0) statt korrekter MwSt-Berechnung",
+            "fix_suggestion": "VAT_AMT_EUR korrekt berechnen: GROSS_AMT_EUR - NET_AMT_EUR oder NET_AMT_EUR * VAT_RATE"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "CAST(GROSS_AMT_EUR AS INT) führt zu Präzisionsverlust bei Dezimalbeträgen",
+            "fix_suggestion": "CAST zu DECIMAL(14,2) statt INT verwenden oder CAST ganz entfernen"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "JOIN-Bedingung verwendet inkonsistente Spaltennamen: COUNTRYCODE vs. COUNTRY_CODE",
+            "fix_suggestion": "Spaltennamen in JOIN-Bedingung korrigieren: v.COUNTRY_CODE = s.COUNTRY_CODE"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Fehlende NULL-Behandlung für VAT_RATE (nullable) kann zu NULL-Ergebnissen führen",
+            "fix_suggestion": "COALESCE oder WHERE-Klausel für VAT_RATE IS NOT NULL hinzufügen"
+        }
+    ],
+    "final_feedback": "Die Transformation enthält kritische Berechnungsfehler. Die Mehrwertsteuerberechnung ist vollständig falsch implementiert, und der Präzisionsverlust durch INT-Casting verfälscht Nettobetrag-Berechnungen. JOIN-Syntax und NULL-Handling benötigen ebenfalls Korrektur.",
+    "_source_file": "case5.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 1845.961,
+    "_response_char_count": 2862
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 5 Robustheitsdurchlauf},label={claude_case5_prompt3}]
+{
+    "transformation_understanding": "Der ETL-Prozess berechnet Nettoumsätze aus Bruttoumsätzen durch Division mit dem länderspezifischen Mehrwertsteuersatz. Dabei werden Verkaufsdaten aus SALES_GROSS mit Mehrwertsteuersätzen aus VAT_RATES verknüpft und die berechneten Netto- und Mehrwertsteuerbeträge in SALES_NET eingefügt.",
+    "data_lineage": [
+        "SALES_GROSS.SALE_ID -> SALES_NET.SALE_ID",
+        "SALES_GROSS.CUSTOMER_ID -> SALES_NET.CUSTOMER_ID",
+        "SALES_GROSS.GROSS_AMT_EUR + VAT_RATES.VAT_RATE -> SALES_NET.NET_AMT_EUR",
+        "SALES_GROSS.GROSS_AMT_EUR -> SALES_NET.VAT_AMT_EUR"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Join zwischen SALES_GROSS und VAT_RATES über Ländercode",
+            "formula": "JOIN VAT_RATES v ON v.COUNTRYCODE = s.COUNTRY_CODE",
+            "improvement": "Spaltenname korrigieren: v.COUNTRY_CODE statt v.COUNTRYCODE"
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung des Nettobetrags durch Division des Bruttobetrags",
+            "formula": "ROUND(CAST(s.GROSS_AMT_EUR AS INT) / (1 + v.VAT_RATE), 0)",
+            "improvement": "CAST zu DECIMAL(14,2) ändern statt INT, um Präzisionsverlust zu vermeiden"
+        },
+        {
+            "step_count": 3,
+            "description": "Berechnung des Mehrwertsteuerbetrags",
+            "formula": "ROUND(s.GROSS_AMT_EUR, 0)",
+            "improvement": "Korrekte MwSt-Berechnung: NET_AMT_EUR * VAT_RATE oder GROSS_AMT_EUR - NET_AMT_EUR"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation enthält mehrere kritische Fehler: 1) Falscher Spaltenname im JOIN führt zu Laufzeitfehlern, 2) CAST zu INT verursacht Präzisionsverlust bei Dezimalwerten, 3) VAT_AMT_EUR wird fälschlicherweise als Bruttobetrag statt als berechnete Mehrwertsteuer gesetzt, 4) NULL-Werte in VAT_RATE können Division durch NULL verursachen.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falscher Spaltenname 'COUNTRYCODE' statt 'COUNTRY_CODE' im JOIN führt zu SQL-Fehler",
+            "fix_suggestion": "Spaltenname zu 'v.COUNTRY_CODE' korrigieren"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "CAST zu INT verursacht Präzisionsverlust bei Dezimalbeträgen",
+            "fix_suggestion": "CAST(s.GROSS_AMT_EUR AS DECIMAL(16,2)) verwenden"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "VAT_AMT_EUR wird fälschlicherweise als Bruttobetrag gesetzt statt als Mehrwertsteuerbetrag",
+            "fix_suggestion": "Korrekte Formel verwenden: s.GROSS_AMT_EUR - NET_AMT_EUR"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Werte in VAT_RATE können zu Division durch NULL führen",
+            "fix_suggestion": "WHERE v.VAT_RATE IS NOT NULL hinzufügen oder COALESCE verwenden"
+        }
+    ],
+    "final_feedback": "Die Transformation ist nicht funktionsfähig aufgrund kritischer SQL-Syntaxfehler und fehlerhafter Berechnungslogik. Nach Korrektur der Spaltennamen, Datentypen und Berechnungsformeln kann der ETL-Prozess ordnungsgemäß funktionieren. Die Performance ist durch den einfachen JOIN akzeptabel, sollte aber bei großen Datenmengen durch Indizierung optimiert werden.",
+    "_source_file": "case5.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 2440.53,
+    "_response_char_count": 3134
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 6 Hauptdurchlauf},label={claude_case6_prompt1}]
+{
+    "transformation_understanding": "ETL-Prozess zur Normalisierung von Produktkategorien durch Mapping von Quellkategorien auf Zielkategorien. Die Transformation lädt Produktdaten aus PRODUCTS_RAW, führt einen LEFT JOIN mit CATEGORY_MAPPING durch und schreibt das Ergebnis in PRODUCTS_NORM.",
+    "data_lineage": [
+        "PRODUCTS_RAW.PRODUCT_ID -> PRODUCTS_NORM.PRODUCT_ID",
+        "PRODUCTS_RAW.SOURCE_CATEGORY_CODE -> CATEGORY_MAPPING.SOURCE_CATEGORY_CODE -> CATEGORY_MAPPING.TARGET_CATEGORY -> PRODUCTS_NORM.TARGET_CATEGORY"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Spaltenauswahl mit falscher Referenz auf PROD_ID statt PRODUCT_ID",
+            "formula": "PROD_ID",
+            "improvement": "Korrektur zu p.PRODUCT_ID"
+        },
+        {
+            "step_count": 2,
+            "description": "LEFT JOIN zwischen PRODUCTS_RAW und CATEGORY_MAPPING mit falscher JOIN-Bedingung",
+            "formula": "LEFT JOIN CATEGORY_MAPPING m ON m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE",
+            "improvement": "Korrektur der JOIN-Bedingung zu: ON m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE"
+        },
+        {
+            "step_count": 3,
+            "description": "COALESCE-Funktion zur Behandlung von NULL-Werten mit Leerstring als Fallback",
+            "formula": "COALESCE(m.TARGET_CATEGORY, '') AS TARGET_CATEGORY",
+            "improvement": null
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation enthält kritische Fehler: 1) Falsche Spaltenreferenz PROD_ID existiert nicht in PRODUCTS_RAW, 2) Falsche JOIN-Bedingung vergleicht inkompatible Spalten (TARGET_CATEGORY mit SOURCE_CATEGORY_CODE), 3) Datentyp-Mismatch zwischen VARCHAR(100) und VARCHAR(20) bei TARGET_CATEGORY.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Spaltenreferenz PROD_ID existiert nicht in PRODUCTS_RAW - korrekte Spalte ist PRODUCT_ID",
+            "fix_suggestion": "Änderung von PROD_ID zu p.PRODUCT_ID in der SELECT-Klausel"
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Falsche JOIN-Bedingung: m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE vergleicht Zielkategorie mit Quellkategorie",
+            "fix_suggestion": "Korrektur der JOIN-Bedingung zu: ON m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Datentyp-Inkompatibilität: CATEGORY_MAPPING.TARGET_CATEGORY ist VARCHAR(100), PRODUCTS_NORM.TARGET_CATEGORY ist VARCHAR(20)",
+            "fix_suggestion": "Anpassung der Zieltabelle auf VARCHAR(100) oder Kürzung der Werte mit SUBSTRING/LEFT-Funktion"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "ENUM-Typ in PRODUCTS_RAW.SOURCE_CATEGORY_CODE vs VARCHAR(50) in CATEGORY_MAPPING kann zu JOIN-Problemen führen",
+            "fix_suggestion": "Harmonisierung der Datentypen oder explizite Typkonvertierung im JOIN"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "COALESCE mit Leerstring verletzt NOT NULL Constraint von PRODUCTS_NORM.TARGET_CATEGORY bei fehlenden Mappings",
+            "fix_suggestion": "Verwendung eines Default-Wertes wie 'UNKNOWN' oder 'UNMAPPED' statt Leerstring"
+        }
+    ],
+    "final_feedback": "Die Transformation ist nicht funktionsfähig aufgrund kritischer Syntaxfehler (falsche Spaltenreferenz, falsche JOIN-Bedingung). Nach Korrektur der JOIN-Logik und Spaltenreferenzen sowie Harmonisierung der Datentypen wäre der ETL-Prozess grundsätzlich funktional. Performance-Optimierung durch Index auf CATEGORY_MAPPING.SOURCE_CATEGORY_CODE empfohlen.",
+    "_source_file": "case6.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 1089.749,
+    "_response_char_count": 3474
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 6 Konsistenzdurchlauf},label={claude_case6_prompt2}]
+{
+    "transformation_understanding": "ETL-Prozess zur Normalisierung von Produktkategorien durch Mapping von Quellkategorien auf Zielkategorien. Lädt Produktdaten aus PRODUCTS_RAW und führt LEFT JOIN mit CATEGORY_MAPPING durch, um SOURCE_CATEGORY_CODE in TARGET_CATEGORY zu transformieren.",
+    "data_lineage": [
+        "PRODUCTS_RAW.PRODUCT_ID -> PRODUCTS_NORM.PRODUCT_ID",
+        "PRODUCTS_RAW.SOURCE_CATEGORY_CODE -> CATEGORY_MAPPING.SOURCE_CATEGORY_CODE -> PRODUCTS_NORM.TARGET_CATEGORY"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Spaltenauswahl mit fehlerhaftem Alias",
+            "formula": "SELECT PROD_ID, ...",
+            "improvement": "Korrektur zu SELECT p.PRODUCT_ID, ..."
+        },
+        {
+            "step_count": 2,
+            "description": "LEFT JOIN zwischen PRODUCTS_RAW und CATEGORY_MAPPING mit falscher JOIN-Bedingung",
+            "formula": "ON m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE",
+            "improvement": "Korrektur zu ON m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE"
+        },
+        {
+            "step_count": 3,
+            "description": "COALESCE-Transformation für NULL-Behandlung",
+            "formula": "COALESCE(m.TARGET_CATEGORY, '') AS TARGET_CATEGORY",
+            "improvement": null
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Zwei kritische Fehler: 1) Spalte PROD_ID existiert nicht in PRODUCTS_RAW (korrekt: PRODUCT_ID), 2) JOIN-Bedingung verbindet falsche Spalten (TARGET_CATEGORY statt SOURCE_CATEGORY_CODE). Datentyp-Inkompatibilität zwischen ENUM und VARCHAR bei JOIN.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Spalte PROD_ID existiert nicht in PRODUCTS_RAW, korrekte Spalte ist PRODUCT_ID",
+            "fix_suggestion": "Änderung zu SELECT p.PRODUCT_ID"
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "JOIN-Bedingung verbindet TARGET_CATEGORY mit SOURCE_CATEGORY_CODE statt SOURCE_CATEGORY_CODE mit SOURCE_CATEGORY_CODE",
+            "fix_suggestion": "Korrektur zu ON m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Datentyp-Inkompatibilität: ENUM(A,B,C,D) wird mit VARCHAR(50) gejoint",
+            "fix_suggestion": "Explizite Typkonvertierung mit CAST oder Anpassung der Datentypen"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "COALESCE mit leerem String verletzt NOT NULL Constraint der Zielspalte TARGET_CATEGORY",
+            "fix_suggestion": "Verwendung eines Default-Wertes oder Änderung zu NOT NULL Constraint"
+        }
+    ],
+    "final_feedback": "Transformation nicht funktionsfähig aufgrund kritischer SQL-Syntaxfehler. Nach Korrektur der Spaltennamen und JOIN-Bedingung sowie Behandlung der Datentyp-Inkompatibilität ist der ETL-Prozess grundsätzlich valide für Kategorie-Normalisierung.",
+    "_source_file": "case6.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 1869.797,
+    "_response_char_count": 2757
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 6 Robustheitsdurchlauf},label={claude_case6_prompt3}]
+{
+    "transformation_understanding": "Der ETL-Prozess soll Produktdaten aus PRODUCTS_RAW normalisieren, indem Kategorie-Codes über eine Mapping-Tabelle in Zielkategorien transformiert werden. Die Transformation verwendet einen LEFT JOIN zwischen PRODUCTS_RAW und CATEGORY_MAPPING, um die entsprechenden Zielkategorien zu ermitteln und in die normalisierte Tabelle PRODUCTS_NORM zu laden.",
+    "data_lineage": [
+        "PRODUCTS_RAW.PRODUCT_ID -> PRODUCTS_NORM.PRODUCT_ID",
+        "PRODUCTS_RAW.SOURCE_CATEGORY_CODE -> CATEGORY_MAPPING.SOURCE_CATEGORY_CODE -> CATEGORY_MAPPING.TARGET_CATEGORY -> PRODUCTS_NORM.TARGET_CATEGORY"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Spaltenauswahl mit fehlerhaftem Alias",
+            "formula": "SELECT PROD_ID, ...",
+            "improvement": "Korrektur zu SELECT p.PRODUCT_ID, ... da PROD_ID nicht existiert"
+        },
+        {
+            "step_count": 2,
+            "description": "LEFT JOIN zwischen PRODUCTS_RAW und CATEGORY_MAPPING",
+            "formula": "LEFT JOIN CATEGORY_MAPPING m ON m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE",
+            "improvement": "Korrektur der JOIN-Bedingung zu ON m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE"
+        },
+        {
+            "step_count": 3,
+            "description": "Transformation der Zielkategorie mit COALESCE",
+            "formula": "COALESCE(m.TARGET_CATEGORY, '') AS TARGET_CATEGORY",
+            "improvement": "Verwendung eines Default-Wertes statt leerem String, da Zielspalte NOT NULL ist"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation enthält mehrere kritische Fehler: 1) Falscher Spaltenname PROD_ID statt PRODUCT_ID, 2) Falsche JOIN-Bedingung die TARGET_CATEGORY mit SOURCE_CATEGORY_CODE vergleicht, 3) Datentyp-Inkompatibilität zwischen ENUM und VARCHAR im JOIN, 4) Leerer String als Default-Wert für NOT NULL Spalte.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Spaltenname PROD_ID existiert nicht in PRODUCTS_RAW, korrekt wäre PRODUCT_ID",
+            "fix_suggestion": "Änderung zu SELECT p.PRODUCT_ID"
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "JOIN-Bedingung vergleicht TARGET_CATEGORY mit SOURCE_CATEGORY_CODE statt SOURCE_CATEGORY_CODE mit SOURCE_CATEGORY_CODE",
+            "fix_suggestion": "Korrektur zu ON m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Datentyp-Inkompatibilität: SOURCE_CATEGORY_CODE ist ENUM in PRODUCTS_RAW aber VARCHAR in CATEGORY_MAPPING",
+            "fix_suggestion": "Einheitliche Datentypen verwenden oder explizite Typkonvertierung mit CAST"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "COALESCE verwendet leeren String als Default für NOT NULL Spalte TARGET_CATEGORY",
+            "fix_suggestion": "Verwendung eines sinnvollen Default-Wertes wie 'UNKNOWN' oder 'UNCATEGORIZED'"
+        }
+    ],
+    "final_feedback": "Die Transformation ist in der aktuellen Form nicht funktionsfähig und würde zu einem SQL-Fehler führen. Nach Korrektur der Spaltenreferenz, JOIN-Bedingung und Datentyp-Behandlung wäre der Prozess grundsätzlich ausführbar. Für bessere Performance sollten Indizes auf den JOIN-Spalten erstellt werden.",
+    "_source_file": "case6.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 2458.944,
+    "_response_char_count": 3202
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 7 Hauptdurchlauf},label={claude_case7_prompt1}]
+{
+    "transformation_understanding": "Der ETL-Prozess analysiert Transaktionsdaten zur Identifikation inaktiver Kunden. Aus der TRANSACTIONS-Tabelle wird pro Kunde die früheste Buchung ermittelt und basierend auf einem 180-Tage-Kriterium ein Inaktivitätsstatus berechnet. Das Ergebnis wird in die CUSTOMER_CHURN-Tabelle eingefügt.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> CUSTOMER_CHURN.CUSTOMER_ID",
+        "TRANSACTIONS.BOOKING_DATE -> CUSTOMER_CHURN.LAST_TX_DATE (MIN aggregiert)",
+        "TRANSACTIONS.BOOKING_DATE -> CUSTOMER_CHURN.IS_INACTIVE (über DATEDIFF-Berechnung)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Gruppierung der Transaktionen nach Kunde",
+            "formula": "GROUP BY t.CUSTOMER_ID",
+            "improvement": null
+        },
+        {
+            "step_count": 2,
+            "description": "Ermittlung der frühesten Buchung pro Kunde",
+            "formula": "MIN(t.BOOKING_DATE) AS LAST_TX_DATE",
+            "improvement": "MAX(t.BOOKING_DATE) verwenden für letzte statt erste Transaktion"
+        },
+        {
+            "step_count": 3,
+            "description": "Berechnung des Inaktivitätsstatus basierend auf 180-Tage-Regel",
+            "formula": "CASE WHEN DATEDIFF(day, CURRENT_DATE, MIN(t.BOOKING_DATE)) > 180 THEN 'TRUE' ELSE NULL END",
+            "improvement": "COALESCE verwenden um 'FALSE' statt NULL für aktive Kunden zu setzen"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die DATEDIFF-Berechnung ist fehlerhaft implementiert. Die Parameterreihenfolge führt zu negativen Werten für vergangene Daten. Zusätzlich wird MIN() statt MAX() verwendet, wodurch die erste statt letzte Transaktion ermittelt wird.",
+    "error_risks": [
+        {
+            "severity": "high",
+            "source_of_risk": "Falsche DATEDIFF-Parameterreihenfolge: DATEDIFF(day, CURRENT_DATE, MIN(t.BOOKING_DATE)) erzeugt negative Werte für vergangene Transaktionen",
+            "fix_suggestion": "Parameterreihenfolge korrigieren: DATEDIFF(day, MIN(t.BOOKING_DATE), CURRENT_DATE) > 180"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "MIN() statt MAX() für LAST_TX_DATE führt zu semantisch falscher Interpretation - früheste statt letzte Transaktion wird verwendet",
+            "fix_suggestion": "MAX(t.BOOKING_DATE) verwenden um tatsächlich letzte Transaktion zu ermitteln"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "IS_INACTIVE setzt NULL für aktive Kunden, obwohl NOT NULL constraint in Zieltabelle definiert ist",
+            "fix_suggestion": "ELSE 'FALSE' statt ELSE NULL verwenden oder Constraint anpassen"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Nullable BOOKING_DATE kann zu unerwarteten Ergebnissen bei MIN/MAX-Aggregation führen",
+            "fix_suggestion": "WHERE t.BOOKING_DATE IS NOT NULL hinzufügen vor GROUP BY"
+        }
+    ],
+    "final_feedback": "Die Transformation enthält kritische logische Fehler in der DATEDIFF-Berechnung und verwendet MIN statt MAX für die letzte Transaktion. Nach Korrektur der Parameterreihenfolge und Verwendung von MAX() wäre die Logik funktionsfähig. Performance-Optimierung durch Index auf (CUSTOMER_ID, BOOKING_DATE) empfohlen.",
+    "_source_file": "case7.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 1111.907,
+    "_response_char_count": 3100
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 7 Konsistenzdurchlauf},label={claude_case7_prompt2}]
+{
+    "transformation_understanding": "Der ETL-Prozess erstellt eine Kundenchurn-Tabelle aus Transaktionsdaten. Für jeden Kunden wird das früheste Transaktionsdatum ermittelt und basierend auf einem 180-Tage-Kriterium der Inaktivitätsstatus bestimmt. Kunden mit der letzten Transaktion vor mehr als 180 Tagen werden als inaktiv markiert.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> CUSTOMER_CHURN.CUSTOMER_ID",
+        "TRANSACTIONS.BOOKING_DATE -> CUSTOMER_CHURN.LAST_TX_DATE (MIN aggregiert)",
+        "TRANSACTIONS.BOOKING_DATE -> CUSTOMER_CHURN.IS_INACTIVE (über DATEDIFF-Berechnung)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Gruppierung der Transaktionen nach Kunden-ID",
+            "formula": "GROUP BY t.CUSTOMER_ID",
+            "improvement": null
+        },
+        {
+            "step_count": 2,
+            "description": "Ermittlung des frühesten Transaktionsdatums pro Kunde",
+            "formula": "MIN(t.BOOKING_DATE) AS LAST_TX_DATE",
+            "improvement": "MAX(t.BOOKING_DATE) verwenden für das tatsächlich letzte Transaktionsdatum"
+        },
+        {
+            "step_count": 3,
+            "description": "Berechnung des Inaktivitätsstatus basierend auf 180-Tage-Regel",
+            "formula": "CASE WHEN DATEDIFF(day, CURRENT_DATE, MIN(t.BOOKING_DATE)) > 180 THEN 'TRUE' ELSE NULL END",
+            "improvement": "Parametrierung der 180-Tage-Schwelle und 'FALSE' statt NULL für aktive Kunden"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation enthält einen logischen Fehler: MIN(BOOKING_DATE) liefert das früheste, nicht das letzte Transaktionsdatum. Die DATEDIFF-Funktion hat vertauschte Parameter (sollte DATEDIFF(day, MIN(t.BOOKING_DATE), CURRENT_DATE) sein). NULL-Werte in BOOKING_DATE werden nicht behandelt.",
+    "error_risks": [
+        {
+            "severity": "high",
+            "source_of_risk": "MIN(BOOKING_DATE) wird für LAST_TX_DATE verwendet, liefert aber das früheste statt letzte Transaktionsdatum",
+            "fix_suggestion": "MAX(t.BOOKING_DATE) verwenden um das tatsächlich letzte Transaktionsdatum zu ermitteln"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "DATEDIFF-Parameter sind vertauscht, führt zu negativen Werten und falscher Logik",
+            "fix_suggestion": "Parameter-Reihenfolge korrigieren: DATEDIFF(day, MAX(t.BOOKING_DATE), CURRENT_DATE)"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Werte in BOOKING_DATE werden nicht explizit behandelt, können zu unerwarteten Ergebnissen führen",
+            "fix_suggestion": "WHERE t.BOOKING_DATE IS NOT NULL hinzufügen oder NULL-Behandlung in CASE-Statement"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "IS_INACTIVE wird als VARCHAR(5) definiert aber nur 'TRUE' oder NULL gesetzt, inkonsistent mit Boolean-Logik",
+            "fix_suggestion": "'FALSE' für aktive Kunden setzen oder Datentyp auf BOOLEAN ändern"
+        }
+    ],
+    "final_feedback": "Die Transformation ist nicht funktionstüchtig aufgrund kritischer Logikfehler. Die Verwendung von MIN statt MAX für das letzte Transaktionsdatum und die vertauschten DATEDIFF-Parameter führen zu falschen Churn-Klassifikationen. Nach Korrektur dieser Fehler und verbesserter NULL-Behandlung wäre der Prozess funktional.",
+    "_source_file": "case7.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 1888.063,
+    "_response_char_count": 3186
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 7 Robustheitsdurchlauf},label={claude_case7_prompt3}]
+{
+    "transformation_understanding": "Der ETL-Prozess erstellt eine Kundenchurn-Tabelle basierend auf Transaktionsdaten. Für jeden Kunden wird das früheste Transaktionsdatum ermittelt und geprüft, ob dieser mehr als 180 Tage in der Vergangenheit liegt, um Inaktivität zu bestimmen.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> CUSTOMER_CHURN.CUSTOMER_ID",
+        "TRANSACTIONS.BOOKING_DATE -> CUSTOMER_CHURN.LAST_TX_DATE (MIN aggregiert)",
+        "TRANSACTIONS.BOOKING_DATE -> CUSTOMER_CHURN.IS_INACTIVE (über DATEDIFF-Berechnung)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Gruppierung der Transaktionen nach Kunden-ID",
+            "formula": "GROUP BY t.CUSTOMER_ID",
+            "improvement": null
+        },
+        {
+            "step_count": 2,
+            "description": "Ermittlung des frühesten Transaktionsdatums pro Kunde",
+            "formula": "MIN(t.BOOKING_DATE) AS LAST_TX_DATE",
+            "improvement": "MAX(t.BOOKING_DATE) verwenden für das tatsächlich letzte Transaktionsdatum"
+        },
+        {
+            "step_count": 3,
+            "description": "Berechnung der Inaktivität basierend auf Zeitdifferenz",
+            "formula": "CASE WHEN DATEDIFF(day, CURRENT_DATE, MIN(t.BOOKING_DATE)) > 180 THEN 'TRUE' ELSE NULL END",
+            "improvement": "DATEDIFF(day, MIN(t.BOOKING_DATE), CURRENT_DATE) > 180 für korrekte Zeitrichtung und 'FALSE' statt NULL für eindeutige Werte"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die DATEDIFF-Berechnung ist fehlerhaft implementiert. Die Parameter sind vertauscht, wodurch negative Werte entstehen. Zudem wird MIN statt MAX verwendet, was das früheste statt letzte Transaktionsdatum liefert.",
+    "error_risks": [
+        {
+            "severity": "high",
+            "source_of_risk": "DATEDIFF-Parameter sind vertauscht: DATEDIFF(day, CURRENT_DATE, MIN(t.BOOKING_DATE)) erzeugt negative Werte für vergangene Daten",
+            "fix_suggestion": "Parameter korrigieren zu DATEDIFF(day, MIN(t.BOOKING_DATE), CURRENT_DATE) für positive Tageswerte"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "MIN(BOOKING_DATE) liefert das früheste statt letzte Transaktionsdatum, was der Spaltenbezeichnung LAST_TX_DATE widerspricht",
+            "fix_suggestion": "MAX(BOOKING_DATE) verwenden für das tatsächlich letzte Transaktionsdatum"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "IS_INACTIVE wird auf NULL gesetzt für aktive Kunden, obwohl das Feld als NOT NULL definiert ist",
+            "fix_suggestion": "'FALSE' statt NULL verwenden für eindeutige Boolesche Werte"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Nullable BOOKING_DATE-Werte können zu unerwarteten MIN-Ergebnissen führen",
+            "fix_suggestion": "WHERE t.BOOKING_DATE IS NOT NULL hinzufügen oder COALESCE verwenden"
+        }
+    ],
+    "final_feedback": "Die Transformation ist nicht funktionsfähig aufgrund der fehlerhaften DATEDIFF-Implementierung und der Verwendung von MIN statt MAX für das letzte Transaktionsdatum. Nach Korrektur der Parameter-Reihenfolge und Verwendung von MAX würde der Prozess korrekt funktionieren.",
+    "_source_file": "case7.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 2475.542,
+    "_response_char_count": 3046
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 8 Hauptdurchlauf},label={claude_case8_prompt1}]
+{
+    "transformation_understanding": "ETL-Prozess zur Berechnung rollierender 3-Monats-Summen aus monatlichen Verkaufsdaten. Für jeden Kunden werden die Umsätze der aktuellen und vorherigen 3 Monate summiert und in die Zieltabelle SALES_ROLLING3M eingefügt.",
+    "data_lineage": [
+        "SALES_MONTHLY -> SALES_ROLLING3M"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Extraktion der Kundendaten und Zeitdimensionen",
+            "formula": "SELECT CUSTOMER_ID, YEAR, MONTH FROM SALES_MONTHLY",
+            "improvement": null
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung der rollierenden 3-Monats-Summe mittels Window Function",
+            "formula": "SUM(AMNT_EUR) OVER (PARTITION BY CUSTOMER_ID ORDER BY MONTH, YEAR ROWS BETWEEN 3 PRECEDING AND CURRENT ROW)",
+            "improvement": "ORDER BY sollte chronologisch korrekt sein: ORDER BY YEAR, MONTH"
+        },
+        {
+            "step_count": 3,
+            "description": "Rundung des Ergebnisses auf 2 Dezimalstellen",
+            "formula": "ROUND(..., 2)",
+            "improvement": null
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Window Function verwendet eine falsche Sortierung (MONTH, YEAR statt YEAR, MONTH), was zu chronologisch inkorrekten rollierenden Summen führt. Der Spaltenname AMNT_EUR existiert nicht in der Quelltabelle (korrekt: AMOUNT_EUR).",
+    "error_risks": [
+        {
+            "severity": "high",
+            "source_of_risk": "Falsche chronologische Sortierung in Window Function: ORDER BY MONTH, YEAR sortiert Januar 2024 vor Januar 2023",
+            "fix_suggestion": "Sortierung ändern zu ORDER BY YEAR, MONTH für korrekte chronologische Reihenfolge"
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Spaltenname AMNT_EUR existiert nicht in Quelltabelle SALES_MONTHLY (korrekt: AMOUNT_EUR)",
+            "fix_suggestion": "Spaltenname zu AMOUNT_EUR korrigieren"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Werte in AMOUNT_EUR werden bei SUM() ignoriert, was zu unvollständigen rollierenden Summen führen kann",
+            "fix_suggestion": "COALESCE(AMOUNT_EUR, 0) verwenden oder explizite NULL-Behandlung implementieren"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "ROWS BETWEEN 3 PRECEDING AND CURRENT ROW erstellt 4-Monats-Fenster statt 3-Monats-Fenster",
+            "fix_suggestion": "ROWS BETWEEN 2 PRECEDING AND CURRENT ROW für echte 3-Monats-Summe verwenden"
+        }
+    ],
+    "final_feedback": "Transformation nicht funktionsfähig aufgrund kritischer Syntaxfehler (falscher Spaltenname) und logischer Fehler (falsche Sortierung, falsches Window-Fenster). Nach Korrektur der identifizierten Fehler ist die Grundlogik für rollierende Summen korrekt implementiert.",
+    "_source_file": "case8.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 1130.321,
+    "_response_char_count": 2673
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 8 Konsistenzdurchlauf},label={claude_case8_prompt2}]
+{
+    "transformation_understanding": "ETL-Prozess zur Berechnung rollierender 3-Monats-Summen aus monatlichen Verkaufsdaten. Die Transformation liest Kundenumsätze pro Monat aus SALES_MONTHLY und berechnet für jeden Kunden eine rollierende Summe über die aktuellen und vorherigen 3 Monate, sortiert nach Monat und Jahr.",
+    "data_lineage": [
+        "SALES_MONTHLY -> SALES_ROLLING3M"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Extraktion der Basisdaten (CUSTOMER_ID, YEAR, MONTH) aus SALES_MONTHLY",
+            "formula": "SELECT CUSTOMER_ID, YEAR, MONTH FROM SALES_MONTHLY",
+            "improvement": null
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung der rollierenden 3-Monats-Summe mittels Window Function",
+            "formula": "SUM(AMNT_EUR) OVER (PARTITION BY CUSTOMER_ID ORDER BY MONTH, YEAR ROWS BETWEEN 3 PRECEDING AND CURRENT ROW)",
+            "improvement": "ORDER BY YEAR, MONTH für korrekte chronologische Sortierung verwenden"
+        },
+        {
+            "step_count": 3,
+            "description": "Rundung des Ergebnisses auf 2 Dezimalstellen und Insert in Zieltabelle",
+            "formula": "ROUND(..., 2) AS ROLLING_3M_SUM_EUR",
+            "improvement": null
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Window Function verwendet falsche Sortierreihenfolge (MONTH, YEAR statt YEAR, MONTH), was zu chronologisch inkorrekten rollierenden Summen führt. Außerdem referenziert das SQL einen nicht existierenden Spaltennamen AMNT_EUR statt AMOUNT_EUR.",
+    "error_risks": [
+        {
+            "severity": "high",
+            "source_of_risk": "Falsche Sortierreihenfolge in ORDER BY Klausel: MONTH, YEAR führt zu chronologisch inkorrekter Berechnung der rollierenden Summe",
+            "fix_suggestion": "ORDER BY YEAR, MONTH verwenden für korrekte chronologische Sortierung"
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Spaltenname AMNT_EUR existiert nicht in Quelltabelle SALES_MONTHLY, korrekt ist AMOUNT_EUR",
+            "fix_suggestion": "AMNT_EUR durch AMOUNT_EUR ersetzen"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "ROWS BETWEEN 3 PRECEDING AND CURRENT ROW erzeugt 4-Monats-Fenster statt 3-Monats-Fenster",
+            "fix_suggestion": "ROWS BETWEEN 2 PRECEDING AND CURRENT ROW für echte 3-Monats-Summe verwenden"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Werte in AMOUNT_EUR werden nicht explizit behandelt, können zu unerwarteten Ergebnissen führen",
+            "fix_suggestion": "COALESCE(AMOUNT_EUR, 0) oder WHERE AMOUNT_EUR IS NOT NULL verwenden"
+        }
+    ],
+    "final_feedback": "Die Transformation ist aufgrund kritischer Syntaxfehler (falscher Spaltenname) und logischer Fehler (falsche Sortierung, falsches Window-Fenster) nicht funktionsfähig. Nach Korrektur der identifizierten Fehler würde der ETL-Prozess korrekte rollierende 3-Monats-Summen erzeugen.",
+    "_source_file": "case8.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 1904.576,
+    "_response_char_count": 2822
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 8 Robustheitsdurchlauf},label={claude_case8_prompt3}]
+{
+    "transformation_understanding": "Der ETL-Prozess berechnet für jeden Kunden einen rollierenden 3-Monats-Umsatz aus der monatlichen Verkaufstabelle SALES_MONTHLY und speichert das Ergebnis in SALES_ROLLING3M. Dabei wird eine Window-Function verwendet, die für jeden Datensatz die Summe der aktuellen und der drei vorhergehenden Zeilen berechnet, partitioniert nach Kunde und sortiert nach Monat und Jahr.",
+    "data_lineage": [
+        "SALES_MONTHLY.CUSTOMER_ID -> SALES_ROLLING3M.CUSTOMER_ID",
+        "SALES_MONTHLY.YEAR -> SALES_ROLLING3M.YEAR",
+        "SALES_MONTHLY.MONTH -> SALES_ROLLING3M.MONTH",
+        "SALES_MONTHLY.AMOUNT_EUR -> Berechnung -> SALES_ROLLING3M.ROLLING_3M_SUM_EUR"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Direkte Übernahme der Kundennummer ohne Transformation",
+            "formula": "CUSTOMER_ID",
+            "improvement": null
+        },
+        {
+            "step_count": 2,
+            "description": "Direkte Übernahme des Jahres ohne Transformation",
+            "formula": "YEAR",
+            "improvement": null
+        },
+        {
+            "step_count": 3,
+            "description": "Direkte Übernahme des Monats ohne Transformation",
+            "formula": "MONTH",
+            "improvement": null
+        },
+        {
+            "step_count": 4,
+            "description": "Berechnung des rollierenden 3-Monats-Umsatzes mittels Window-Function",
+            "formula": "ROUND(SUM(AMNT_EUR) OVER (PARTITION BY CUSTOMER_ID ORDER BY MONTH, YEAR ROWS BETWEEN 3 PRECEDING AND CURRENT ROW), 2)",
+            "improvement": "Sortierung nach YEAR, MONTH ändern und korrekten Spaltennamen AMOUNT_EUR verwenden"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Window-Function-Logik ist grundsätzlich korrekt, jedoch bestehen kritische Fehler: 1) Falscher Spaltenname AMNT_EUR statt AMOUNT_EUR führt zu SQL-Fehler, 2) Falsche Sortierreihenfolge MONTH, YEAR statt YEAR, MONTH führt zu inkorrekte chronologischer Ordnung, 3) ROWS BETWEEN 3 PRECEDING berechnet 4-Monats- statt 3-Monats-Summe.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Spaltenname AMNT_EUR existiert nicht in der Quelltabelle SALES_MONTHLY (korrekt: AMOUNT_EUR)",
+            "fix_suggestion": "Spaltenname von AMNT_EUR zu AMOUNT_EUR korrigieren"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Sortierung ORDER BY MONTH, YEAR ist chronologisch falsch und führt zu inkorrekten rollierenden Summen",
+            "fix_suggestion": "Sortierung zu ORDER BY YEAR, MONTH ändern"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "ROWS BETWEEN 3 PRECEDING berechnet 4-Monats-Summe (3 vorherige + aktueller Monat) statt gewünschter 3-Monats-Summe",
+            "fix_suggestion": "Window-Frame zu ROWS BETWEEN 2 PRECEDING AND CURRENT ROW ändern"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Werte in AMOUNT_EUR werden bei SUM() ignoriert, was zu unvollständigen rollierenden Summen führen kann",
+            "fix_suggestion": "COALESCE(AMOUNT_EUR, 0) verwenden oder explizite NULL-Behandlung implementieren"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Zieltabelle wird ohne vorherige Bereinigung befüllt, was zu Duplikaten bei wiederholter Ausführung führt",
+            "fix_suggestion": "TRUNCATE oder DELETE vor INSERT ausführen oder MERGE-Statement verwenden"
+        }
+    ],
+    "final_feedback": "Die Transformation ist aufgrund kritischer Syntaxfehler nicht ausführbar. Nach Korrektur der Spaltennamen, Sortierreihenfolge und Window-Frame-Definition würde der Prozess funktionieren. Die grundlegende Logik für rollierende Summen ist korrekt implementiert, jedoch müssen die identifizierten Fehler behoben werden, bevor der ETL-Prozess produktiv eingesetzt werden kann.",
+    "_source_file": "case8.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 2501.879,
+    "_response_char_count": 3617
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 9 Hauptdurchlauf},label={claude_case9_prompt1}]
+{
+    "transformation_understanding": "Der ETL-Prozess implementiert eine Slowly Changing Dimension (SCD Type 2) für Kundenadressdaten. Schritt 1 schließt bestehende aktuelle Datensätze durch Setzen von VALID_TO auf NULL ab, wenn sich Adressdaten geändert haben. Schritt 2 fügt neue oder geänderte Adressdatensätze als aktuelle Versionen hinzu.",
+    "data_lineage": [
+        "CUSTOMER_ADDRESS_STG -> DIM_CUSTOMER_ADDRESS (UPDATE)",
+        "CUSTOMER_ADDRESS_STG -> DIM_CUSTOMER_ADDRESS (INSERT)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Schließt aktuelle Datensätze ab bei Änderungen",
+            "formula": "SET VALID_TO = NULL WHERE IS_CURRENT = TRUE AND (address fields changed)",
+            "improvement": "VALID_TO sollte auf aktuellen Timestamp gesetzt werden, nicht NULL"
+        },
+        {
+            "step_count": 2,
+            "description": "Fügt neue/geänderte Datensätze als aktuelle Version hinzu",
+            "formula": "INSERT new records with IS_CURRENT = TRUE, VALID_FROM = CHANGE_TS",
+            "improvement": "Spaltennamen-Konsistenz zwischen Staging und Dimension sicherstellen"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation enthält mehrere kritische Fehler: Inkonsistente Spaltennamen (POSTCODE vs POSTAL_CODE), fehlerhafte Vergleichslogik (= statt <> für COUNTRY), unvollständiges UPDATE-Statement ohne FROM-Klausel, und logische Inkonsistenz bei VALID_TO-Behandlung.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Spaltenname POSTCODE in SQL existiert nicht in Schema (POSTAL_CODE)",
+            "fix_suggestion": "POSTCODE durch POSTAL_CODE in beiden SQL-Statements ersetzen"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Vergleichsoperator für COUNTRY ist falsch (= statt <>)",
+            "fix_suggestion": "d.COUNTRY = s.COUNTRY durch d.COUNTRY <> s.COUNTRY ersetzen"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "UPDATE-Statement ohne FROM-Klausel und Zieltabelle",
+            "fix_suggestion": "UPDATE DIM_CUSTOMER_ADDRESS d SET... FROM CUSTOMER_ADDRESS_STG s hinzufügen"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Datentyp-Inkonsistenz: VALID_TO ist DATE, wird aber auf NULL (TIMESTAMP-Kontext) gesetzt",
+            "fix_suggestion": "VALID_TO auf aktuellen Timestamp setzen oder Datentyp auf TIMESTAMP ändern"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "POSTAL_CODE als UUID-Typ ist ungewöhnlich für Postleitzahlen",
+            "fix_suggestion": "Datentyp auf VARCHAR prüfen und ggf. anpassen"
+        }
+    ],
+    "final_feedback": "Die Transformation ist nicht funktionsfähig und enthält kritische Syntaxfehler. Nach Behebung der Spaltennamen, Vergleichsoperatoren und UPDATE-Syntax würde eine korrekte SCD Type 2 Implementierung entstehen. Die Logik ist grundsätzlich richtig konzipiert, aber die Ausführung fehlerhaft.",
+    "_source_file": "case9.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 1148.035,
+    "_response_char_count": 2882
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 9 Konsistenzdurchlauf},label={claude_case9_prompt2}]
+{
+    "transformation_understanding": "Der ETL-Prozess implementiert eine Slowly Changing Dimension (SCD Type 2) für Kundenadressdaten. Schritt 1 schließt bestehende aktuelle Datensätze ab, indem VALID_TO auf NULL gesetzt wird, wenn sich Adressdaten geändert haben. Schritt 2 fügt neue oder geänderte Adressdatensätze als aktuelle Einträge hinzu.",
+    "data_lineage": [
+        "CUSTOMER_ADDRESS_STG -> DIM_CUSTOMER_ADDRESS (Update VALID_TO)",
+        "CUSTOMER_ADDRESS_STG -> DIM_CUSTOMER_ADDRESS (Insert new/changed records)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Schließt aktuelle Datensätze ab bei Änderungen",
+            "formula": "SET VALID_TO = NULL WHERE IS_CURRENT = TRUE AND address_changed",
+            "improvement": "VALID_TO sollte auf aktuellen Timestamp gesetzt werden, nicht NULL"
+        },
+        {
+            "step_count": 2,
+            "description": "Fügt neue/geänderte Adressdatensätze hinzu",
+            "formula": "INSERT new records with VALID_FROM = CHANGE_TS, VALID_TO = NULL, IS_CURRENT = TRUE",
+            "improvement": "Transaktionale Kapselung beider Statements erforderlich"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation enthält mehrere kritische Fehler: Fehlende UPDATE-Klausel in Statement 1, inkonsistente Spaltennamen (POSTCODE vs POSTAL_CODE), falsche Vergleichslogik für COUNTRY-Feld, und Datentyp-Inkompatibilität zwischen VALID_TO (DATE) und NULL-Werten.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Statement 1 fehlt UPDATE-Klausel - SET ohne FROM/WHERE Kontext",
+            "fix_suggestion": "UPDATE DIM_CUSTOMER_ADDRESS d SET VALID_TO = CURRENT_TIMESTAMP hinzufügen"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Spaltenname-Inkonsistenz: POSTCODE in SQL vs POSTAL_CODE in Schema",
+            "fix_suggestion": "Einheitliche Verwendung von POSTAL_CODE in allen Statements"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falsche Vergleichslogik: d.COUNTRY = s.COUNTRY sollte <> sein",
+            "fix_suggestion": "Änderung zu d.COUNTRY <> s.COUNTRY für Konsistenz"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Datentyp-Inkompatibilität: POSTAL_CODE als UUID für Postleitzahlen ungeeignet",
+            "fix_suggestion": "POSTAL_CODE zu VARCHAR(20) ändern für internationale Postleitzahlen"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "VALID_TO als DATE statt TIMESTAMP inkonsistent mit VALID_FROM",
+            "fix_suggestion": "VALID_TO zu TIMESTAMP ändern für präzise Zeitstempel"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Fehlende Transaktionskapselung kann zu inkonsistenten Zuständen führen",
+            "fix_suggestion": "BEGIN/COMMIT Transaction um beide Statements"
+        }
+    ],
+    "final_feedback": "Die Transformation ist nicht funktionsfähig aufgrund kritischer Syntaxfehler und logischer Inkonsistenzen. Nach Behebung der Fehler implementiert sie korrekt eine SCD Type 2 Logik für Adressdaten mit historischer Nachverfolgung.",
+    "_source_file": "case9.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 1925.442,
+    "_response_char_count": 3034
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 9 Robustheitsdurchlauf},label={claude_case9_prompt3}]
+{
+    "transformation_understanding": "Der ETL-Prozess implementiert eine Slowly Changing Dimension (SCD Type 2) für Kundenadressdaten. Zuerst werden bestehende aktuelle Datensätze durch Setzen von VALID_TO auf NULL historisiert, wenn sich Adressdaten geändert haben. Anschließend werden neue oder geänderte Adressdatensätze als aktuelle Einträge eingefügt.",
+    "data_lineage": [
+        "CUSTOMER_ADDRESS_STG -> DIM_CUSTOMER_ADDRESS (UPDATE: VALID_TO)",
+        "CUSTOMER_ADDRESS_STG -> DIM_CUSTOMER_ADDRESS (INSERT: neue/geänderte Datensätze)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Historisierung bestehender aktueller Datensätze durch Setzen von VALID_TO auf NULL bei Datenänderungen",
+            "formula": "SET VALID_TO = NULL WHERE d.IS_CURRENT = TRUE AND (Adressdaten geändert)",
+            "improvement": "UPDATE-Statement mit expliziter FROM-Klausel und korrekter Spaltenbenennung verwenden"
+        },
+        {
+            "step_count": 2,
+            "description": "Einfügen neuer oder geänderter Adressdatensätze als aktuelle Einträge mit VALID_FROM aus CHANGE_TS",
+            "formula": "INSERT INTO DIM_CUSTOMER_ADDRESS SELECT s.*, s.CHANGE_TS AS VALID_FROM, NULL AS VALID_TO, TRUE AS IS_CURRENT",
+            "improvement": "Konsistente Spaltenbenennung und korrekte Vergleichsoperatoren in WHERE-Bedingung verwenden"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die SQL-Statements enthalten mehrere kritische Syntaxfehler: fehlende UPDATE-Klausel im ersten Statement, inkonsistente Spaltennamen (POSTCODE vs POSTAL_CODE), falsche Vergleichsoperatoren (= statt <> für COUNTRY-Vergleich) und Datentyp-Inkompatibilität zwischen VALID_TO (DATE) und NULL-Zuweisung.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Erstes SQL-Statement hat keine UPDATE-Klausel - SET ohne UPDATE ist syntaktisch ungültig",
+            "fix_suggestion": "UPDATE DIM_CUSTOMER_ADDRESS d SET VALID_TO = NULL FROM CUSTOMER_ADDRESS_STG s WHERE..."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Inkonsistente Spaltenbenennung: POSTCODE in SQL vs POSTAL_CODE in Schema",
+            "fix_suggestion": "Einheitliche Verwendung von POSTAL_CODE in allen SQL-Statements"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falsche Vergleichsoperatoren: d.COUNTRY = s.COUNTRY sollte d.COUNTRY <> s.COUNTRY sein",
+            "fix_suggestion": "Änderung zu d.COUNTRY <> s.COUNTRY für konsistente Ungleichheits-Prüfung"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "POSTAL_CODE hat Datentyp UUID, was für Postleitzahlen ungewöhnlich ist",
+            "fix_suggestion": "Prüfung ob VARCHAR(20) als Datentyp für POSTAL_CODE geeigneter wäre"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "VALID_TO ist als DATE definiert aber NOT NULL, während NULL-Werte zugewiesen werden",
+            "fix_suggestion": "VALID_TO Spalte als nullable definieren oder TIMESTAMP verwenden für Konsistenz mit VALID_FROM"
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist aufgrund kritischer Syntaxfehler nicht ausführbar. Nach Korrektur der UPDATE-Syntax, Spaltennamen und Vergleichsoperatoren würde er eine funktionsfähige SCD Type 2 Implementierung darstellen. Die Datentyp-Inkonsistenzen sollten ebenfalls behoben werden, um Laufzeitfehler zu vermeiden.",
+    "_source_file": "case9.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 2522.667,
+    "_response_char_count": 3317
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 10 Hauptdurchlauf},label={claude_case10_prompt1}]
+{
+    "transformation_understanding": "ETL-Prozess zur Berechnung von Schadenreserven. Verknüpft Claims-Daten mit Reserveobergrenzen pro Geschäftssparte und berechnet die finale Reserve als Minimum zwischen Spartenlimit und der positiven Differenz aus gemeldeter und bezahlter Schadensumme (begrenzt durch Deckungslimit).",
+    "data_lineage": [
+        "CLAIMS -> JOIN LOB_RESERVE_CAP -> CLAIM_RESERVES"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "LEFT JOIN zwischen CLAIMS und LOB_RESERVE_CAP über LINE_OF_BUSINESS",
+            "formula": "LEFT JOIN LOB_RESERVE_CAP cap ON cap.LINE_BUSINESS = c.LINE_OF_BUSINESS",
+            "improvement": "Spaltennamen korrigieren: cap.LINE_OF_BUSINESS statt cap.LINE_BUSINESS"
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung der Grundreserve als Minimum zwischen Deckungslimit und Differenz aus REPORTED_AMT und PAID_AMT",
+            "formula": "MIN(c.COVER_LIMIT_AMT, (c.REPORTED_AMT - c.PAID_AMT))",
+            "improvement": "REPORTED_AMT von CLOB zu DECIMAL konvertieren vor arithmetischen Operationen"
+        },
+        {
+            "step_count": 3,
+            "description": "Anwendung von GREATEST(0, ...) zur Vermeidung negativer Reserven",
+            "formula": "GREATEST(0, MIN(c.COVER_LIMIT_AMT, (c.REPORTED_AMT - c.PAID_AMT)))",
+            "improvement": null
+        },
+        {
+            "step_count": 4,
+            "description": "Finale Reserveberechnung als Minimum zwischen Spartenlimit und berechneter Grundreserve",
+            "formula": "MIN(cap.MAX_RESERVE_AMT, GREATEST(0, MIN(c.COVER_LIMIT_AMT, (c.REPORTED_AMT - c.PAID_AMT))))",
+            "improvement": null
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation enthält kritische Fehler: Falscher Spaltenname im JOIN, CLOB-Datentyp in arithmetischen Operationen, fehlende SELECT-Klausel und GROUP BY. Die Rechenlogik ist konzeptionell korrekt, aber technisch nicht ausführbar.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "JOIN-Bedingung verwendet falschen Spaltennamen: cap.LINE_BUSINESS existiert nicht in LOB_RESERVE_CAP",
+            "fix_suggestion": "Korrektur zu cap.LINE_OF_BUSINESS für korrekte Verknüpfung"
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "REPORTED_AMT ist CLOB-Datentyp und kann nicht direkt in arithmetischen Operationen verwendet werden",
+            "fix_suggestion": "Explizite Konvertierung zu DECIMAL mittels TO_NUMBER() oder CAST() vor Berechnung"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Fehlende SELECT-Klausel und GROUP BY bei Verwendung von Aggregatfunktionen ohne entsprechende Gruppierung",
+            "fix_suggestion": "SELECT-Klausel hinzufügen und GROUP BY CLAIM_ID ergänzen oder Aggregatfunktionen entfernen"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Spaltenname CLM_ID im SELECT existiert nicht in der CLAIMS-Tabelle",
+            "fix_suggestion": "Korrektur zu c.CLAIM_ID für korrekte Spaltenreferenz"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Potenzielle NULL-Werte in arithmetischen Operationen können zu unerwarteten Ergebnissen führen",
+            "fix_suggestion": "COALESCE() oder ISNULL() für NULL-Behandlung in Berechnungen verwenden"
+        }
+    ],
+    "final_feedback": "Die Transformation ist aufgrund kritischer Syntaxfehler nicht ausführbar. Nach Korrektur der Spaltennamen, Datentyp-Konvertierung und SQL-Syntax würde die Rechenlogik korrekte Schadenreserven unter Berücksichtigung von Spartenlimits berechnen. Performance-Optimierung durch Indizierung auf JOIN-Spalten empfohlen.",
+    "_source_file": "case10.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 986.808,
+    "_response_char_count": 3515
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 10 Konsistenzdurchlauf},label={claude_case10_prompt2}]
+{
+    "transformation_understanding": "Der ETL-Prozess berechnet Schadenreserven durch Verknüpfung von Claims-Daten mit Line-of-Business-spezifischen Reserveobergrenzen. Die Berechnung erfolgt über eine komplexe Formel, die den gemeldeten Schaden abzüglich bereits gezahlter Beträge mit der Deckungsgrenze vergleicht und das Minimum mit der maximalen Reserve pro Sparte nimmt.",
+    "data_lineage": [
+        "CLAIMS -> JOIN mit LOB_RESERVE_CAP -> Berechnung CALC_RESERVE_AMT -> INSERT in CLAIM_RESERVES"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "LEFT JOIN zwischen CLAIMS und LOB_RESERVE_CAP über LINE_OF_BUSINESS",
+            "formula": "LEFT JOIN LOB_RESERVE_CAP cap ON cap.LINE_BUSINESS = c.LINE_OF_BUSINESS",
+            "improvement": "Spaltenname-Inkonsistenz prüfen: LINE_BUSINESS vs LINE_OF_BUSINESS"
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung der Reservehöhe mit verschachtelten MIN/GREATEST-Funktionen",
+            "formula": "MIN(cap.MAX_RESERVE_AMT, GREATEST(0, MIN(c.COVER_LIMIT_AMT, (c.REPORTED_AMT - c.PAID_AMT))))",
+            "improvement": "REPORTED_AMT Datentyp-Konvertierung von CLOB zu DECIMAL explizit durchführen"
+        },
+        {
+            "step_count": 3,
+            "description": "INSERT der berechneten Werte in CLAIM_RESERVES Tabelle",
+            "formula": "INSERT INTO CLAIM_RESERVES (CLAIM_ID, CALC_RESERVE_AMT)",
+            "improvement": "Spaltenname CLM_ID sollte CLAIM_ID sein für Konsistenz"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation enthält mehrere kritische Fehler: Spaltenname-Inkonsistenzen (CLM_ID statt CLAIM_ID, LINE_BUSINESS statt LINE_OF_BUSINESS), implizite CLOB-zu-DECIMAL-Konvertierung ohne Fehlerbehandlung, und Präzisionsverlust durch unterschiedliche DECIMAL-Größen.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Spaltenname CLM_ID existiert nicht in CLAIMS-Tabelle (korrekt: CLAIM_ID)",
+            "fix_suggestion": "CLM_ID durch CLAIM_ID ersetzen"
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "JOIN-Bedingung verwendet LINE_BUSINESS statt LINE_OF_BUSINESS",
+            "fix_suggestion": "cap.LINE_BUSINESS durch cap.LINE_OF_BUSINESS ersetzen"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "REPORTED_AMT ist CLOB-Typ, wird aber in arithmetischer Operation verwendet",
+            "fix_suggestion": "Explizite Konvertierung: TO_NUMBER(c.REPORTED_AMT) mit Fehlerbehandlung"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Präzisionsverlust durch unterschiedliche DECIMAL-Größen (16,2 vs 8,2)",
+            "fix_suggestion": "MAX_RESERVE_AMT auf DECIMAL(16,2) erweitern oder explizite Rundung"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Fehlende WHERE-Klausel führt zu Verarbeitung aller Claims ohne Filterung",
+            "fix_suggestion": "WHERE-Bedingungen für aktive Claims oder Datumsfilter hinzufügen"
+        }
+    ],
+    "final_feedback": "Die Transformation ist aufgrund kritischer Syntaxfehler nicht ausführbar. Nach Korrektur der Spaltennamen und expliziter CLOB-Konvertierung wäre die Geschäftslogik grundsätzlich korrekt. Performance-Optimierung durch Indizierung auf LINE_OF_BUSINESS empfohlen.",
+    "_source_file": "case10.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 1771.05,
+    "_response_char_count": 3206
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 10 Robustheitsdurchlauf},label={claude_case10_prompt3}]
+{
+    "transformation_understanding": "Der ETL-Prozess berechnet Schadenreserven durch Verknüpfung von Schadensdaten mit Reserveobergrenzen pro Geschäftssparte. Die Berechnung ermittelt die niedrigere von zwei Werten: der maximalen Reserve pro Geschäftssparte oder der positiven Differenz zwischen gemeldeter und bezahlter Schadensumme (begrenzt durch die Deckungsgrenze).",
+    "data_lineage": [
+        "CLAIMS -> Schadensdaten mit Beträgen und Geschäftssparte",
+        "LOB_RESERVE_CAP -> Maximale Reservebeträge pro Geschäftssparte",
+        "LEFT JOIN -> Verknüpfung über LINE_OF_BUSINESS",
+        "CLAIM_RESERVES -> Zieltabelle mit berechneten Reserven"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Verknüpfung von Schadensdaten mit Reserveobergrenzen",
+            "formula": "LEFT JOIN LOB_RESERVE_CAP cap ON cap.LINE_BUSINESS = c.LINE_OF_BUSINESS",
+            "improvement": null
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung der verfügbaren Reserve unter Berücksichtigung der Deckungsgrenze",
+            "formula": "MIN(c.COVER_LIMIT_AMT, (c.REPORTED_AMT - c.PAID_AMT))",
+            "improvement": "Explizite Behandlung von NULL-Werten durch COALESCE oder ISNULL"
+        },
+        {
+            "step_count": 3,
+            "description": "Sicherstellung nicht-negativer Reservewerte",
+            "formula": "GREATEST(0, MIN(c.COVER_LIMIT_AMT, (c.REPORTED_AMT - c.PAID_AMT)))",
+            "improvement": null
+        },
+        {
+            "step_count": 4,
+            "description": "Anwendung der Reserveobergrenze",
+            "formula": "MIN(cap.MAX_RESERVE_AMT, GREATEST(...))",
+            "improvement": "Verwendung von COALESCE für NULL-Behandlung bei MAX_RESERVE_AMT"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation enthält mehrere kritische Fehler: Falsche Spaltenreferenz (CLM_ID statt CLAIM_ID), Datentyp-Inkompatibilität (REPORTED_AMT als CLOB), fehlende JOIN-Bedingung und unvollständige NULL-Behandlung. Die Grundlogik der Reserveberechnung ist korrekt konzipiert.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Spaltenreferenz CLM_ID existiert nicht in der CLAIMS-Tabelle, korrekte Bezeichnung ist CLAIM_ID",
+            "fix_suggestion": "Änderung von CLM_ID zu CLAIM_ID in der SELECT-Klausel"
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "REPORTED_AMT ist als CLOB definiert und kann nicht in arithmetischen Operationen verwendet werden",
+            "fix_suggestion": "Konvertierung zu numerischem Datentyp mittels TO_NUMBER() oder CAST() vor Berechnung"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "JOIN-Bedingung verwendet LINE_BUSINESS statt LINE_OF_BUSINESS aus der CLAIMS-Tabelle",
+            "fix_suggestion": "Korrektur der JOIN-Bedingung zu cap.LINE_OF_BUSINESS = c.LINE_OF_BUSINESS"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Fehlende GROUP BY-Klausel trotz Verwendung von MIN-Aggregatfunktion",
+            "fix_suggestion": "Hinzufügung von GROUP BY CLAIM_ID oder Entfernung der MIN-Funktion"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Werte in REPORTED_AMT, PAID_AMT und COVER_LIMIT_AMT können zu unerwarteten Ergebnissen führen",
+            "fix_suggestion": "Verwendung von COALESCE oder ISNULL für explizite NULL-Behandlung"
+        }
+    ],
+    "final_feedback": "Die Transformation ist in der aktuellen Form nicht ausführbar und muss vor Produktiveinsatz korrigiert werden. Nach Behebung der kritischen Fehler (Spaltenreferenzen, Datentyp-Konvertierung, JOIN-Bedingung) ist die Geschäftslogik grundsätzlich funktionsfähig. Empfehlung: Implementierung expliziter NULL-Behandlung und Performance-Optimierung durch Indexierung der JOIN-Spalten.",
+    "_source_file": "case10.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 2242.183,
+    "_response_char_count": 3635
+}
+\end{lstlisting}
+

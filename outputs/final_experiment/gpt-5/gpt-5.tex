@@ -1,0 +1,2540 @@
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 1 Hauptdurchlauf},label={gpt_case1_prompt1}]
+{
+    "transformation_understanding": "Ziel: Monatsaggregation der Transaktionen pro Kunde und Laden der Summe in TARGET_AGG_MONTH (CUSTOMER_ID, YEAR, MONTH, SUM_AMOUNT_EUR).",
+    "data_lineage": [
+        "TARGET_AGG_MONTH.CUSTOMER_ID <- TRANSACTIONS.CUSTOMER_ID",
+        "TARGET_AGG_MONTH.YEAR <- YEAR(TRANSACTIONS.BOOKING_DATE)",
+        "TARGET_AGG_MONTH.MONTH <- MONTH(TRANSACTIONS.BOOKING_DATE)",
+        "TARGET_AGG_MONTH.SUM_AMOUNT_EUR <- SUM(TRANSACTIONS.AMOUNT_EUR)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Quelltabelle lesen",
+            "formula": "FROM TRANSACTIONS",
+            "improvement": "Index auf TRANSACTIONS(CUSTOMER_ID, BOOKING_DATE) für schnelleres Aggregieren."
+        },
+        {
+            "step_count": 2,
+            "description": "Jahr und Monat aus Buchungsdatum ableiten",
+            "formula": "YEAR(BOOKING_DATE) AS YEAR, MONTH(BOOKING_DATE) AS MONTH",
+            "improvement": "Ableitung einmal in Subquery/CTE durchführen; optional date_trunc('month') verwenden."
+        },
+        {
+            "step_count": 3,
+            "description": "Summen pro Kunde, Jahr, Monat bilden",
+            "formula": "SUM(AMOUNT_EUR) AS SUM_AMOUNT_EUR GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE)",
+            "improvement": "AMOUNT_EUR nicht gruppieren; nur die Dimensionsspalten gruppieren."
+        },
+        {
+            "step_count": 4,
+            "description": "In Zieltabelle laden",
+            "formula": "INSERT INTO TARGET_AGG_MONTH (CUSTOMER_ID, YEAR, MONTH, SUM_AMOUNT_EUR) SELECT ...",
+            "improvement": "Idempotent laden (MERGE/UPSERT) und Unique-Constraint auf (CUSTOMER_ID, YEAR, MONTH)."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die bereitgestellte SQL ist nicht lauffähig: (1) Tippfehler BOOKIN_DATE statt BOOKING_DATE führt zu Fehler. (2) CUSTOMER_ID wird im SELECT verwendet, aber nicht gruppiert -> Aggregationsfehler. (3) AMOUNT_EUR wird fälschlich im GROUP BY geführt, wodurch die Aggregation pro Kunde/Monat zerstört wird. (4) Alias-Verwechslungen (AS MONTH/AS YEAR) sind irreführend. Korrekturvorschlag: INSERT INTO TARGET_AGG_MONTH (CUSTOMER_ID, YEAR, MONTH, SUM_AMOUNT_EUR)\nSELECT CUSTOMER_ID, YEAR(BOOKING_DATE) AS YEAR, MONTH(BOOKING_DATE) AS MONTH, SUM(AMOUNT_EUR) AS SUM_AMOUNT_EUR\nFROM TRANSACTIONS\nGROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE);",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Spaltenname falsch geschrieben: BOOKIN_DATE in SELECT/GROUP BY existiert nicht.",
+            "fix_suggestion": "Durchgehend BOOKING_DATE verwenden."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Nicht gruppierte Spalte im SELECT: CUSTOMER_ID fehlt im GROUP BY.",
+            "fix_suggestion": "GROUP BY um CUSTOMER_ID ergänzen."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falsche Aggregationsgranularität: AMOUNT_EUR im GROUP BY.",
+            "fix_suggestion": "AMOUNT_EUR aus GROUP BY entfernen; nur CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE) gruppieren."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Wiederholte Läufe erzeugen Duplikate in TARGET_AGG_MONTH.",
+            "fix_suggestion": "MERGE/UPSERT nutzen oder UNIQUE-Constraint (CUSTOMER_ID, YEAR, MONTH) und ON CONFLICT/ON DUPLICATE KEY UPDATE."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "FLOAT für Geldbeträge führt zu Rundungsfehlern.",
+            "fix_suggestion": "AMOUNT_EUR und SUM_AMOUNT_EUR als DECIMAL(18,2) o.ä. modellieren und summieren."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Irreführende Aliase: YEAR(...) AS MONTH und MONTH(...) AS YEAR.",
+            "fix_suggestion": "Aliase konsistent zur Zielspalte setzen oder Spaltenreihenfolge/Bezeichner angleichen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Funktionen auf BOOKING_DATE können Indexnutzung erschweren und werden mehrfach berechnet.",
+            "fix_suggestion": "Jahr/Monat in Subquery berechnen und darauf gruppieren; ggf. Ausdrucksindex/komputiertes Feld auf Monatsschlüssel."
+        }
+    ],
+    "final_feedback": "Der ETL ist aktuell nicht funktionsfähig (Tippfehler, fehlerhafte GROUP BY-Logik). Nach Korrektur wie folgt ist er fachlich korrekt: Aggregation pro CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE) und Laden der Summe. Optimieren Sie Idempotenz (MERGE/UNIQUE-Constraint), Datentypen (DECIMAL für Geld) und Performance (CTE/Ausdrucksindex auf Monatsableitung). Das Endergebnis bleibt unverändert, aber Stabilität und Genauigkeit steigen deutlich.",
+    "_source_file": "case1.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 115.548,
+    "_response_char_count": 4480
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 1 Konsistenzdurchlauf},label={gpt_case1_prompt2}]
+{
+    "transformation_understanding": "Transaktionen werden je Kunde nach Jahr und Monat des BOOKING_DATE aggregiert. Für jede (CUSTOMER_ID, YEAR, MONTH)-Gruppe wird SUM(AMOUNT_EUR) berechnet und in TARGET_AGG_MONTH geschrieben.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> TARGET_AGG_MONTH.CUSTOMER_ID (Gruppierung)",
+        "TRANSACTIONS.BOOKING_DATE -> TARGET_AGG_MONTH.YEAR via YEAR(BOOKING_DATE)",
+        "TRANSACTIONS.BOOKING_DATE -> TARGET_AGG_MONTH.MONTH via MONTH(BOOKING_DATE)",
+        "TRANSACTIONS.AMOUNT_EUR -> TARGET_AGG_MONTH.SUM_AMOUNT_EUR via SUM()"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Periodenableitung aus BOOKING_DATE (Jahr und Monat).",
+            "formula": "YEAR(BOOKING_DATE) AS YEAR, MONTH(BOOKING_DATE) AS MONTH",
+            "improvement": "Alternativ: DATE_TRUNC('month', BOOKING_DATE) als period_key gruppieren und YEAR/MONTH daraus ableiten; ermöglicht funktionale Indizes/Partition-Pruning."
+        },
+        {
+            "step_count": 2,
+            "description": "Aggregation der Beträge je Kunde und Monat.",
+            "formula": "SUM(AMOUNT_EUR) AS SUM_AMOUNT_EUR GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE)",
+            "improvement": "Für Geldbeträge DECIMAL(18,2) statt FLOAT verwenden: SUM(CAST(AMOUNT_EUR AS DECIMAL(18,2)))."
+        },
+        {
+            "step_count": 3,
+            "description": "Laden ins Ziel mit Spaltenzuordnung (positional).",
+            "formula": "INSERT INTO TARGET_AGG_MONTH (CUSTOMER_ID, YEAR, MONTH, SUM_AMOUNT_EUR) SELECT CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE), SUM(...)",
+            "improvement": "Idempotent laden (MERGE/UPSERT) und UNIQUE-Constraint auf (CUSTOMER_ID, YEAR, MONTH) zur Duplikatvermeidung."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die vorliegende SQL ist fehlerhaft: (1) Tippfehler BOOKIN_DATE statt BOOKING_DATE führt zum Laufzeitfehler. (2) GROUP BY ist falsch: CUSTOMER_ID fehlt, AMOUNT_EUR ist fälschlich im GROUP BY; dies erzeugt entweder einen SQL-Fehler (standardkonforme DBs) oder falsche Aggregation. (3) Aliase YEAR/MONTH sind vertauscht und irreführend. Korrekturvorschlag: INSERT INTO TARGET_AGG_MONTH (CUSTOMER_ID, YEAR, MONTH, SUM_AMOUNT_EUR) SELECT CUSTOMER_ID, YEAR(BOOKING_DATE) AS YEAR, MONTH(BOOKING_DATE) AS MONTH, SUM(AMOUNT_EUR) AS SUM_AMOUNT_EUR FROM TRANSACTIONS GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE);",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Tippfehler bei Datumsfeld: YEAR(BOOKIN_DATE) / MONTH(BOOKIN_DATE) statt BOOKING_DATE.",
+            "fix_suggestion": "BOOKING_DATE korrekt verwenden: YEAR(BOOKING_DATE), MONTH(BOOKING_DATE)."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falsches GROUP BY: CUSTOMER_ID fehlt; AMOUNT_EUR steht im GROUP BY, wodurch Summen pro Betrag statt pro Kunde/Monat entstehen bzw. ein SQL-Fehler entsteht.",
+            "fix_suggestion": "GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE); AMOUNT_EUR aus GROUP BY entfernen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Vertauschte Aliase: YEAR(...) AS MONTH und MONTH(...) AS YEAR (positional Mapping funktioniert, ist aber irreführend).",
+            "fix_suggestion": "Aliase konsistent setzen: YEAR(...) AS YEAR, MONTH(...) AS MONTH."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Geldbeträge als FLOAT summiert -> Rundungsfehler möglich.",
+            "fix_suggestion": "AMOUNT_EUR als DECIMAL(18,2) modellieren und SUM(CAST(AMOUNT_EUR AS DECIMAL(18,2))) verwenden; Zielspalte entsprechend anpassen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Nicht-idempotentes INSERT kann bei Wiederholungen Duplikate in TARGET_AGG_MONTH erzeugen.",
+            "fix_suggestion": "MERGE/UPSERT verwenden oder vorab die betroffene Periode löschen; UNIQUE-Constraint/Index auf (CUSTOMER_ID, YEAR, MONTH) setzen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Spaltennamen YEAR/MONTH können je nach DB reservierte Wörter sein; Portabilitäts- und Quoting-Risiko.",
+            "fix_suggestion": "Spalten umbenennen (z. B. YEAR_NUM, MONTH_NUM) oder konsistent quoten (\"YEAR\", \"MONTH\")."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "GROUP BY auf Funktionsausdrücken erschwert Index-Nutzung und kann bei großen Datenmengen langsam sein.",
+            "fix_suggestion": "Funktionalen Index/Computed Column auf DATE_TRUNC('month', BOOKING_DATE) nutzen oder period_key materialisieren und danach gruppieren; Index auf (CUSTOMER_ID, BOOKING_DATE)."
+        }
+    ],
+    "final_feedback": "Die beabsichtigte monatliche Kundenaggregation ist klar, die aktuelle SQL ist jedoch nicht lauffähig und fachlich inkorrekt. Beheben Sie den Datums-Tippfehler, korrigieren Sie das GROUP BY auf (CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE)) und setzen Sie konsistente Aliase. Für Datenqualität/Portabilität: Geldbeträge als DECIMAL aggregieren, UNIQUE-Constraint bzw. MERGE für idempotentes Laden sowie geeignete Indizes bzw. period_key für Performance.",
+    "_source_file": "case1.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 55.297,
+    "_response_char_count": 5015
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 1 Robustheitsdurchlauf},label={gpt_case1_prompt3}]
+{
+    "transformation_understanding": "Monatliche Aggregation von Transaktionsbeträgen je Kunde: Aus TRANSACTIONS werden pro CUSTOMER_ID und Buchungsmonat (YEAR, MONTH aus BOOKING_DATE) die Summen von AMOUNT_EUR berechnet und in TARGET_AGG_MONTH geschrieben.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> TARGET_AGG_MONTH.CUSTOMER_ID (Gruppierungsschlüssel)",
+        "TRANSACTIONS.BOOKING_DATE -> TARGET_AGG_MONTH.YEAR (YEAR(BOOKING_DATE))",
+        "TRANSACTIONS.BOOKING_DATE -> TARGET_AGG_MONTH.MONTH (MONTH(BOOKING_DATE))",
+        "TRANSACTIONS.AMOUNT_EUR -> TARGET_AGG_MONTH.SUM_AMOUNT_EUR (SUM je Kunde/Jahr/Monat)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Quellselektion der relevanten Felder",
+            "formula": "SELECT CUSTOMER_ID, BOOKING_DATE, AMOUNT_EUR FROM TRANSACTIONS",
+            "improvement": "Staging-View verwenden, die nur benötigte Felder bereitstellt, um I/O zu reduzieren."
+        },
+        {
+            "step_count": 2,
+            "description": "Jahresableitung aus BOOKING_DATE",
+            "formula": "YEAR(BOOKING_DATE) AS YEAR",
+            "improvement": "Alternativ ein monatlicher Schlüssel (DATE_TRUNC('month', BOOKING_DATE)) plus funktionaler Index für bessere Prädikat- und Group-By-Performance."
+        },
+        {
+            "step_count": 3,
+            "description": "Monatsableitung aus BOOKING_DATE",
+            "formula": "MONTH(BOOKING_DATE) AS MONTH",
+            "improvement": "Generierte Spalten (YEAR, MONTH) oder funktionale Indizes anlegen, um Funktionsaufrufe auf BOOKING_DATE im GROUP BY zu beschleunigen."
+        },
+        {
+            "step_count": 4,
+            "description": "Aggregation des Betrags je Kunde, Jahr und Monat",
+            "formula": "SELECT CUSTOMER_ID, YEAR(BOOKING_DATE) AS YEAR, MONTH(BOOKING_DATE) AS MONTH, SUM(AMOUNT_EUR) AS SUM_AMOUNT_EUR FROM TRANSACTIONS GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE)",
+            "improvement": "SUM über DECIMAL statt FLOAT für exakte Währungen; optional Parallelisierung/Partitionierung nach BOOKING_DATE."
+        },
+        {
+            "step_count": 5,
+            "description": "Laden in das Ziel-Aggregat",
+            "formula": "INSERT INTO TARGET_AGG_MONTH (CUSTOMER_ID, YEAR, MONTH, SUM_AMOUNT_EUR) SELECT ...",
+            "improvement": "Idempotentes Laden via MERGE/UPSERT und UNIQUE-Constraint auf (CUSTOMER_ID, YEAR, MONTH); optional Partitionierung/Clusterung nach (YEAR, MONTH)."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die vorliegende SQL ist fehlerhaft. Probleme: 1) Tippfehler BOOKIN_DATE statt BOOKING_DATE in SELECT/GROUP BY. 2) GROUP BY enthält AMOUNT_EUR und lässt CUSTOMER_ID weg, was entweder zu SQL-Fehlern führt (nicht gruppiertes SELECT-Feld) oder falsche Aggregation erzeugt. 3) Vertauschte Aliasse (YEAR(...) AS MONTH und MONTH(...) AS YEAR) sind irreführend. Korrekturvorschlag:\nINSERT INTO TARGET_AGG_MONTH (CUSTOMER_ID, YEAR, MONTH, SUM_AMOUNT_EUR)\nSELECT\n  CUSTOMER_ID,\n  YEAR(BOOKING_DATE)  AS YEAR,\n  MONTH(BOOKING_DATE) AS MONTH,\n  SUM(AMOUNT_EUR)     AS SUM_AMOUNT_EUR\nFROM TRANSACTIONS\nGROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE);",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falscher Spaltenname: MONTH(YEAR(BOOKIN_DATE))/GROUP BY YEAR(BOOKIN_DATE) nutzt nicht existente Spalte BOOKIN_DATE.",
+            "fix_suggestion": "Alle Verwendungen auf BOOKING_DATE korrigieren: YEAR(BOOKING_DATE), MONTH(BOOKING_DATE)."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Fehlerhafte Gruppierung: CUSTOMER_ID fehlt im GROUP BY; AMOUNT_EUR fälschlich im GROUP BY.",
+            "fix_suggestion": "GROUP BY CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE); AMOUNT_EUR aus GROUP BY entfernen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Verwechslung der Aliasse (YEAR(...) AS MONTH, MONTH(...) AS YEAR) erhöht Fehlerrisiko und Wartungskosten.",
+            "fix_suggestion": "Aliasse korrekt zuweisen: YEAR(...) AS YEAR, MONTH(...) AS MONTH."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Währungsbeträge als FLOAT summiert können Rundungsfehler verursachen.",
+            "fix_suggestion": "AMOUNT_EUR und SUM_AMOUNT_EUR als DECIMAL(p,s) (z. B. DECIMAL(18,2)) modellieren."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Insert ist nicht idempotent; Mehrfachlauf erzeugt Duplikate im Ziel.",
+            "fix_suggestion": "UNIQUE-Constraint auf (CUSTOMER_ID, YEAR, MONTH) und Laden via MERGE/UPSERT oder vorheriges DELETE/REPLACE der betroffenen Perioden."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Funktionen YEAR/MONTH auf BOOKING_DATE im GROUP BY verhindern ggf. Indexnutzung.",
+            "fix_suggestion": "Funktionale Indizes oder generierte Spalten für YEAR/MONTH bzw. gruppieren über DATE_TRUNC('month', BOOKING_DATE)."
+        }
+    ],
+    "final_feedback": "Der beabsichtigte ETL-Prozess (monatliche Kundensummen) ist klar, die gegebene SQL ist jedoch nicht lauffähig und liefert auch fachlich falsche Aggregation. Korrigieren Sie den Spaltennamen, gruppieren Sie nach CUSTOMER_ID, YEAR(BOOKING_DATE), MONTH(BOOKING_DATE) und bereinigen Sie die Aliasse. Für Datenqualität und Performance empfehlen sich: DECIMAL statt FLOAT für Beträge, UNIQUE-Constraint plus MERGE/UPSERT für Idempotenz sowie funktionale Indizes/generierte Spalten oder DATE_TRUNC-basierte Gruppierung. Mit diesen Anpassungen ist der Prozess funktionsfähig und performant.",
+    "_source_file": "case1.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 46.295,
+    "_response_char_count": 5386
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 2 Hauptdurchlauf},label={gpt_case2_prompt1}]
+{
+    "transformation_understanding": "Deduplication von CUSTOMER_STAGING: pro CUSTOMER_ID wird der aktuellste Datensatz (nach UPDATED_AT) ausgewählt und mit CUSTOMER_ID, EMAIL, PHONE sowie einem auf DATE konvertierten UPDATED_AT in CUSTOMER_DEDUPED geladen. Im aktuellen SQL: Ranking per Window, Filter rn=1, Spaltenprojektion, Insert.",
+    "data_lineage": [
+        "CUSTOMER_STAGING.CUSTOMER_ID -> CUSTOMER_DEDUPED.CUSTOMER_ID (Top-Record pro CUSTOMER_ID nach UPDATED_AT)",
+        "CUSTOMER_STAGING.EMAIL -> CUSTOMER_DEDUPED.EMAIL (Übernahme aus Top-Record)",
+        "CUSTOMER_STAGING.PHONE -> CUSTOMER_DEDUPED.PHONE (Übernahme aus Top-Record)",
+        "CUSTOMER_STAGING.UPDATED_AT -> CUSTOMER_DEDUPED.UPDATED_AT (im SQL fälschlich CAST auf VARCHAR; fachlich DATE erwartet)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Ranking je CUSTOMER_ID nach UPDATED_AT zur Bestimmung des Top-Records",
+            "formula": "RANK() OVER (PARTITION BY CUSTOMER_ID ORDER BY UPDATED_AT DESC) AS rn",
+            "improvement": "ROW_NUMBER() statt RANK verwenden und deterministische Tie-Breaker setzen: ORDER BY UPDATED_AT DESC NULLS LAST, EMAIL DESC, PHONE DESC"
+        },
+        {
+            "step_count": 2,
+            "description": "Filter auf den Top-Record",
+            "formula": "WHERE rn = 1",
+            "improvement": "Mit ROW_NUMBER(): WHERE rn = 1; zusätzlich EMAIL IS NOT NULL filtern, um NOT NULL im Ziel zu erfüllen"
+        },
+        {
+            "step_count": 3,
+            "description": "Spaltenprojektion und Typkonvertierung",
+            "formula": "SELECT CUSTOMER_ID, EMIAL, PHONE, CAST(UPDATED_AT AS VARCHAR)",
+            "improvement": "Tippfehler EMIAL -> EMAIL korrigieren; UPDATED_AT korrekt auf DATE casten: CAST(UPDATED_AT AS DATE)"
+        },
+        {
+            "step_count": 4,
+            "description": "Insert in Zieltabelle",
+            "formula": "INSERT INTO CUSTOMER_DEDUPED (CUSTOMER_ID, EMAIL, PHONE, UPDATED_AT) <SELECT ...>",
+            "improvement": "Für große Datenmengen Index auf CUSTOMER_STAGING(CUSTOMER_ID, UPDATED_AT DESC); optional MERGE statt INSERT für Upserts"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Abfrage ist nicht lauffähig: (1) Spaltenname EMIAL existiert nicht. (2) UPDATED_AT wird auf VARCHAR gecastet, Zielspalte ist DATE. Zusätzlich können (3) NULL-EMAILS das NOT NULL im Ziel verletzen und (4) RANK bei gleichen UPDATED_AT mehrere Zeilen pro CUSTOMER_ID liefern.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falscher Spaltenname EMIAL im SELECT anstelle von EMAIL",
+            "fix_suggestion": "Spaltenreferenz auf EMAIL korrigieren"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Typkonflikt: CAST(UPDATED_AT AS VARCHAR) für Zielspalte UPDATED_AT (DATE)",
+            "fix_suggestion": "UPDATED_AT auf DATE casten: CAST(UPDATED_AT AS DATE) bzw. DATE(UPDATED_AT)"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "EMAIL ist im Ziel NOT NULL, Quelle erlaubt NULL; Insert kann fehlschlagen",
+            "fix_suggestion": "Vor dem Insert EMAIL IS NOT NULL filtern oder eine Fallback-Strategie definieren"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Verwendung von RANK führt bei gleichen UPDATED_AT zu mehreren rn=1 Zeilen je CUSTOMER_ID",
+            "fix_suggestion": "ROW_NUMBER() mit deterministischen Tie-Breakern verwenden (UPDATED_AT DESC NULLS LAST, EMAIL/PHONE als Sekundärsortierung)"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "NULL-Handling in ORDER BY kann je DB dazu führen, dass NULL-UPDATED_AT als ,neuester' Datensatz gewählt wird",
+            "fix_suggestion": "ORDER BY UPDATED_AT DESC NULLS LAST setzen"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Performance: Window-Partition ohne passende Indizes kann zu Sort-/Spill-Kosten führen",
+            "fix_suggestion": "Index bzw. Cluster auf (CUSTOMER_ID, UPDATED_AT DESC) anlegen; Statistiken aktuell halten"
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in der vorliegenden Form nicht funktionsfähig (Tippfehler bei EMAIL, falscher Datentyp für UPDATED_AT). Zudem bestehen Risiken durch NOT NULL-Verletzungen und nicht-deterministische Deduplication. Korrigierte, robuste Variante:\nINSERT INTO CUSTOMER_DEDUPED (CUSTOMER_ID, EMAIL, PHONE, UPDATED_AT)\nSELECT CUSTOMER_ID, EMAIL, PHONE, CAST(UPDATED_AT AS DATE)\nFROM (\n  SELECT *, ROW_NUMBER() OVER (\n    PARTITION BY CUSTOMER_ID\n    ORDER BY UPDATED_AT DESC NULLS LAST, EMAIL DESC, PHONE DESC\n  ) AS rn\n  FROM CUSTOMER_STAGING\n) t\nWHERE rn = 1 AND EMAIL IS NOT NULL;\nOptional: Index auf (CUSTOMER_ID, UPDATED_AT DESC). Diese Anpassungen beheben die Fehler, sichern die Ziel-Constraints und verbessern Stabilität und Performance, ohne das fachliche Ergebnis zu verändern.",
+    "_source_file": "case2.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 351.363,
+    "_response_char_count": 4720
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 2 Konsistenzdurchlauf},label={gpt_case2_prompt2}]
+{
+    "transformation_understanding": "Deduplication nach CUSTOMER_ID: Pro Kunde wird der jüngste Datensatz (per UPDATED_AT) aus CUSTOMER_STAGING gewählt und in CUSTOMER_DEDUPED geladen. Spalten werden gemappt, UPDATED_AT wird (fehlerhaft) zu VARCHAR gecastet, obwohl Ziel DATE ist.",
+    "data_lineage": [
+        "CUSTOMER_STAGING.CUSTOMER_ID -> CUSTOMER_DEDUPED.CUSTOMER_ID",
+        "CUSTOMER_STAGING.EMAIL -> CUSTOMER_DEDUPED.EMAIL",
+        "CUSTOMER_STAGING.PHONE -> CUSTOMER_DEDUPED.PHONE",
+        "CUSTOMER_STAGING.UPDATED_AT (TIMESTAMP) -> CUSTOMER_DEDUPED.UPDATED_AT (DATE)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Quelle lesen",
+            "formula": "FROM CUSTOMER_STAGING",
+            "improvement": "Nur benötigte Spalten selektieren."
+        },
+        {
+            "step_count": 2,
+            "description": "Jüngsten Datensatz pro CUSTOMER_ID bestimmen",
+            "formula": "RANK() OVER (PARTITION BY CUSTOMER_ID ORDER BY UPDATED_AT DESC) AS rn",
+            "improvement": "ROW_NUMBER() statt RANK() verwenden und stabile Tiebreaker (z.B. UPDATED_AT DESC, EMAIL DESC) definieren."
+        },
+        {
+            "step_count": 3,
+            "description": "Nur Top-Datensatz je CUSTOMER_ID behalten",
+            "formula": "WHERE rn = 1",
+            "improvement": "Bei NULL UPDATED_AT explizit NULLS LAST/FIRST setzen, je nach gewünschter Logik."
+        },
+        {
+            "step_count": 4,
+            "description": "Spalten abbilden",
+            "formula": "SELECT CUSTOMER_ID, EMAIL, PHONE, UPDATED_AT",
+            "improvement": "Tippfehler EMIAL -> EMAIL korrigieren."
+        },
+        {
+            "step_count": 5,
+            "description": "Datentypkonvertierung UPDATED_AT",
+            "formula": "CAST(UPDATED_AT AS DATE)",
+            "improvement": "Kein VARCHAR-Zwischencast; ggf. Zeitzone/Trunkierung dokumentieren."
+        },
+        {
+            "step_count": 6,
+            "description": "Ziel laden unter Beachtung NOT NULL",
+            "formula": "INSERT INTO CUSTOMER_DEDUPED (...)",
+            "improvement": "NULL-EMAILS ausschließen oder mit Validierung/Default behandeln."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Abfrage ist nicht lauffähig: Tippfehler EMIAL statt EMAIL. Zusätzlich wird UPDATED_AT zu VARCHAR gecastet, Zielspalte ist DATE (implizite Konvertierung/Fehler möglich). RANK kann bei gleichen/NULL UPDATED_AT mehrere rn=1 liefern (Mehrfachzeilen pro CUSTOMER_ID). NOT NULL auf EMAIL kann Inserts mit NULL blockieren.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Tippfehler in Spaltenname: EMIAL in SELECT statt EMAIL.",
+            "fix_suggestion": "Spaltenname korrigieren: SELECT ..., EMAIL, ... ."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "UPDATED_AT wird zu VARCHAR gecastet, Zielspalte ist DATE.",
+            "fix_suggestion": "Direkt zu DATE casten: CAST(UPDATED_AT AS DATE) bzw. DATE(UPDATED_AT)."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "RANK bei PARTITION BY CUSTOMER_ID erzeugt bei Ties/NULL mehrere rn=1 -> Duplikate.",
+            "fix_suggestion": "ROW_NUMBER() mit deterministischem ORDER BY (UPDATED_AT DESC, weiterer Tiebreaker) verwenden."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "EMAIL in Ziel ist NOT NULL, Quelle erlaubt NULL -> Insert-Fehler.",
+            "fix_suggestion": "WHERE EMAIL IS NOT NULL ergänzen oder COALESCE/Validierung einbauen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Handling in ORDER BY unklar; NULLs können als ,neueste' behandelt werden oder Ties erzeugen.",
+            "fix_suggestion": "ORDER BY UPDATED_AT DESC NULLS LAST definieren oder NULLs vorab ausschließen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Leistungsrisiko durch Window-Funktion ohne passende Indizes.",
+            "fix_suggestion": "Index auf (CUSTOMER_ID, UPDATED_AT) anlegen bzw. Cluster/Sortierung nutzen."
+        }
+    ],
+    "final_feedback": "Fachlich beabsichtigt: 1 aktueller Datensatz pro CUSTOMER_ID. Der Job ist aktuell fehlerhaft (EMIAL, falscher Cast). Korrigiere Spaltennamen, caste UPDATED_AT zu DATE, ersetze RANK durch ROW_NUMBER mit stabilem Tiebreaker und behandle NULL-EMAIL/NULL-UPDATED_AT explizit. Für Performance einen Index auf (CUSTOMER_ID, UPDATED_AT) setzen. Danach ist der ETL-Prozess robust und performant.",
+    "_source_file": "case2.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 411.348,
+    "_response_char_count": 4237
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 2 Robustheitsdurchlauf},label={gpt_case2_prompt3}]
+{
+    "transformation_understanding": "Aus CUSTOMER_STAGING sollen pro CUSTOMER_ID die aktuellsten Datensätze ermittelt und in CUSTOMER_DEDUPED geladen werden. Dazu wird per Window-Function je CUSTOMER_ID ein Rang nach UPDATED_AT vergeben und die Zeilen mit Rang 1 in die Zieltabelle geschrieben.",
+    "data_lineage": [
+        "Filter: pro CUSTOMER_ID wird der 'neueste' Datensatz anhand UPDATED_AT per Window-Funktion ermittelt (RANK() OVER (PARTITION BY CUSTOMER_ID ORDER BY UPDATED_AT DESC)).",
+        "Projection: CUSTOMER_ID -> CUSTOMER_DEDUPED.CUSTOMER_ID (unverändert).",
+        "Projection: EMAIL -> CUSTOMER_DEDUPED.EMAIL (in SQL fälschlich als EMIAL referenziert).",
+        "Projection: PHONE -> CUSTOMER_DEDUPED.PHONE (unverändert).",
+        "Typkonvertierung: UPDATED_AT (TIMESTAMP) -> CUSTOMER_DEDUPED.UPDATED_AT (DATE); in SQL aktuell CAST(UPDATED_AT AS VARCHAR), was nicht zur Zieldatentypik passt."
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Ranking der Zeilen pro CUSTOMER_ID nach UPDATED_AT absteigend.",
+            "formula": "RANK() OVER (PARTITION BY CUSTOMER_ID ORDER BY UPDATED_AT DESC) AS rn",
+            "improvement": "Statt RANK() ROW_NUMBER() verwenden, um bei Zeitgleichheit nur eine Zeile zu wählen; zusätzlich NULLS LAST und deterministischen Tie-Breaker ergänzen."
+        },
+        {
+            "step_count": 2,
+            "description": "Filtern auf den als aktuell identifizierten Datensatz.",
+            "formula": "WHERE rn = 1",
+            "improvement": "Mit ROW_NUMBER(): WHERE rn = 1. Außerdem ORDER BY UPDATED_AT DESC NULLS LAST, optional zusätzlicher Tie-Breaker (z. B. PHONE, EMAIL) für Determinismus."
+        },
+        {
+            "step_count": 3,
+            "description": "Projektion der Zielspalten inklusive Typumwandlung für UPDATED_AT.",
+            "formula": "SELECT CUSTOMER_ID, EMIAL, PHONE, CAST(UPDATED_AT AS VARCHAR)",
+            "improvement": "Spaltenname korrigieren: EMAIL. Typumwandlung korrekt ausführen: CAST(UPDATED_AT AS DATE)."
+        },
+        {
+            "step_count": 4,
+            "description": "Insert in CUSTOMER_DEDUPED.",
+            "formula": "INSERT INTO CUSTOMER_DEDUPED (CUSTOMER_ID, EMAIL, PHONE, UPDATED_AT) ...",
+            "improvement": "NOT-NULL-Anforderung für EMAIL beachten: entweder vorher auf EMAIL IS NOT NULL filtern oder Ranking priorisiert nicht-null EMAIL setzen."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die aktuelle SQL-Anweisung ist nicht lauffähig: (1) Tippfehler in der Spalte EMIAL statt EMAIL verursacht einen Kompilierungsfehler. (2) UPDATED_AT wird zu VARCHAR gecastet, Zielspalte ist DATE; je nach DB führt das zu Laufzeitfehlern oder impliziten, formatabhängigen Konvertierungen. Zusätzlich können durch RANK() bei gleichen UPDATED_AT mehrere Zeilen rn = 1 erhalten und mehrfach eingefügt werden. Die Zielspalte EMAIL ist NOT NULL, in der Quelle jedoch NULL-able; ohne Behandlung können Inserts scheitern.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Tippfehler in der Projektion: EMIAL statt EMAIL.",
+            "fix_suggestion": "Spaltenname korrigieren: SELECT ..., EMAIL, ... ."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Typinkompatibilität: CAST(UPDATED_AT AS VARCHAR) bei Zielspalte UPDATED_AT vom Typ DATE.",
+            "fix_suggestion": "Korrekt auf DATE casten: CAST(UPDATED_AT AS DATE) bzw. DATE(UPDATED_AT); keine Zwischenkonvertierung in VARCHAR."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Zielspalte EMAIL ist NOT NULL, aber Quelle CUSTOMER_STAGING.EMAIL kann NULL sein; Insert kann fehlschlagen.",
+            "fix_suggestion": "Beim Ranking NULL-Emails schlechter priorisieren oder auf EMAIL IS NOT NULL filtern: ROW_NUMBER() OVER (PARTITION BY CUSTOMER_ID ORDER BY (EMAIL IS NULL), UPDATED_AT DESC NULLS LAST) und WHERE rn = 1; alternativ zusätzliche Datenbereinigung."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "RANK() kann bei gleichen UPDATED_AT mehrere rn = 1 erzeugen, was zu doppelten Inserts pro CUSTOMER_ID führt.",
+            "fix_suggestion": "ROW_NUMBER() statt RANK() verwenden und einen deterministischen Tie-Breaker ergänzen (z. B. ORDER BY UPDATED_AT DESC NULLS LAST, EMAIL DESC, PHONE DESC)."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Sortierverhalten von UPDATED_AT ist DB-abhängig; ohne explizites NULLS LAST kann eine Zeile mit NULL fälschlich als 'neueste' gewählt werden.",
+            "fix_suggestion": "ORDER BY UPDATED_AT DESC NULLS LAST explizit setzen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Mögliche Mehrfacheinträge je CUSTOMER_ID in CUSTOMER_DEDUPED, falls keine Eindeutigkeitsbedingung existiert.",
+            "fix_suggestion": "Unique-Constraint/Index auf CUSTOMER_DEDUPED(CUSTOMER_ID) anlegen und die Dedup-Logik deterministisch gestalten."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Performance: Vollständige Window-Berechnung ohne unterstützende Indizes.",
+            "fix_suggestion": "Index auf CUSTOMER_STAGING(CUSTOMER_ID, UPDATED_AT DESC) anlegen; nur benötigte Spalten projizieren; optional CTE/QUALIFY (DB-spezifisch) oder DISTINCT ON (PostgreSQL) nutzen."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in der vorliegenden Form nicht funktionsfähig. Hauptursachen sind der Spaltentippfehler (EMIAL) und die falsche Typkonvertierung von UPDATED_AT zu VARCHAR bei einer DATE-Zielspalte. Zudem ist die Deduplizierung mit RANK() potenziell mehrzeilig und die NOT-NULL-Anforderung für EMAIL wird nicht berücksichtigt. Empfohlene Korrekturen: EMAIL korrekt referenzieren, UPDATED_AT auf DATE casten, ROW_NUMBER() mit ORDER BY UPDATED_AT DESC NULLS LAST und deterministischem Tie-Breaker verwenden sowie NULL-Emails aussortieren oder nachrangig behandeln. Für robuste Ergebnisse zusätzlich einen Unique-Index auf CUSTOMER_ID in CUSTOMER_DEDUPED anlegen und passende Indizes in CUSTOMER_STAGING setzen. Diese Anpassungen ändern die fachliche Intention nicht, machen den Prozess jedoch lauffähig, deterministisch und performanter.",
+    "_source_file": "case2.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 344.972,
+    "_response_char_count": 5997
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 3 Hauptdurchlauf},label={gpt_case3_prompt1}]
+{
+    "transformation_understanding": "Es werden Datensätze aus CONTACTS_RAW nach CONTACTS_CLEAN geladen. CUSTOMER_ID soll übernommen werden. PHONE_RAW wird per REGEXP_REPLACE von Nicht-Ziffern bereinigt und abhängig vom Präfix normalisiert: beginnt mit 00 -> '+' + Nummer ohne die zwei führenden Nullen; beginnt mit 0 -> '+49' + Nummer ohne führende 0; sonst bleibt die Ziffernfolge unverändert. Ergebnis landet in PHONE_E164 (CHAR(16)).",
+    "data_lineage": [
+        "CONTACTS_RAW.CUSTOMER_ID -> CONTACTS_CLEAN.CUSTOMER_ID (direktes Mapping, aktuell fälschlich als CUST_ID referenziert)",
+        "CONTACTS_RAW.PHONE_RAW -> CONTACTS_CLEAN.PHONE_E164 (Regex-Bereinigung und Präfix-Normalisierung)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Bereinigung der Telefonnummer: Entfernen aller Nicht-Ziffern.",
+            "formula": "REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '')",
+            "improvement": "PHONE_RAW vor Regex in VARCHAR casten; ggf. '+' erhalten: REGEXP_REPLACE(CAST(PHONE_RAW AS VARCHAR), '[^0-9+]', '') und Ergebnis einmalig in CTE/Subquery berechnen."
+        },
+        {
+            "step_count": 2,
+            "description": "Präfix-Logik zur E.164-Normalisierung.",
+            "formula": "CASE WHEN LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 2) = '00' THEN CONCAT('+', SUBSTRING(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 3)) WHEN LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 1) = '0' THEN CONCAT('+49', SUBSTRING(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''), 2)) ELSE REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '') END",
+            "improvement": "Auf '+' prüfen, bevor es entfernt wird (LEFT(original,1)='+'), oder '+' beim Bereinigen zulassen. Im ELSE-Zweig fehlendes '+' ergänzen. Längenprüfung (<=15 Ziffern) einbauen und ungültige Werte filtern/loggen."
+        },
+        {
+            "step_count": 3,
+            "description": "Auswahl der ID und Insert in Zieltabelle.",
+            "formula": "INSERT INTO CONTACTS_CLEAN (CUSTOMER_ID, PHONE_E164) SELECT CUST_ID, <berechnete_PHONE> FROM CONTACTS_RAW;",
+            "improvement": "Spaltenname korrigieren: SELECT CUSTOMER_ID. Zielspalte als VARCHAR(16) statt CHAR(16) definieren, um Padding zu vermeiden."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Abfrage ist aktuell nicht lauffähig: (1) CUST_ID existiert nicht (Quelle hat CUSTOMER_ID). (2) PHONE_RAW ist vom Typ RAW; REGEXP_REPLACE/LEFT/SUBSTRING erfordern Strings. Logisch fehlerhaft: '+'-Zweig ist unerreichbar, da '+' zuvor entfernt wird; internationale Nummern ohne 00/0 erhalten im ELSE-Zweig kein '+' und sind nicht E.164-konform.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falscher Spaltenname in SELECT: CUST_ID statt CUSTOMER_ID.",
+            "fix_suggestion": "SELECT CUSTOMER_ID verwenden bzw. CUST_ID korrekt aliasieren: SELECT CUSTOMER_ID AS CUSTOMER_ID."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Datentyp-Mismatch: PHONE_RAW ist RAW, Regex-/Stringfunktionen erwarten VARCHAR/TEXT.",
+            "fix_suggestion": "Spalte als VARCHAR anlegen oder explizit CAST(PHONE_RAW AS VARCHAR) vor allen Stringoperationen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Unerreichbarer CASE-Zweig: Prüfung LEFT(REGEXP_REPLACE(...),1) = '+' nach Entfernen des '+'.",
+            "fix_suggestion": "Auf '+' am Originalstring prüfen (LEFT(CAST(PHONE_RAW AS VARCHAR),1)='+') oder '+' beim Bereinigen erhalten: '[^0-9+]'."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Nicht-E.164-konforme Ausgabe im ELSE-Zweig: fehlendes '+' bei internationalen Nummern ohne 00/0 (z. B. '49...').",
+            "fix_suggestion": "Im ELSE-Zweig '+' voranstellen: CONCAT('+', <digits>)."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Keine Validierung der Ziffernlänge; E.164 erlaubt max. 15 Ziffern.",
+            "fix_suggestion": "Nach Bereinigung LENGTH(digits) BETWEEN 8 AND 15 prüfen; außerhalb Reject/NULL/Fehlerlog."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Zielspalte PHONE_E164 ist CHAR(16) und verursacht Padding.",
+            "fix_suggestion": "Auf VARCHAR(16) wechseln; optional CHECK-Constraint auf Format '^\\+[0-9]{1,15}$'."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Mehrfache REGEXP_REPLACE-/LEFT-/SUBSTRING-Aufrufe pro Zeile belasten Performance.",
+            "fix_suggestion": "CTE/Derived Table mit einmaliger Bereinigung verwenden und daraus weiterverarbeiten; geeignete Indizes für Join/Filter."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Annahme '+49' bei führender '0' ist nur für DE korrekt.",
+            "fix_suggestion": "Land aus Kundenkontext ableiten (z. B. Country-Code am Kunden) und Präfix per Mapping-Tabelle dynamisch setzen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Funktionale Portabilität (LEFT/SUBSTRING/REGEXP_REPLACE) je nach DB-Dialekt unterschiedlich.",
+            "fix_suggestion": "DB-spezifische Äquivalente konsistent nutzen und Tests pro Zielsystem hinterlegen."
+        }
+    ],
+    "final_feedback": "Der ETL ist derzeit nicht funktionsfähig (falscher Spaltenname, Typ RAW für Regex). Zudem ist die E.164-Logik fehlerhaft (unerreichbarer '+'-Zweig, fehlendes '+' in sonstigen Fällen). Nach Korrektur von Spaltenname und Datentyp sollte die Präfixlogik wie folgt angepasst werden: '+' vor Regex prüfen oder beim Bereinigen erhalten; 00->'+', 0->Ländercode, sonst '+' + digits; Längencheck <=15. Performance: Bereinigung einmalig in CTE berechnen. Zielspalte auf VARCHAR(16) umstellen und optional Format-Constraint setzen.",
+    "_source_file": "case3.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 409.218,
+    "_response_char_count": 5502
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 3 Konsistenzdurchlauf},label={gpt_case3_prompt2}]
+{
+    "transformation_understanding": "Es werden Kundentelefonnummern aus CONTACTS_RAW in CONTACTS_CLEAN geladen. CUSTOMER_ID wird 1:1 übernommen (im SQL fälschlich als CUST_ID referenziert). PHONE_RAW wird über RegEx auf Ziffern reduziert und per CASE in ein E.164-ähnliches Format gebracht: führendes 00 -> +, führende 0 -> +49, sonst unverändert. Ergebnis landet in PHONE_E164 (CHAR(16)).",
+    "data_lineage": [
+        "CONTACTS_RAW.CUSTOMER_ID -> CONTACTS_CLEAN.CUSTOMER_ID",
+        "CONTACTS_RAW.PHONE_RAW -> CONTACTS_CLEAN.PHONE_E164"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Quelle lesen und Zielspalten mappen",
+            "formula": "INSERT INTO CONTACTS_CLEAN (CUSTOMER_ID, PHONE_E164) SELECT CUST_ID, <CASE_EXPR> FROM CONTACTS_RAW",
+            "improvement": "CUST_ID zu CUSTOMER_ID korrigieren; für PHONE_RAW explizite Typkonvertierung auf VARCHAR."
+        },
+        {
+            "step_count": 2,
+            "description": "Telefonnummer bereinigen (nur Ziffern extrahieren)",
+            "formula": "digits := REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '')",
+            "improvement": "RegEx-Ergebnis einmalig in CTE/Subquery berechnen, nicht mehrfach; für '+'-Erkennung zusätzlich cleaned_plus := REGEXP_REPLACE(PHONE_RAW, '[^0-9+]', '')."
+        },
+        {
+            "step_count": 3,
+            "description": "E.164-Normalisierung per CASE",
+            "formula": "CASE WHEN LEFT(REGEXP_REPLACE(PHONE_RAW, '[^0-9]', ''),1) = '+' THEN REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '') WHEN LEFT(...,2)='00' THEN '+'||SUBSTRING(...,3) WHEN LEFT(...,1)='0' THEN '+49'||SUBSTRING(...,2) ELSE REGEXP_REPLACE(PHONE_RAW, '[^0-9]', '') END",
+            "improvement": "Pluszeichen nicht vorher entfernen: CASE WHEN REGEXP_LIKE(PHONE_RAW,'^\\s*\\+') THEN '+'||REGEXP_REPLACE(PHONE_RAW,'[^0-9]','') WHEN digits LIKE '00%' THEN '+'||SUBSTRING(digits,3) WHEN digits LIKE '0%' THEN '+49'||SUBSTRING(digits,2) ELSE '+'||digits END; zusätzlich Längenprüfung (1-15 Ziffern) und Ablegen fehlerhafter Datensätze."
+        },
+        {
+            "step_count": 4,
+            "description": "In Zieltabelle schreiben",
+            "formula": "INSERT INTO CONTACTS_CLEAN(CUSTOMER_ID, PHONE_E164) SELECT CUSTOMER_ID, phone_e164 FROM <CTE>",
+            "improvement": "PHONE_E164 als VARCHAR(16) statt CHAR(16) speichern, um Padding zu vermeiden; Index/Constraint für E.164-Format optional."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Der SQL-Insert ist nicht lauffähig, da CUST_ID in CONTACTS_RAW nicht existiert. Zudem ist die '+'-Bedingung logisch unerreichbar, weil das Plus bereits durch REGEXP_REPLACE entfernt wurde; dadurch entstehen Werte ohne führendes '+', was E.164 verletzt. PHONE_RAW ist als RAW deklariert und kann je nach DB mit REGEXP_REPLACE nicht verarbeitbar sein. Es fehlen Längenvalidierung (max. 15 Ziffern) und Behandlung leerer/ungültiger Nummern.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falscher Spaltenname: SELECT CUST_ID aus CONTACTS_RAW (existiert nicht).",
+            "fix_suggestion": "Auf SELECT CUSTOMER_ID korrigieren oder CUST_ID korrekt aliassen: SELECT CUSTOMER_ID AS CUST_ID."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Unlogische '+'-Prüfung: Vorherige RegEx entfernt '+', CASE-Zweig wird nie wahr; resultiert in Nummern ohne führendes '+'.",
+            "fix_suggestion": "Pluszeichen beim Prüfen erhalten (z. B. REGEXP_REPLACE(PHONE_RAW,'[^0-9+]','')) oder direkt auf das Original mit REGEXP_LIKE(PHONE_RAW,'^\\s*\\+') prüfen; anschließend '+'||digits zurückgeben."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Datentyp PHONE_RAW = RAW; String-/RegEx-Funktionen sind darauf je nach DB nicht anwendbar.",
+            "fix_suggestion": "PHONE_RAW als VARCHAR/TEXT modellieren oder vor Nutzung CAST/CONVERT auf VARCHAR mit definierter Kodierung durchführen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "E.164 wird nicht erzwungen (fehlendes '+' im ELSE-Zweig, keine formale Prüfung).",
+            "fix_suggestion": "Immer '+' voranstellen und Ziffernlänge 1-15 validieren; ungültige Datensätze abweisen oder in Error-Tabelle schreiben."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Hartcodierte Landeslogik: '0' -> +49. Für internationale Daten fehleranfällig.",
+            "fix_suggestion": "Default-Ländercode parametrisieren (z. B. Konfiguration pro Kunde/Markt) oder aus Adress-/Länderattributen ableiten."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Leere oder zu lange Nummern nach Bereinigung (Extensions, Sonderzeichen) führen zu ungültigen/NULL-Werten.",
+            "fix_suggestion": "Extensions vor Bereinigung abtrennen; nach RegEx Länge prüfen und leere/zu lange Werte filtern oder separat protokollieren."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Mehrfache REGEXP_REPLACE-Aufrufe pro Zeile verursachen unnötige CPU-Kosten.",
+            "fix_suggestion": "Sanitizing einmalig in CTE/Derived Column berechnen und im CASE wiederverwenden."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Zielspalte CHAR(16) führt zu Space-Padding; kann Vergleiche/Indizes beeinträchtigen.",
+            "fix_suggestion": "VARCHAR(16) für PHONE_E164 verwenden; optional CHECK-Constraint für E.164-Pattern '^\\+[0-9]{1,15}$'."
+        }
+    ],
+    "final_feedback": "Der ETL ist in der vorliegenden Form nicht funktionsfähig (falscher Spaltenname) und erzeugt selbst nach Ausführung kein konsistentes E.164-Format. Korrigiere die Spaltenreferenz, passe die CASE-Logik an (Pluszeichen erhalten/erzwingen), konvertiere PHONE_RAW zu VARCHAR, validiere die Ziffernlänge und behandle leere/ungültige Werte. Für Performance die RegEx-Bereinigung einmalig berechnen. Optional PHONE_E164 als VARCHAR(16) speichern und die +49-Annahme parametrisierbar machen. Danach ist der Prozess robust, ohne das fachliche Ziel zu ändern.",
+    "_source_file": "case3.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 129.872,
+    "_response_char_count": 4576
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 3 Robustheitsdurchlauf},label={gpt_case3_prompt3}]
+{
+    "transformation_understanding": "Die Pipeline liest CONTACTS_RAW, bereinigt Telefonnummern von Nicht-Ziffern, interpretiert Präfixe (00 -> internationale Vorwahl mit +, führende 0 -> +49) und schreibt das Ergebnis als E.164-Nummer zusammen mit der CUSTOMER_ID nach CONTACTS_CLEAN.",
+    "data_lineage": [
+        "CONTACTS_RAW.CUSTOMER_ID -> CONTACTS_CLEAN.CUSTOMER_ID",
+        "CONTACTS_RAW.PHONE_RAW -> CONTACTS_CLEAN.PHONE_E164 (Bereinigung, Präfix-Logik, E.164-Normalisierung)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Quelle lesen und PHONE_RAW in Text konvertieren",
+            "formula": "SELECT CUSTOMER_ID, CAST(PHONE_RAW AS VARCHAR(64)) AS phone_txt FROM CONTACTS_RAW",
+            "improvement": "Explizite CAST-Konvertierung statt impliziter Typumwandlung; ggf. Zeichensatz angeben (z.B. USING UTF8)."
+        },
+        {
+            "step_count": 2,
+            "description": "Normalisierung: Ziffern extrahieren, Variante mit erhaltenem Plus",
+            "formula": "digits := REGEXP_REPLACE(phone_txt, '[^0-9]', ''); keep_plus := REGEXP_REPLACE(phone_txt, '[^0-9+]', '')",
+            "improvement": "Einmal berechnen (CTE/Subquery) und mehrfach verwenden; vermeidet wiederholte REGEXP_REPLACE-Aufrufe."
+        },
+        {
+            "step_count": 3,
+            "description": "E.164-Bildung per CASE-Logik",
+            "formula": "CASE WHEN REGEXP_LIKE(keep_plus, '^\\+[1-9]\\d{1,14}$') THEN keep_plus WHEN LEFT(digits,2)='00' THEN CONCAT('+', SUBSTRING(digits,3)) WHEN LEFT(digits,1)='0' THEN CONCAT('+49', SUBSTRING(digits,2)) WHEN LEFT(digits,1) BETWEEN '1' AND '9' THEN CONCAT('+', digits) ELSE NULL END AS PHONE_E164",
+            "improvement": "Erst auf Originalstring das führende '+' prüfen (keep_plus), danach Fallbacks anwenden; immer ein führendes '+' sicherstellen."
+        },
+        {
+            "step_count": 4,
+            "description": "Validierung und Laden ins Ziel",
+            "formula": "INSERT INTO CONTACTS_CLEAN(CUSTOMER_ID, PHONE_E164) SELECT CUSTOMER_ID, PHONE_E164 FROM prepared WHERE PHONE_E164 IS NOT NULL AND LENGTH(PHONE_E164)<=16",
+            "improvement": "CHECK-Constraint auf CONTACTS_CLEAN.PHONE_E164: '^\\+[1-9]\\d{1,14}$'; optional Reject-Table für ungültige Datensätze."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist nicht lauffähig: (1) Falscher Spaltenname CUST_ID statt CUSTOMER_ID. (2) PHONE_RAW ist RAW, wird aber mit Stringfunktionen verarbeitet (fehlender CAST). (3) Die erste CASE-Bedingung prüft nach Strippen aller Nicht-Ziffern auf '+', was nie zutreffen kann. (4) ELSE-Zweig liefert ggf. Nummern ohne '+', nicht E.164-konform. (5) Keine Längen-/Formatvalidierung, leere bzw. zu lange Ergebnisse möglich.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Nicht existierende Spalte: SELECT CUST_ID statt CONTACTS_RAW.CUSTOMER_ID",
+            "fix_suggestion": "Spaltenverweis korrigieren: SELECT CUSTOMER_ID ..."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "PHONE_RAW ist vom Typ RAW, REGEXP_REPLACE/LEFT/SUBSTRING erwarten Text",
+            "fix_suggestion": "PHONE_RAW vor Verarbeitung explizit in VARCHAR konvertieren (z.B. CAST(PHONE_RAW AS VARCHAR(64)))."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "CASE-Zweig prüft auf '+' nach REGEXP_REPLACE('[^0-9]', ''), das '+' entfernt",
+            "fix_suggestion": "Prüfung auf '+' am Originalstring oder per Variante mit '[^0-9+]' durchführen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "ELSE-Zweig erzeugt Nummern ohne führendes '+', nicht E.164-konform",
+            "fix_suggestion": "Im ELSE-Fall '+' voranstellen oder Datensätze als ungültig aussteuern."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Keine Validierung der Ergebnislänge/Formats; CHAR(16) kann bei >16 Zeichen truncaten/fehlschlagen",
+            "fix_suggestion": "Vor Insert prüfen: REGEXP_LIKE(PHONE_E164, '^\\+[1-9]\\d{1,14}$') und LENGTH<=16; sonst Reject."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Leere oder nicht-numerische Eingaben führen nach Bereinigung zu leeren Strings",
+            "fix_suggestion": "Zeilen mit LENGTH(digits)=0 ausschließen oder in Reject-Table schreiben."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Annahme '+49' für führende '0' ist regionsspezifisch",
+            "fix_suggestion": "Ländervorwahl aus Kundenland ableiten oder per Mapping-Tabelle/Parameter steuern."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Mehrfache REGEXP_REPLACE-Aufrufe pro Zeile",
+            "fix_suggestion": "Vorberechnete Spalten (CTE) nutzen; optional Funktionsindex auf bereinigter Nummer."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Zielspalte als CHAR(16) (fixed length) kann zu unerwarteten Padding-Effekten führen",
+            "fix_suggestion": "Auf VARCHAR(16) umstellen und per CHECK-Constraint E.164-Format sichern."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in der vorliegenden Form nicht funktionsfähig (falscher Spaltenname, RAW-zu-String-Verarbeitung, fehlerhafte '+'-Prüfung). Nach Korrektur der Spaltenreferenz, explizitem CAST von PHONE_RAW, Anpassung der CASE-Logik (Prüfung des ursprünglichen '+' oder Erhalt des '+'), konsequenter E.164-Erzeugung und Validierung (Regex/Längencheck) ist der Prozess robust. Zusätzlich empfehlen sich Performance-Optimierungen durch ein einmaliges Berechnen der bereinigten Varianten (CTE) sowie die Verwendung von VARCHAR(16) mit CHECK-Constraint.",
+    "_source_file": "case3.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 145.085,
+    "_response_char_count": 4876
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 4 Hauptdurchlauf},label={gpt_case4_prompt1}]
+{
+    "transformation_understanding": "Aus PAYMENTS werden Zahlungen je PAY_DATE und CURRENCY mit FX_RATES per (CURRENCY, RATE_DATE) verknüpft. AMOUNT wird mit dem EUR_RATE multipliziert und auf 2 Dezimalstellen gerundet, danach als AMOUNT_EUR in PAYMENTS_EUR eingefügt.",
+    "data_lineage": [
+        "PAYMENTS_EUR.PAYMENT_ID <= PAYMENTS.PAYMENT_ID",
+        "PAYMENTS_EUR.CUSTOMER_ID <= PAYMENTS.CUSTOMER_ID",
+        "PAYMENTS_EUR.PAY_DATE <= PAYMENTS.PAY_DATE",
+        "PAYMENTS_EUR.AMOUNT_EUR <= ROUND(PAYMENTS.AMOUNT * FX_RATES.EUR_RATE, 2)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Quelle lesen",
+            "formula": "SELECT p.PAYMENT_ID, p.CUSTOMER_ID, p.AMOUNT, p.CURRENCY, p.PAY_DATE FROM PAYMENTS p",
+            "improvement": "Nur valide Datensätze laden (z. B. p.AMOUNT IS NOT NULL, p.CURRENCY IS NOT NULL)."
+        },
+        {
+            "step_count": 2,
+            "description": "Wechselkurszuordnung",
+            "formula": "LEFT JOIN FX_RATES r ON r.CURRENCY = p.CURRENCY AND r.RATE_DATE = p.PAY_DATE",
+            "improvement": "INNER JOIN verwenden oder fehlende Kurse behandeln (Default/Reject-Logik). Eindeutigkeit von (CURRENCY, RATE_DATE) sicherstellen; Index auf FX_RATES(CURRENCY, RATE_DATE) und PAYMENTS(CURRENCY, PAY_DATE)."
+        },
+        {
+            "step_count": 3,
+            "description": "Betrag in EUR berechnen",
+            "formula": "ROUND(CAST(p.AMOUNT AS INT) * r.EUR_RATE, 2)",
+            "improvement": "Kein INT-Cast: ROUND(CAST(p.AMOUNT AS DECIMAL(18,6)) * r.EUR_RATE, 2). NULL-Handling definieren (z. B. WHERE p.AMOUNT IS NOT NULL)."
+        },
+        {
+            "step_count": 4,
+            "description": "Ziel laden",
+            "formula": "INSERT INTO PAYMENTS_EUR (PAYMENT_ID, CUSTOMER_ID, AMOUNT_EUR, PAY_DATE) SELECT ...",
+            "improvement": "Idempotent laden (MERGE/UPSERT) und Unique Key auf PAYMENTS_EUR(PAYMENT_ID). Zieltyp ggf. auf DECIMAL(18,2) anheben."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die arithmetische Logik ist fachlich intendiert (AMOUNT * EUR_RATE, Rundung 2), aber technisch fehleranfällig: INT-Cast entfernt Nachkommastellen und kann überlaufen; LEFT JOIN kann bei fehlendem Kurs oder NULL-AMOUNT zu NULL in AMOUNT_EUR führen, was mit NOT NULL der Zieltabelle kollidiert; Zielpräzision DECIMAL(10,2) ist kleiner als Quellbetrag * Kurs und kann überlaufen.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "LEFT JOIN auf FX_RATES und NULL-fähiges PAYMENTS.AMOUNT erzeugen NULL in AMOUNT_EUR; Zielspalte ist NOT NULL -> Insert-Abbruch/Fehler.",
+            "fix_suggestion": "INNER JOIN nutzen oder fehlende Kurse/NULL-AMOUNT explizit behandeln (WHERE r.EUR_RATE IS NOT NULL AND p.AMOUNT IS NOT NULL; bzw. Reject/Default definieren)."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "CAST(p.AMOUNT AS INT) entfernt Nachkommastellen (Datenverlust) und kann bei großen Beträgen zu Überlauf führen.",
+            "fix_suggestion": "Kein INT-Cast; stattdessen DECIMAL-Kette: ROUND(CAST(p.AMOUNT AS DECIMAL(18,6)) * r.EUR_RATE, 2)."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Zieltyp AMOUNT_EUR DECIMAL(10,2) ist zu klein für AMOUNT DECIMAL(14,2) * EUR_RATE DECIMAL(18,8) -> Überlauf/Abschneiden möglich.",
+            "fix_suggestion": "Zielspalte auf DECIMAL(18,2) (oder größer, konsistent zur Fachanforderung) erweitern."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "FX_RATES kann Mehrfachtreffer pro (CURRENCY, RATE_DATE) enthalten -> duplizierte Zielzeilen.",
+            "fix_suggestion": "Unique Constraint/Index auf FX_RATES(CURRENCY, RATE_DATE) oder vorgelagerte Aggregation (z. B. MAX(RATE) GROUP BY)."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Nicht-idempotentes INSERT: erneute Läufe erzeugen Duplikate in PAYMENTS_EUR.",
+            "fix_suggestion": "MERGE/UPSERT verwenden oder Unique Key auf PAYMENTS_EUR(PAYMENT_ID) und ON CONFLICT/ON DUPLICATE KEY-Strategie."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Join auf CHAR(3) kann bei abweichender Groß-/Kleinschreibung/Collation fehlschlagen.",
+            "fix_suggestion": "Werte normalisieren (UPPER(TRIM(...))) und konsistente Collation; ggf. CHECK-Constraint auf gültige ISO-4217 Codes."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Fehlende Indizes auf Join-Spalten beeinträchtigen Performance bei großen Datenmengen.",
+            "fix_suggestion": "Indizes auf PAYMENTS(CURRENCY, PAY_DATE) und FX_RATES(CURRENCY, RATE_DATE) anlegen."
+        }
+    ],
+    "final_feedback": "Der ETL ist fachlich klar (EUR-Konvertierung), aber in der aktuellen Form nicht robust. Hauptprobleme: INT-Cast (Datenverlust/Überlauf), LEFT JOIN mit NOT NULL-Ziel (Insert-Fehler), zu kleine Zielpräzision und potenzielle Duplikate. Empfohlen: INNER JOIN oder definierte Fehlfallbehandlung, reine DECIMAL-Rechnung mit ROUND(...,2), Zielspalte auf DECIMAL(18,2) erhöhen, Eindeutigkeit/Index auf FX_RATES(CURRENCY, RATE_DATE), idempotentes Laden (MERGE) und Unique Key auf PAYMENT_ID. Diese Anpassungen verbessern Korrektheit und Performance ohne das fachliche Ergebnis (2-stellige EUR-Beträge) zu verändern.",
+    "_source_file": "case4.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 128.235,
+    "_response_char_count": 4487
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 4 Konsistenzdurchlauf},label={gpt_case4_prompt2}]
+{
+    "transformation_understanding": "Zahlungen werden mit Tages-FX-Kursen je Währung und Datum verknüpft. Für jede Zahlung wird ein EUR-Betrag berechnet und zusammen mit Payment-ID, Customer-ID und Zahldatum in PAYMENTS_EUR geladen.",
+    "data_lineage": [
+        "PAYMENTS.PAYMENT_ID -> PAYMENTS_EUR.PAYMENT_ID",
+        "PAYMENTS.CUSTOMER_ID -> PAYMENTS_EUR.CUSTOMER_ID",
+        "PAYMENTS.AMOUNT x FX_RATES.EUR_RATE (mit ROUND und CAST) -> PAYMENTS_EUR.AMOUNT_EUR",
+        "PAYMENTS.PAY_DATE -> PAYMENTS_EUR.PAY_DATE",
+        "Join-Key: PAYMENTS.(CURRENCY, PAY_DATE) ~ FX_RATES.(CURRENCY, RATE_DATE)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Quelltabellen lesen und nach Währung/Datum verknüpfen (LEFT JOIN).",
+            "formula": "FROM PAYMENTS p LEFT JOIN FX_RATES r ON r.CURRENCY = p.CURRENCY AND r.RATE_DATE = p.PAY_DATE",
+            "improvement": "Indexe auf FX_RATES(CURRENCY, RATE_DATE) und PAYMENTS(CURRENCY, PAY_DATE) zur Beschleunigung."
+        },
+        {
+            "step_count": 2,
+            "description": "EUR-Betrag berechnen.",
+            "formula": "ROUND(CAST(p.AMOUNT AS INT) * r.EUR_RATE, 2) AS AMOUNT_EUR",
+            "improvement": "Spalten mit Tabellenalias referenzieren (z. B. p.PAY_DATE) für Klarheit; Kommentare zur Rundungslogik."
+        },
+        {
+            "step_count": 3,
+            "description": "Zieltabellen-Ladevorgang.",
+            "formula": "INSERT INTO PAYMENTS_EUR (PAYMENT_ID, CUSTOMER_ID, AMOUNT_EUR, PAY_DATE) SELECT ...",
+            "improvement": "Transaktion verwenden und Ladebatch-Größe steuern; Unique-Constraint/PK auf PAYMENTS_EUR(PAYMENT_ID) für Idempotenz."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Cast-zu-INT-Operation verwirft Nachkommastellen vor der Multiplikation; dadurch entstehen systematische Fehlbeträge. LEFT JOIN kann zu NULL in EUR_RATE führen; AMOUNT ist ebenfalls NULL-able, während AMOUNT_EUR NOT NULL ist. Das kann Inserts fehlschlagen lassen. Zudem kann DECIMAL(10,2) bei großen Beträgen oder hohen Kursen überlaufen.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "LEFT JOIN ohne Kurs-Treffer (oder NULL in PAYMENTS.AMOUNT) erzeugt NULL für AMOUNT_EUR, Zielspalte ist NOT NULL.",
+            "fix_suggestion": "INNER JOIN verwenden oder WHERE p.AMOUNT IS NOT NULL AND r.EUR_RATE IS NOT NULL filtern; alternativ robuste Default-/Fallback-Logik definieren."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "CAST(p.AMOUNT AS INT) kappt Nachkommastellen vor der Umrechnung; systematischer Präzisionsverlust.",
+            "fix_suggestion": "Mit Dezimalarithmetik rechnen, z. B. ROUND(p.AMOUNT * r.EUR_RATE, 2) bzw. CAST zu DECIMAL mit ausreichender Präzision."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Zieltyp DECIMAL(10,2) kann bei großen Zahlungen x FX-Rate überlaufen.",
+            "fix_suggestion": "Ziel auf DECIMAL(18,2) (oder passend zur Maximalerwartung) erhöhen; Eingabebereiche validieren."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Mehrere FX_RATES-Zeilen je (CURRENCY, RATE_DATE) führen zu Duplikaten je Zahlung.",
+            "fix_suggestion": "Unique-Constraint/Index auf FX_RATES(CURRENCY, RATE_DATE) erzwingen oder per QUALIFY/ROW_NUMBER genau eine Rate wählen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Job ist nicht idempotent; erneutes INSERT erzeugt Duplikate in PAYMENTS_EUR.",
+            "fix_suggestion": "Primärschlüssel/Unique-Constraint auf PAYMENTS_EUR(PAYMENT_ID) und MERGE/UPSERT nutzen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "CURRENCY als CHAR(3) kann bei inkonsistenter Großschreibung/Whitespace zu Join-Mismatches führen.",
+            "fix_suggestion": "Domänenstandard festlegen (z. B. uppercase, trim) und per CHECK-Constraint oder Referenzdimension absichern."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Rundungsmodus ist implizit; Banker's Rounding vs. kommerzielle Rundung kann abweichen.",
+            "fix_suggestion": "Rundungsanforderung fachlich festlegen; Funktion/Modus entsprechend wählen und dokumentieren."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist fachlich klar, aber in der vorliegenden Form nicht robust: Präzisionsverlust durch INT-Cast, potentielle NOT-NULL-Verstöße wegen LEFT JOIN/NULL-Werten und mögliches Ziel-Overflow gefährden Lauf und Ergebnis. Empfohlen sind: Umstellung auf Dezimalarithmetik, Konsistenzprüfung der FX-Daten (Eindeutigkeit), Anhebung der Zielpräzision, Idempotenz durch PK/MERGE und geeignete Indexe auf Join-Schlüsseln. Diese Maßnahmen stellen korrekte Beträge sicher und verbessern Performance sowie Stabilität.",
+    "_source_file": "case4.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 115.451,
+    "_response_char_count": 3988
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 4 Robustheitsdurchlauf},label={gpt_case4_prompt3}]
+{
+    "transformation_understanding": "Zahlungen aus PAYMENTS werden mit zum Zahlungstag passenden Devisenkursen aus FX_RATES verknüpft und in Euro umgerechnet. Ergebnis sind Zeilen in PAYMENTS_EUR mit PAYMENT_ID, CUSTOMER_ID, gerundetem AMOUNT_EUR und PAY_DATE. Der Join erfolgt über CURRENCY und PAY_DATE=RATE_DATE, AMOUNT_EUR wird per ROUND(CAST(AMOUNT AS INT) * EUR_RATE, 2) berechnet.",
+    "data_lineage": [
+        "PAYMENTS.PAYMENT_ID -> PAYMENTS_EUR.PAYMENT_ID (1:1 Projection)",
+        "PAYMENTS.CUSTOMER_ID -> PAYMENTS_EUR.CUSTOMER_ID (1:1 Projection)",
+        "PAYMENTS.PAY_DATE -> PAYMENTS_EUR.PAY_DATE (1:1 Projection)",
+        "PAYMENTS.AMOUNT + FX_RATES.EUR_RATE -> PAYMENTS_EUR.AMOUNT_EUR (Berechnung, Rundung auf 2 Stellen)",
+        "Join: PAYMENTS.(CURRENCY, PAY_DATE) = FX_RATES.(CURRENCY, RATE_DATE) LEFT JOIN"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Quellselektion aus PAYMENTS",
+            "formula": "SELECT p.* FROM PAYMENTS p",
+            "improvement": "Für inkrementelle Läufe nur neue/aktualisierte Zahlungen selektieren (z. B. WHERE pay_date >= :since oder per Änderungskennzeichen)."
+        },
+        {
+            "step_count": 2,
+            "description": "Zuordnung des Wechselkurses je Zahlungstag und Währung",
+            "formula": "LEFT JOIN FX_RATES r ON r.CURRENCY = p.CURRENCY AND r.RATE_DATE = p.PAY_DATE",
+            "improvement": "INNER JOIN verwenden oder WHERE r.EUR_RATE IS NOT NULL, falls fehlende Kurse nicht erlaubt sind. Indexe auf FX_RATES(CURRENCY, RATE_DATE) und PAYMENTS(CURRENCY, PAY_DATE) anlegen. Eindeutigkeit von (RATE_DATE, CURRENCY) sicherstellen."
+        },
+        {
+            "step_count": 3,
+            "description": "Berechnung des Eurobetrags",
+            "formula": "ROUND(CAST(p.AMOUNT AS INT) * r.EUR_RATE, 2)",
+            "improvement": "Genauigkeit bewahren: ROUND(p.AMOUNT * r.EUR_RATE, 2). Optional explizit casten: CAST(ROUND(p.AMOUNT * r.EUR_RATE, 2) AS DECIMAL(10,2)). NULLs abfangen: WHERE p.AMOUNT IS NOT NULL AND r.EUR_RATE IS NOT NULL oder COALESCE gemäß Business-Logik."
+        },
+        {
+            "step_count": 4,
+            "description": "Projektion der Zielspalten",
+            "formula": "SELECT p.PAYMENT_ID, p.CUSTOMER_ID, <AMOUNT_EUR>, p.PAY_DATE",
+            "improvement": "Explizite Aliase und Typen verwenden, um implizite Konvertierungen zu vermeiden."
+        },
+        {
+            "step_count": 5,
+            "description": "Insert in Zieltabelle",
+            "formula": "INSERT INTO PAYMENTS_EUR (PAYMENT_ID, CUSTOMER_ID, AMOUNT_EUR, PAY_DATE) SELECT ...",
+            "improvement": "Duplikate vermeiden (PRIMARY KEY/UNIQUE auf PAYMENT_ID oder (PAYMENT_ID, PAY_DATE)). Optional UPSERT/MERGE nutzen. Transaktion/Batches für Performance."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die aktuelle Formel konvertiert AMOUNT zunächst zu INT und kappt damit Nachkommastellen, bevor mit EUR_RATE multipliziert und auf 2 Dezimalstellen gerundet wird. Dadurch gehen Cent-Beträge verloren und das Ergebnis kann systematisch zu niedrig sein. Bei fehlendem Wechselkurs (LEFT JOIN ohne Treffer) oder NULL in AMOUNT wird AMOUNT_EUR NULL; das kollidiert mit NOT NULL in PAYMENTS_EUR. Zusätzlich kann der Wertebereich von DECIMAL(10,2) im Ziel für große Zahlungen nach der Umrechnung nicht ausreichen und zu Überläufen führen. Korrekt ist eine reine Dezimalarithmetik mit ROUND(p.AMOUNT * r.EUR_RATE, 2) und anschließender passender Typanpassung.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "NOT NULL-Verletzung in PAYMENTS_EUR.AMOUNT_EUR durch LEFT JOIN ohne Kurs oder NULL in PAYMENTS.AMOUNT (ROUND(NULL) -> NULL).",
+            "fix_suggestion": "INNER JOIN verwenden oder WHERE r.EUR_RATE IS NOT NULL AND p.AMOUNT IS NOT NULL. Alternativ fachlich definierten Fallback (z. B. EUR_RATE=1 für 'EUR') per COALESCE anwenden."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Wertebereichsüberlauf: DECIMAL(10,2) in PAYMENTS_EUR kann bei großen Beträgen nach Umrechnung überschritten werden.",
+            "fix_suggestion": "Zielspalte auf größeren Typ anheben (z. B. DECIMAL(14,2) oder DECIMAL(18,2)) und mit erwarteten Maximalwerten abstimmen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Genauigkeitsverlust durch CAST(AMOUNT AS INT) vor der Multiplikation (Abschneiden der Nachkommastellen).",
+            "fix_suggestion": "Ohne INT-Cast rechnen: ROUND(p.AMOUNT * r.EUR_RATE, 2) und das Ergebnis als DECIMAL(10,2) casten."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Potenzielle Duplikate durch mehrfache FX_RATES-Einträge je (RATE_DATE, CURRENCY), die den Join vervielfachen.",
+            "fix_suggestion": "Eindeutigen Index/Constraint auf FX_RATES(RATE_DATE, CURRENCY) anlegen oder per QUALIFY/ROW_NUMBER genau einen Kurs auswählen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Leistungseinbußen bei großen Tabellen ohne passende Indexe auf Join-Schlüsseln.",
+            "fix_suggestion": "Indexe auf FX_RATES(CURRENCY, RATE_DATE) und PAYMENTS(CURRENCY, PAY_DATE) anlegen; optional Partitionierung nach Datum."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Uneinheitliche Währungscodes (Groß-/Kleinschreibung, Spaces) können zu fehlenden Join-Treffern führen.",
+            "fix_suggestion": "Währungscodes normalisieren (UPPER/TRIM) und per CHECK-Constraint nur gültige ISO-4217-Codes zulassen."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist fachlich verständlich (Währungsumrechnung pro Zahlungstag), ist jedoch in der vorliegenden Form nicht robust. Hauptprobleme sind Genauigkeitsverlust durch INT-Cast, mögliche NOT NULL-Verletzungen bei fehlenden Kursen/Nullbeträgen und ein zu enger Ziel-Datentyp. Empfohlen: (1) reine Dezimalarithmetik mit ROUND(p.AMOUNT * r.EUR_RATE, 2), (2) fehlende Kurse ausschließen oder fachlich korrekt behandeln (INNER JOIN/COALESCE), (3) Zielpräzision erhöhen, (4) Eindeutigkeit der FX-RATES je (RATE_DATE, CURRENCY) sicherstellen, (5) Join-Indexe anlegen und optional inkrementell laden. So bleibt das fachliche Ergebnis unverändert, aber Genauigkeit, Stabilität und Performance verbessern sich deutlich.",
+    "_source_file": "case4.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 765.337,
+    "_response_char_count": 6068
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 5 Hauptdurchlauf},label={gpt_case5_prompt1}]
+{
+    "transformation_understanding": "Bruttoumsätze aus SALES_GROSS werden per Ländercode mit VAT_RATES verknüpft. Daraus wird ein Nettobetrag via Division durch (1+MwSt.-Satz) berechnet und eine MwSt.-Komponente bestimmt. Die Ergebnisse werden in SALES_NET geschrieben.",
+    "data_lineage": [
+        "SALES_GROSS.SALE_ID -> SALES_NET.SALE_ID (1:1 Mapping)",
+        "SALES_GROSS.CUSTOMER_ID -> SALES_NET.CUSTOMER_ID (1:1 Mapping)",
+        "SALES_GROSS.GROSS_AMT_EUR + VAT_RATES.VAT_RATE -> SALES_NET.NET_AMT_EUR (Berechnung: GROSS/(1+VAT_RATE))",
+        "SALES_GROSS.GROSS_AMT_EUR -> SALES_NET.VAT_AMT_EUR (aktuell: fälschlich direkt gerundet)",
+        "Join: SALES_GROSS.COUNTRY_CODE -> VAT_RATES.COUNTRY_CODE"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Join SALES_GROSS mit VAT_RATES über Ländercode",
+            "formula": "JOIN VAT_RATES v ON v.COUNTRYCODE = s.COUNTRY_CODE",
+            "improvement": "Spaltenname korrigieren: v.COUNTRY_CODE. Indexe auf SALES_GROSS(COUNTRY_CODE) und VAT_RATES(COUNTRY_CODE). Optional: LEFT JOIN + Validierung bei fehlenden Raten."
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung NET_AMT_EUR aus GROSS und MwSt.-Satz",
+            "formula": "ROUND(CAST(s.GROSS_AMT_EUR AS INT) / (1 + v.VAT_RATE), 0)",
+            "improvement": "Ohne INT-Cast und mit 2 Nachkommastellen rechnen: ROUND(s.GROSS_AMT_EUR / (1 + v.VAT_RATE), 2). Vorab VAT_RATE validieren (NOT NULL, 0 <= VAT_RATE < 1)."
+        },
+        {
+            "step_count": 3,
+            "description": "Berechnung VAT_AMT_EUR",
+            "formula": "ROUND(s.GROSS_AMT_EUR, 0)",
+            "improvement": "MwSt. korrekt ableiten: ROUND(s.GROSS_AMT_EUR - ROUND(s.GROSS_AMT_EUR/(1+v.VAT_RATE), 2), 2). Nur einmal final runden, um Rundungsfehler zu minimieren."
+        },
+        {
+            "step_count": 4,
+            "description": "Insert in SALES_NET",
+            "formula": "INSERT INTO SALES_NET(SALE_ID, CUSTOMER_ID, NET_AMT_EUR, VAT_AMT_EUR) SELECT ...",
+            "improvement": "Eindeutigkeit sicherstellen (z.B. PK/Unique auf SALE_ID). Bei Wiederholungen MERGE/UPSERT statt blindem INSERT."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Join-Bedingung referenziert eine nicht existierende Spalte (v.COUNTRYCODE), was zu einem Fehler führt. NET_AMT_EUR wird durch CAST auf INT und Rundung auf 0 Nachkommastellen verfälscht; zudem droht INT-Überlauf bei großen Beträgen. VAT_AMT_EUR wird fälschlich aus dem gerundeten Bruttobetrag abgeleitet statt aus (GROSS - NET). Null- oder ungültige VAT_RATE-Werte führen zu NULL bzw. Division durch 0. Empfohlen: korrekter Join, Rechnen in DECIMAL mit ROUND(...,2), VAT als Differenz GROSS - NET, Validierungen/Constraints auf VAT_RATES.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falscher Spaltenname im Join (v.COUNTRYCODE statt v.COUNTRY_CODE) verursacht Laufzeitfehler bzw. leeres Resultat.",
+            "fix_suggestion": "Join-Bedingung korrigieren: ON v.COUNTRY_CODE = s.COUNTRY_CODE."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Präzisionsverlust und möglicher Überlauf durch CAST(GROSS_AMT_EUR AS INT) und Rundung auf 0 Nachkommastellen.",
+            "fix_suggestion": "Ohne INT-Cast rechnen und auf 2 Nachkommastellen runden: ROUND(s.GROSS_AMT_EUR/(1+v.VAT_RATE), 2)."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "VAT_AMT_EUR wird als gerundeter Bruttobetrag befüllt und ist fachlich falsch.",
+            "fix_suggestion": "VAT korrekt berechnen: VAT = ROUND(GROSS_AMT_EUR - NET_AMT_EUR, 2) bzw. konsistent aus GROSS und Satz ableiten."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "VAT_RATES.VAT_RATE ist NULL-abel; Division mit (1+NULL) erzeugt NULL für NET_AMT_EUR.",
+            "fix_suggestion": "NOT NULL-Constraint/Check auf VAT_RATE oder COALESCE mit fachlich korrektem Default und fehlende Raten separat behandeln."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Division durch 0 möglich, falls VAT_RATE = -1.00 (1+VAT_RATE=0) oder ungültige Werte.",
+            "fix_suggestion": "CHECK-Constraint auf gültigen Bereich (z.B. 0 <= VAT_RATE < 1) und Datenqualität prüfen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Mehrere Sätze je COUNTRY_CODE in VAT_RATES führen zu Duplikaten in SALES_NET.",
+            "fix_suggestion": "Eindeutigkeit per PK/Unique auf VAT_RATES(COUNTRY_CODE) sicherstellen oder per ROW_NUMBER deduplizieren."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Inner Join entfernt SALES_GROSS-Zeilen ohne passende MwSt.-Rate (Datenverlust).",
+            "fix_suggestion": "LEFT JOIN verwenden und fehlende Raten loggen/flaggen; alternativ referentielle Integrität/Default-Sätze."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Leistungseinbußen ohne Indexe auf Join-Keys.",
+            "fix_suggestion": "Indexe auf SALES_GROSS(COUNTRY_CODE) und VAT_RATES(COUNTRY_CODE) anlegen."
+        }
+    ],
+    "final_feedback": "Der ETL ist derzeit fachlich und technisch nicht funktionsfähig: Der Join referenziert eine falsche Spalte, die Nettoberechnung verliert Präzision und die MwSt.-Berechnung ist inhaltlich falsch. Korrigiere den Join auf COUNTRY_CODE, rechne durchgängig in DECIMAL und runde auf 2 Nachkommastellen, leite VAT als GROSS - NET ab und sichere VAT_RATES per Constraints/Index ab. Optional LEFT JOIN mit Validierung verhindert Datenverlust und verbessert Robustheit sowie Performance.",
+    "_source_file": "case5.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 707.914,
+    "_response_char_count": 5387
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 5 Konsistenzdurchlauf},label={gpt_case5_prompt2}]
+{
+    "transformation_understanding": "Aus SALES_GROSS werden Verkäufe mit VAT_RATES nach COUNTRY_CODE verknüpft. Es werden NET_AMT_EUR als (gerundete) Nettowerte aus dem Bruttobetrag und dem Steuersatz berechnet und VAT_AMT_EUR als (gerundeter) Bruttobetrag gesetzt. Das Ergebnis wird in SALES_NET geschrieben.",
+    "data_lineage": [
+        "SALES_GROSS.SALE_ID -> SALES_NET.SALE_ID (direct)",
+        "SALES_GROSS.CUSTOMER_ID -> SALES_NET.CUSTOMER_ID (direct)",
+        "SALES_GROSS.GROSS_AMT_EUR, VAT_RATES.VAT_RATE -> SALES_NET.NET_AMT_EUR (ROUND(CAST(GROSS_AMT_EUR AS INT) / (1 + VAT_RATE), 0))",
+        "SALES_GROSS.GROSS_AMT_EUR -> SALES_NET.VAT_AMT_EUR (ROUND(GROSS_AMT_EUR, 0))",
+        "SALES_GROSS.COUNTRY_CODE = VAT_RATES.COUNTRY_CODE (Join-Key beabsichtigt, aber fehlerhaft referenziert)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Join SALES_GROSS mit VAT_RATES anhand des Ländercodes",
+            "formula": "JOIN VAT_RATES v ON v.COUNTRYCODE = s.COUNTRY_CODE",
+            "improvement": "JOIN VAT_RATES v ON v.COUNTRY_CODE = s.COUNTRY_CODE; ggf. LEFT JOIN, um fehlende VAT-Raten nicht zu verlieren"
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung NET_AMT_EUR",
+            "formula": "ROUND(CAST(s.GROSS_AMT_EUR AS INT) / (1 + v.VAT_RATE), 0)",
+            "improvement": "ROUND(s.GROSS_AMT_EUR / (1 + v.VAT_RATE), 2) ohne INT-CAST; Datentyp DECIMAL beibehalten"
+        },
+        {
+            "step_count": 3,
+            "description": "Berechnung VAT_AMT_EUR",
+            "formula": "ROUND(s.GROSS_AMT_EUR, 0)",
+            "improvement": "ROUND(s.GROSS_AMT_EUR - (s.GROSS_AMT_EUR / (1 + v.VAT_RATE)), 2) bzw. GROSS - NET"
+        },
+        {
+            "step_count": 4,
+            "description": "Insert in SALES_NET mit Ziel-Constraints",
+            "formula": "INSERT INTO SALES_NET (SALE_ID, CUSTOMER_ID, NET_AMT_EUR, VAT_AMT_EUR) SELECT ...",
+            "improvement": "Validierungen vor Insert (NULL/Range-Checks), explizite Typkonvertierung auf DECIMAL(14,2)"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Berechnungen sind fachlich und technisch nicht korrekt: Der Join referenziert eine nicht existierende Spalte (v.COUNTRYCODE) und schlägt fehl. NET_AMT_EUR verliert Präzision durch CAST auf INT und Rundung auf 0 Nachkommastellen; zudem droht INT-Overflow bei großen Beträgen. VAT_AMT_EUR wird fälschlich als gerundeter Bruttobetrag gesetzt statt als Steueranteil. Die Rundung auf 0 Dezimalstellen widerspricht dem Zieltyp DECIMAL(14,2). Ein Inner Join verwirft Umsätze ohne passende VAT-Rate.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falscher Join-Key: v.COUNTRYCODE existiert nicht (korrekt wäre VAT_RATES.COUNTRY_CODE)",
+            "fix_suggestion": "Join-Bedingung auf v.COUNTRY_CODE = s.COUNTRY_CODE korrigieren; Syntax prüfen"
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "CAST(GROSS_AMT_EUR AS INT) kann zu Überlauf (INT) und massiver Präzisionsverluste führen",
+            "fix_suggestion": "Ohne INT-CAST rechnen; alle Operationen in DECIMAL durchführen"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "VAT_AMT_EUR wird als gerundeter Bruttobetrag befüllt (fachlich falsch)",
+            "fix_suggestion": "VAT_AMT_EUR = ROUND(s.GROSS_AMT_EUR - (s.GROSS_AMT_EUR / (1 + v.VAT_RATE)), 2) oder VAT = GROSS - NET"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Rundung auf 0 Nachkommastellen kollidiert mit DECIMAL(14,2) und führt zu Cent-Verlusten",
+            "fix_suggestion": "Beträge auf 2 Nachkommastellen runden: ROUND(..., 2)"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Inner Join verwirft Umsätze ohne passende VAT-Rate",
+            "fix_suggestion": "LEFT JOIN verwenden und fehlende VAT_RATE mit Regel behandeln (z. B. Fehler-Flag, Default oder Separate-Queue)"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "VAT_RATE-Interpretation unklar (0.19 vs. 19.00)",
+            "fix_suggestion": "Skalierung definieren und validieren (Constraint/Check: 0 <= VAT_RATE < 1); bei Prozentwerten durch 100 teilen"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "NULL in VAT_RATE führt zu NULL im NET_AMT_EUR",
+            "fix_suggestion": "COALESCE(v.VAT_RATE, <default>) oder Datenqualitätsprüfung und Datensätze kennzeichnen"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Join-Performance potenziell suboptimal ohne Indizes auf COUNTRY_CODE",
+            "fix_suggestion": "Indizes auf SALES_GROSS(COUNTRY_CODE) und VAT_RATES(COUNTRY_CODE) anlegen"
+        }
+    ],
+    "final_feedback": "Der ETL ist aktuell nicht funktionsfähig (fehlerhafte Join-Spalte) und fachlich inkorrekt (Steuerbetrag, Rundungen, INT-CAST). Korrigieren Sie den Join, berechnen Sie NET in DECIMAL ohne INT-CAST und runden Sie auf 2 Nachkommastellen; VAT als GROSS - NET. Erwägen Sie LEFT JOIN mit Validierung fehlender Raten. Ergänzen Sie Indizes auf COUNTRY_CODE zur Performance. So bleibt das fachliche Ergebnis korrekt und präzise.",
+    "_source_file": "case5.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 1144.653,
+    "_response_char_count": 4950
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 5 Robustheitsdurchlauf},label={gpt_case5_prompt3}]
+{
+    "transformation_understanding": "Aus SALES_GROSS werden SALE_ID und CUSTOMER_ID übernommen. Über COUNTRY_CODE wird auf VAT_RATES gejoint, um den Mehrwertsteuersatz zu erhalten. Anschließend werden NET_AMT_EUR (Netto) und VAT_AMT_EUR (MwSt.-Betrag) berechnet und in SALES_NET geschrieben.",
+    "data_lineage": [
+        "SALES_GROSS.SALE_ID -> SALES_NET.SALE_ID (1:1, unverändert)",
+        "SALES_GROSS.CUSTOMER_ID -> SALES_NET.CUSTOMER_ID (1:1, unverändert)",
+        "SALES_GROSS.GROSS_AMT_EUR + VAT_RATES.VAT_RATE -> SALES_NET.NET_AMT_EUR (Berechnung: Netto aus Brutto und Steuersatz)",
+        "SALES_GROSS.GROSS_AMT_EUR (+ berechnetes Netto) -> SALES_NET.VAT_AMT_EUR (Berechnung: MwSt.-Betrag)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Join SALES_GROSS mit VAT_RATES über Ländercode.",
+            "formula": "JOIN VAT_RATES v ON v.COUNTRYCODE = s.COUNTRY_CODE",
+            "improvement": "Korrigiere Join-Spalte: v.COUNTRY_CODE = s.COUNTRY_CODE. Optional: WHERE v.VAT_RATE IS NOT NULL oder Constraint auf VAT_RATES.VAT_RATE NOT NULL."
+        },
+        {
+            "step_count": 2,
+            "description": "Durchreichen von Identifikatoren.",
+            "formula": "SELECT s.SALE_ID, s.CUSTOMER_ID",
+            "improvement": "Sicherstellen, dass SALE_ID eindeutig ist (Unique/PK) und Ziel-Insert idempotent erfolgt (MERGE/ON CONFLICT/NOT EXISTS)."
+        },
+        {
+            "step_count": 3,
+            "description": "Berechnung Netto-Betrag.",
+            "formula": "ROUND(CAST(s.GROSS_AMT_EUR AS INT) / (1 + v.VAT_RATE), 0)",
+            "improvement": "Kein CAST auf INT und Rundung auf 2 Nachkommastellen: ROUND(s.GROSS_AMT_EUR / (1 + v.VAT_RATE), 2)."
+        },
+        {
+            "step_count": 4,
+            "description": "Berechnung MwSt.-Betrag.",
+            "formula": "ROUND(s.GROSS_AMT_EUR, 0)",
+            "improvement": "MwSt. als Differenz berechnen und auf 2 Nachkommastellen runden: ROUND(s.GROSS_AMT_EUR - ROUND(s.GROSS_AMT_EUR / (1 + v.VAT_RATE), 2), 2)."
+        },
+        {
+            "step_count": 5,
+            "description": "Insert in SALES_NET.",
+            "formula": "INSERT INTO SALES_NET (SALE_ID, CUSTOMER_ID, NET_AMT_EUR, VAT_AMT_EUR) SELECT ...",
+            "improvement": "Upsert statt Blind-Insert (MERGE/INSERT ... ON CONFLICT/NOT EXISTS). Indexe auf SALES_GROSS(COUNTRY_CODE) und VAT_RATES(COUNTRY_CODE) für schnelleren Join."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die aktuelle SQL scheitert am Join, da VAT_RATES.COUNTRYCODE nicht existiert (korrekt: COUNTRY_CODE). Zudem ist die Netto-/MwSt.-Logik fehlerhaft: 1) CAST(GROSS_AMT_EUR AS INT) verwirft Nachkommastellen und kann bei großen Beträgen überlaufen. 2) ROUND(..., 0) rundet Beträge auf ganze Euro, während die Zielspalten 2 Nachkommastellen erwarten. 3) VAT_AMT_EUR wird fälschlich als gerundeter Bruttobetrag gesetzt, nicht als MwSt.-Betrag. 4) Nullwerte in VAT_RATES.VAT_RATE führen zu NET_AMT_EUR = NULL; fachlich sollte dies verhindert oder explizit behandelt werden. Korrekturvorschlag: NET = ROUND(GROSS / (1 + VAT_RATE), 2); VAT = ROUND(GROSS - NET, 2). Damit gilt NET + VAT = GROSS (bis auf Rundung) und die Beträge passen zur Ziel-Precision.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falscher Join-Attributname: v.COUNTRYCODE existiert nicht in VAT_RATES (korrekt: COUNTRY_CODE).",
+            "fix_suggestion": "Join-Bedingung korrigieren: ON v.COUNTRY_CODE = s.COUNTRY_CODE."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falsche MwSt.-Berechnung: VAT_AMT_EUR wird als gerundeter Bruttobetrag eingefügt und nicht als Steueranteil.",
+            "fix_suggestion": "VAT_AMT_EUR als Differenz berechnen: ROUND(s.GROSS_AMT_EUR - ROUND(s.GROSS_AMT_EUR / (1 + v.VAT_RATE), 2), 2)."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "CAST auf INT und Rundung auf 0 Dezimalstellen führt zu Präzisionsverlust und potenziellem Overflow.",
+            "fix_suggestion": "Nur DECIMAL-Arithmetik verwenden und auf 2 Nachkommastellen runden: ROUND(s.GROSS_AMT_EUR / (1 + v.VAT_RATE), 2)."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "VAT_RATES.VAT_RATE ist NULL-able; bei vorhandenem Join-Eintrag mit NULL entsteht NET_AMT_EUR = NULL.",
+            "fix_suggestion": "VAT_RATES.VAT_RATE als NOT NULL definieren oder im ETL filtern (WHERE v.VAT_RATE IS NOT NULL) bzw. fachlich sauber behandeln."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Potenzielle Duplikate in VAT_RATES je COUNTRY_CODE führen zu Multiplizierung der Zielzeilen.",
+            "fix_suggestion": "Unique-Constraint/Index auf VAT_RATES(COUNTRY_CODE) oder Aggregation/DEDUP vor dem Join."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Performance: fehlende Indexe auf Join-Schlüsseln erhöhen Laufzeit.",
+            "fix_suggestion": "Indexe auf SALES_GROSS(COUNTRY_CODE) und VAT_RATES(COUNTRY_CODE) anlegen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Mehrfachläufe können identische SALE_ID mehrfach in SALES_NET einfügen.",
+            "fix_suggestion": "Idempotenz sicherstellen (MERGE/UPSERT) und Unique-Constraint auf SALES_NET(SALE_ID)."
+        }
+    ],
+    "final_feedback": "Der ETL ist in der vorliegenden Form nicht funktionsfähig (Join-Fehler) und enthält fachliche Rechenfehler. Nach Korrektur der Join-Bedingung und der Betragslogik sollte Netto als ROUND(GROSS/(1+VAT_RATE), 2) und MwSt. als ROUND(GROSS - Netto, 2) berechnet werden. Vermeide CAST auf INT und runde konsequent auf 2 Nachkommastellen. Stelle zudem sicher, dass VAT_RATES.VAT_RATE nicht NULL ist bzw. filtere solche Fälle. Für Stabilität und Performance: Unique-Constraints auf Join-/Schlüsselspalten, Indexe auf COUNTRY_CODE und ein idempotentes Ladeverfahren (MERGE/UPSERT). Diese Anpassungen ändern das fachliche Ergebnis nicht, sondern korrigieren und stabilisieren es.",
+    "_source_file": "case5.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 882.043,
+    "_response_char_count": 5767
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 6 Hauptdurchlauf},label={gpt_case6_prompt1}]
+{
+    "transformation_understanding": "Produkt-IDs und Quell-Kategoriecodes aus PRODUCTS_RAW werden per LEFT JOIN mit CATEGORY_MAPPING zu Zielkategorien gemappt und nach PRODUCTS_NORM geladen. Nicht gemappte Werte werden auf leeren String gesetzt.",
+    "data_lineage": [
+        "PRODUCTS_RAW.PRODUCT_ID -> PRODUCTS_NORM.PRODUCT_ID",
+        "PRODUCTS_RAW.SOURCE_CATEGORY_CODE -> CATEGORY_MAPPING.SOURCE_CATEGORY_CODE (JOIN)",
+        "CATEGORY_MAPPING.TARGET_CATEGORY -> PRODUCTS_NORM.TARGET_CATEGORY (COALESCE-Default)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Selektion der Produkt-ID für die Zieltabelle",
+            "formula": "SELECT p.PRODUCT_ID AS PRODUCT_ID",
+            "improvement": "Spaltenname im SELECT korrigieren (p.PRODUCT_ID statt PROD_ID); Alias konsistent zu Zielspalte halten."
+        },
+        {
+            "step_count": 2,
+            "description": "Mapping-Join zwischen Quellkategorie und Mapping-Tabelle",
+            "formula": "LEFT JOIN CATEGORY_MAPPING m ON m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE",
+            "improvement": "Join-Bedingung korrigieren: m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE; Typ/Kollation vereinheitlichen und indizieren."
+        },
+        {
+            "step_count": 3,
+            "description": "Ermittlung der Zielkategorie mit Fallback",
+            "formula": "COALESCE(m.TARGET_CATEGORY, '')",
+            "improvement": "Aussagekräftigen Default verwenden (z. B. 'UNMAPPED'); Länge absichern: SUBSTRING(m.TARGET_CATEGORY,1,20)."
+        },
+        {
+            "step_count": 4,
+            "description": "Insert in PRODUCTS_NORM",
+            "formula": "INSERT INTO PRODUCTS_NORM (PRODUCT_ID, TARGET_CATEGORY) SELECT ...",
+            "improvement": "Vor dem Insert Datenlängen prüfen; Transaktion und Fehlerbehandlung aktivieren (STRICT_MODE)."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist nicht lauffähig: (1) Nicht vorhandene Spalte PROD_ID im SELECT. (2) Falsche Join-Bedingung (m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE) verhindert korrekte Zuordnung. Zusätzlich besteht Trunkationsgefahr (VARCHAR(100) -> VARCHAR(20)) und problematische Defaults ('').",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falscher Spaltenname im SELECT: PROD_ID existiert nicht in PRODUCTS_RAW.",
+            "fix_suggestion": "p.PRODUCT_ID im SELECT verwenden und als PRODUCT_ID ausgeben."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Falsche Join-Bedingung: m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE führt zu keiner bzw. zufälliger Zuordnung.",
+            "fix_suggestion": "Join auf m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE ändern; Werte ggf. TRIM/UPPER normalisieren."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Längeninkompatibilität: CATEGORY_MAPPING.TARGET_CATEGORY VARCHAR(100) -> PRODUCTS_NORM.TARGET_CATEGORY VARCHAR(20); mögliche Abschneidung/Fehler.",
+            "fix_suggestion": "Zielspalte auf VARCHAR(100) anheben oder SUBSTRING(m.TARGET_CATEGORY,1,20) bzw. Validierung vor dem Insert."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Typunterschied im Join (ENUM in PRODUCTS_RAW vs. VARCHAR in CATEGORY_MAPPING) kann zu impliziten Konvertierungen und schlechter Performance führen.",
+            "fix_suggestion": "Beide Seiten auf denselben Typ bringen (z. B. VARCHAR(1)); Indizes auf p.SOURCE_CATEGORY_CODE und m.SOURCE_CATEGORY_CODE anlegen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Fallback auf leeren String mindert Datenqualität und erschwert spätere Auswertungen.",
+            "fix_suggestion": "Statt '' einen klaren Default wie 'UNMAPPED' verwenden oder unmappbare Datensätze in eine Reject-Tabelle schreiben."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Fehlende Constraints in CATEGORY_MAPPING (NULL/Mehrfachzuordnungen) können Mehrdeutigkeiten erzeugen.",
+            "fix_suggestion": "NOT NULL + UNIQUE auf CATEGORY_MAPPING.SOURCE_CATEGORY_CODE; optional CHECKs auf zulässige Codes."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist aktuell fehlerhaft (falscher Spaltenname, falscher Join). Nach Korrektur des SELECT (p.PRODUCT_ID) und des Joins (m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE) funktioniert das Mapping fachlich. Zur Robustheit: Datentypen vereinheitlichen, Indizes auf Join-Spalten, sinnvollen Default für unmappbare Codes verwenden und Längenvalidierung für TARGET_CATEGORY sicherstellen bzw. Zielschema anpassen.",
+    "_source_file": "case6.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 750.009,
+    "_response_char_count": 4412
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 6 Konsistenzdurchlauf},label={gpt_case6_prompt2}]
+{
+    "transformation_understanding": "Ziel: Produkte aus PRODUCTS_RAW in PRODUCTS_NORM laden und Quellkategorien via CATEGORY_MAPPING auf Zielkategorien abbilden. Implementiert ist ein LEFT JOIN, der eine TARGET_CATEGORY je Produkt ermitteln und bei fehlender Zuordnung '' einsetzen soll. Aktuell sind Join-Bedingung und Spaltenauswahl fehlerhaft.",
+    "data_lineage": [
+        "PRODUCTS_NORM.PRODUCT_ID <- PRODUCTS_RAW.PROD_ID (INT) [Fehler: Spalte existiert nicht, erwartet PRODUCTS_RAW.PRODUCT_ID]",
+        "PRODUCTS_NORM.TARGET_CATEGORY <- COALESCE(CATEGORY_MAPPING.TARGET_CATEGORY, '') via LEFT JOIN",
+        "JOIN: CATEGORY_MAPPING.TARGET_CATEGORY (VARCHAR(100)) = PRODUCTS_RAW.SOURCE_CATEGORY_CODE (ENUM('A','B','C','D')) [Semantisch falsch; soll CATEGORY_MAPPING.SOURCE_CATEGORY_CODE sein]",
+        "Längen-/Typfluss: CATEGORY_MAPPING.TARGET_CATEGORY (VARCHAR(100)) -> PRODUCTS_NORM.TARGET_CATEGORY (VARCHAR(20)) [Trunkations-/Fehlergefahr]"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "LEFT JOIN der Rohdaten mit der Mapping-Tabelle",
+            "formula": "FROM PRODUCTS_RAW p LEFT JOIN CATEGORY_MAPPING m ON m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE",
+            "improvement": "Indexempfehlung für Performance: INDEX on CATEGORY_MAPPING(SOURCE_CATEGORY_CODE), INDEX on PRODUCTS_RAW(SOURCE_CATEGORY_CODE)"
+        },
+        {
+            "step_count": 2,
+            "description": "Auswahl Produkt-ID",
+            "formula": "SELECT PROD_ID",
+            "improvement": "Spalten explizit und korrekt qualifizieren (p.PRODUCT_ID AS PRODUCT_ID), um Ambiguitäten zu vermeiden"
+        },
+        {
+            "step_count": 3,
+            "description": "Ermittlung Zielkategorie inkl. Fallback",
+            "formula": "COALESCE(m.TARGET_CATEGORY, '') AS TARGET_CATEGORY",
+            "improvement": "Explizite Typanpassung (z.B. CAST(... AS VARCHAR(20))) zur frühzeitigen Erkennung von Überlängen; Logging/Validierung vor Insert"
+        },
+        {
+            "step_count": 4,
+            "description": "Insert in Zieltabelle",
+            "formula": "INSERT INTO PRODUCTS_NORM (PRODUCT_ID, TARGET_CATEGORY) SELECT ...",
+            "improvement": "Nur benötigte Spalten projizieren; optional in Transaktionen/Batches für bessere Durchsätze"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Abfrage schlägt fehl, da PROD_ID nicht existiert (korrekt ist p.PRODUCT_ID). Zusätzlich ist die JOIN-Bedingung semantisch falsch (m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE statt m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE). Selbst bei Korrektur drohen Trunkation (100 -> 20) und DB-spezifische Probleme mit '' (z.B. in Oracle als NULL interpretiert).",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falscher Spaltenname in SELECT: PROD_ID existiert nicht in PRODUCTS_RAW",
+            "fix_suggestion": "Spalte korrigieren: SELECT p.PRODUCT_ID AS PRODUCT_ID"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falscher Join-Key: m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE; semantisch korrekt ist die Zuordnung über m.SOURCE_CATEGORY_CODE",
+            "fix_suggestion": "JOIN-Bedingung ändern: ON m.SOURCE_CATEGORY_CODE = CAST(p.SOURCE_CATEGORY_CODE AS VARCHAR(50))"
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Längenmismatch: CATEGORY_MAPPING.TARGET_CATEGORY (VARCHAR(100)) in PRODUCTS_NORM.TARGET_CATEGORY (VARCHAR(20)) kann zu Trunkation/Fehlern führen",
+            "fix_suggestion": "Mappingwerte auf Länge <=20 begrenzen/validieren; optional SUBSTRING(m.TARGET_CATEGORY,1,20) oder Datenqualitätsregel erzwingen"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "COALESCE auf '': In Oracle wird '' als NULL behandelt -> NOT NULL-Verletzung in PRODUCTS_NORM.TARGET_CATEGORY",
+            "fix_suggestion": "DB-kompatiblen Default nutzen (z.B. 'UNKNOWN') oder NOT NULL durch valide Standardkategorie sicherstellen"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Datentyp-/Kollationsunterschiede im Join (ENUM vs. VARCHAR) können zu Fehl- oder Nicht-Treffern führen",
+            "fix_suggestion": "Explizit casten und normalisieren (z.B. CAST(p.SOURCE_CATEGORY_CODE AS VARCHAR(50)), TRIM/UPPER) und Kollation konsistent halten"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Duplikate in CATEGORY_MAPPING für einen SOURCE_CATEGORY_CODE führen zu vervielfachten Zeilen im Ziel",
+            "fix_suggestion": "Eindeutigkeit erzwingen (UNIQUE-Constraint/Index auf SOURCE_CATEGORY_CODE) oder Aggregation/DEDUP im SELECT"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Fehlende Indizes auf Join-Spalten beeinträchtigen Performance bei größeren Datenmengen",
+            "fix_suggestion": "Indizes auf PRODUCTS_RAW(SOURCE_CATEGORY_CODE) und CATEGORY_MAPPING(SOURCE_CATEGORY_CODE) anlegen"
+        }
+    ],
+    "final_feedback": "Der ETL ist aktuell nicht funktionsfähig (falscher Spaltenname PROD_ID; falscher Join-Key). Nach Korrektur auf p.PRODUCT_ID und JOIN über m.SOURCE_CATEGORY_CODE ist die Logik plausibel, jedoch bestehen Risiken bzgl. Längenmismatch (100 -> 20) und DB-Verhalten von '' bei NOT NULL. Empfohlen: korrekten Join und Spaltennamen verwenden, Längen validieren/trunkieren oder Mapping harmonisieren, robusten Default statt '' wählen (DB-abhängig), Indizes auf Join-Spalten setzen. So wird sowohl Korrektheit als auch Performance sichergestellt.",
+    "_source_file": "case6.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 1259.801,
+    "_response_char_count": 5304
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 6 Robustheitsdurchlauf},label={gpt_case6_prompt3}]
+{
+    "transformation_understanding": "Die ETL-Logik soll Produktstammdaten (PRODUCTS_RAW) mit einer Mapping-Tabelle (CATEGORY_MAPPING) verknüpfen und die Zielkategorie in PRODUCTS_NORM schreiben. Dabei wird pro Produkt die SOURCE_CATEGORY_CODE über eine LEFT JOIN-Verknüpfung in eine TARGET_CATEGORY übersetzt und als NOT NULL in PRODUCTS_NORM gespeichert.",
+    "data_lineage": [
+        "PRODUCTS_RAW.PRODUCT_ID -> PRODUCTS_NORM.PRODUCT_ID (direkte Übernahme)",
+        "CATEGORY_MAPPING.TARGET_CATEGORY -> PRODUCTS_NORM.TARGET_CATEGORY (COALESCE auf '' nach LEFT JOIN)",
+        "Join-Bedingung (as-is): CATEGORY_MAPPING.TARGET_CATEGORY = PRODUCTS_RAW.SOURCE_CATEGORY_CODE"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Selektion der Produktzeilen aus PRODUCTS_RAW",
+            "formula": "SELECT p.PRODUCT_ID, p.SOURCE_CATEGORY_CODE FROM PRODUCTS_RAW p",
+            "improvement": "Nur benötigte Spalten selektieren und ggf. Filtern anwenden, um Datenmenge zu reduzieren."
+        },
+        {
+            "step_count": 2,
+            "description": "LEFT JOIN mit CATEGORY_MAPPING auf (falsch) TARGET_CATEGORY = SOURCE_CATEGORY_CODE",
+            "formula": "LEFT JOIN CATEGORY_MAPPING m ON m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE",
+            "improvement": "Korrekt joinen: m.SOURCE_CATEGORY_CODE = CAST(p.SOURCE_CATEGORY_CODE AS VARCHAR(50)); Index auf beiden Join-Spalten."
+        },
+        {
+            "step_count": 3,
+            "description": "Ableitung TARGET_CATEGORY via COALESCE",
+            "formula": "COALESCE(m.TARGET_CATEGORY, '') AS TARGET_CATEGORY",
+            "improvement": "Vor Insert Länge absichern: LEFT(m.TARGET_CATEGORY, 20) bzw. CAST auf VARCHAR(20) zur kontrollierten Trunkierung."
+        },
+        {
+            "step_count": 4,
+            "description": "Insert in PRODUCTS_NORM",
+            "formula": "INSERT INTO PRODUCTS_NORM (PRODUCT_ID, TARGET_CATEGORY) SELECT p.PRODUCT_ID, COALESCE(m.TARGET_CATEGORY, '') FROM PRODUCTS_RAW p LEFT JOIN CATEGORY_MAPPING m ON m.SOURCE_CATEGORY_CODE = CAST(p.SOURCE_CATEGORY_CODE AS VARCHAR(50))",
+            "improvement": "UNIQUE-Index auf CATEGORY_MAPPING.SOURCE_CATEGORY_CODE; Index auf PRODUCTS_RAW.SOURCE_CATEGORY_CODE; optional NOT NULL auf CATEGORY_MAPPING.TARGET_CATEGORY falls fachlich erforderlich."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die gegebene SQL-Anweisung ist nicht lauffähig: (1) Im SELECT wird PROD_ID referenziert, die Spalte heißt jedoch PRODUCT_ID. (2) Die Join-Bedingung nutzt m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE statt m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE. Selbst bei Korrektur von (1) würde die Join-Bedingung i. d. R. keine Treffer liefern. Zusätzlich besteht hohes Risiko der Datenabschneidung, da CATEGORY_MAPPING.TARGET_CATEGORY bis 100 Zeichen lang sein kann, PRODUCTS_NORM.TARGET_CATEGORY jedoch nur 20 Zeichen erlaubt.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falscher Spaltenname im SELECT: PROD_ID existiert nicht (korrekt: PRODUCT_ID).",
+            "fix_suggestion": "SELECT p.PRODUCT_ID statt PROD_ID verwenden."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falscher Join-Key: m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE führt zu fehlenden Treffern.",
+            "fix_suggestion": "JOIN auf die Quellkategorie: m.SOURCE_CATEGORY_CODE = CAST(p.SOURCE_CATEGORY_CODE AS VARCHAR(50))."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Längen-/Typinkonsistenz: TARGET_CATEGORY (VARCHAR(100)) wird in PRODUCTS_NORM.TARGET_CATEGORY (VARCHAR(20)) geschrieben; Gefahr von Trunkierung/Insert-Fehlern.",
+            "fix_suggestion": "Vor dem Insert Länge prüfen/abschneiden (z. B. LEFT(m.TARGET_CATEGORY, 20)) oder die Zielspalte auf passende Länge erhöhen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Nicht garantierte Eindeutigkeit in CATEGORY_MAPPING.SOURCE_CATEGORY_CODE kann zu Duplikaten (Join-Multiplikation) in PRODUCTS_NORM führen.",
+            "fix_suggestion": "UNIQUE-Index oder Constraint auf CATEGORY_MAPPING.SOURCE_CATEGORY_CODE; alternativ deduplizieren (ROW_NUMBER() und Auswahl der ersten Zeile)."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Join zwischen ENUM (PRODUCTS_RAW.SOURCE_CATEGORY_CODE) und VARCHAR (CATEGORY_MAPPING.SOURCE_CATEGORY_CODE) kann Indexnutzung verhindern.",
+            "fix_suggestion": "Explizit casten und joinende Spalten indexieren (z. B. CAST(p.SOURCE_CATEGORY_CODE AS CHAR(1)) und INDEX auf CATEGORY_MAPPING.SOURCE_CATEGORY_CODE)."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "COALESCE auf leere Zeichenkette verschleiert fehlende Mappings.",
+            "fix_suggestion": "Eindeutigen Platzhalter wie 'UNMAPPED' verwenden oder Monitoring/Reporting für unmapped Fälle ergänzen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Fehlende Indizes auf Join-Spalten beeinträchtigen Performance bei größeren Datenmengen.",
+            "fix_suggestion": "Index auf PRODUCTS_RAW.SOURCE_CATEGORY_CODE und CATEGORY_MAPPING.SOURCE_CATEGORY_CODE anlegen; Ausführungsplan prüfen."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in der vorliegenden Form nicht funktionsfähig. Korrigiere den Spaltennamen (PRODUCT_ID) und den Join-Key (SOURCE_CATEGORY_CODE auf SOURCE_CATEGORY_CODE). Sichere die maximale Länge von TARGET_CATEGORY gegenüber VARCHAR(20) ab oder erweitere die Zielspalte. Stelle Eindeutigkeit und Indizes auf den Join-Spalten sicher. Danach ist der Prozess fachlich korrekt und performant betreibbar, ohne das gewünschte Endergebnis zu verändern.",
+    "_source_file": "case6.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 178.443,
+    "_response_char_count": 5492
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 7 Hauptdurchlauf},label={gpt_case7_prompt1}]
+{
+    "transformation_understanding": "Aggregiert TRANSACTIONS je CUSTOMER_ID, schreibt LAST_TX_DATE als MIN(BOOKING_DATE) und setzt IS_INACTIVE auf 'TRUE', wenn DATEDIFF(CURRENT_DATE, MIN(BOOKING_DATE)) > 180, sonst NULL. Ergebnis wird in CUSTOMER_CHURN eingefügt.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> CUSTOMER_CHURN.CUSTOMER_ID",
+        "TRANSACTIONS.BOOKING_DATE (MIN) -> CUSTOMER_CHURN.LAST_TX_DATE",
+        "TRANSACTIONS.BOOKING_DATE (MIN, DATEDIFF, CASE) -> CUSTOMER_CHURN.IS_INACTIVE"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Quellauswahl",
+            "formula": "SELECT t.CUSTOMER_ID, t.BOOKING_DATE FROM TRANSACTIONS t",
+            "improvement": "Spalten immer qualifizieren (t.CUSTOMER_ID) für Lesbarkeit und Fehlerprävention."
+        },
+        {
+            "step_count": 2,
+            "description": "Aggregation des Transaktionsdatums pro Kunde",
+            "formula": "MIN(t.BOOKING_DATE) AS LAST_TX_DATE",
+            "improvement": "Für letzte Transaktion MAX(t.BOOKING_DATE) verwenden; WHERE t.BOOKING_DATE IS NOT NULL hinzufügen."
+        },
+        {
+            "step_count": 3,
+            "description": "Berechnung Inaktivitäts-Flag",
+            "formula": "CASE WHEN DATEDIFF(day, CURRENT_DATE, MIN(t.BOOKING_DATE)) > 180 THEN 'TRUE' ELSE NULL END",
+            "improvement": "Argumentreihenfolge korrigieren und auf MAX basieren: CASE WHEN DATEDIFF(day, MAX(t.BOOKING_DATE), CURRENT_DATE) > 180 THEN 'TRUE' ELSE 'FALSE' END (NOT NULL einhalten)."
+        },
+        {
+            "step_count": 4,
+            "description": "Laden ins Ziel",
+            "formula": "INSERT INTO CUSTOMER_CHURN (CUSTOMER_ID, LAST_TX_DATE, IS_INACTIVE) SELECT ... GROUP BY t.CUSTOMER_ID",
+            "improvement": "MERGE/UPSERT oder vorher TRUNCATE nutzen; UNIQUE-Constraint auf CUSTOMER_ID setzen, um Duplikate zu verhindern."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Fehler: LAST_TX_DATE nutzt MIN statt MAX; DATEDIFF-Argumentreihenfolge invertiert (liefert negative Werte); IS_INACTIVE setzt NULL, obwohl NOT NULL. Korrekturvorschlag: INSERT INTO CUSTOMER_CHURN (CUSTOMER_ID, LAST_TX_DATE, IS_INACTIVE)\nSELECT t.CUSTOMER_ID,\n       MAX(t.BOOKING_DATE) AS LAST_TX_DATE,\n       CASE WHEN DATEDIFF(day, MAX(t.BOOKING_DATE), CURRENT_DATE) > 180 THEN 'TRUE' ELSE 'FALSE' END AS IS_INACTIVE\nFROM TRANSACTIONS t\nWHERE t.BOOKING_DATE IS NOT NULL\nGROUP BY t.CUSTOMER_ID;",
+    "error_risks": [
+        {
+            "severity": "high",
+            "source_of_risk": "LAST_TX_DATE wird mit MIN(BOOKING_DATE) berechnet, wodurch das älteste statt das letzte Datum geladen wird.",
+            "fix_suggestion": "MAX(t.BOOKING_DATE) als LAST_TX_DATE verwenden."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "DATEDIFF-Argumentreihenfolge ist vertauscht: DATEDIFF(day, CURRENT_DATE, MIN(BOOKING_DATE)) ergibt meist negative Werte; Bedingung > 180 trifft nicht.",
+            "fix_suggestion": "DATEDIFF(day, MAX(t.BOOKING_DATE), CURRENT_DATE) verwenden (oder CURRENT_DATE - MAX(...) > 180 je nach Dialekt)."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "IS_INACTIVE ist NOT NULL, CASE liefert im ELSE-Zweig NULL; Insert kann fehlschlagen.",
+            "fix_suggestion": "Im ELSE-Zweig 'FALSE' liefern; Spalte stets befüllen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "INSERT ohne Deduplizierung/MERGE kann bei wiederholter Ausführung Duplikate oder Constraint-Verstöße erzeugen.",
+            "fix_suggestion": "MERGE/UPSERT verwenden oder Ziel vorher TRUNCATE; UNIQUE-Constraint auf CUSTOMER_ID."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Kunden mit ausschließlich NULL-BOOKING_DATE führen zu LAST_TX_DATE=NULL und ggf. IS_INACTIVE=NULL.",
+            "fix_suggestion": "WHERE t.BOOKING_DATE IS NOT NULL; optional COALESCE im CASE sicherstellen ('FALSE')."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Zukünftige BOOKING_DATE-Werte könnten fälschlich Inaktivität beeinflussen.",
+            "fix_suggestion": "Nur Transaktionen bis CURRENT_DATE berücksichtigen: WHERE t.BOOKING_DATE <= CURRENT_DATE."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "DATEDIFF ist nicht in allen Dialekten identisch verfügbar/parametrisiert.",
+            "fix_suggestion": "Dialektsichere Datumsarithmetik nutzen (z. B. CURRENT_DATE - MAX(BOOKING_DATE) oder DATEADD/ADD_DAYS)."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Fehlende/ungeeignete Indizes auf TRANSACTIONS(CUSTOMER_ID, BOOKING_DATE) verschlechtern Aggregations-Performance.",
+            "fix_suggestion": "Index/Cluster/Partition auf (CUSTOMER_ID, BOOKING_DATE) anlegen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Unqualifizierte Spaltenreferenz SELECT CUSTOMER_ID kann bei Joins/Erweiterungen zu Ambiguitäten führen.",
+            "fix_suggestion": "Spalten immer mit TabellenaLIAS referenzieren (t.CUSTOMER_ID)."
+        }
+    ],
+    "final_feedback": "Der ETL ist in der aktuellen Form fachlich und technisch nicht funktionsfähig: falsches Aggregat für LAST_TX_DATE, invertierte DATEDIFF-Parameter und NOT-NULL-Verstoß bei IS_INACTIVE. Korrigiere auf MAX(BOOKING_DATE), DATEDIFF(day, MAX(BOOKING_DATE), CURRENT_DATE) und setze ELSE 'FALSE'. Ergänze WHERE BOOKING_DATE IS NOT NULL und optional <= CURRENT_DATE. Für Stabilität: MERGE/UPSERT statt reinem INSERT, UNIQUE auf CUSTOMER_ID sowie Index auf (CUSTOMER_ID, BOOKING_DATE). Dadurch bleibt das Ergebnis fachlich korrekt und der Lauf performant.",
+    "_source_file": "case7.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 859.479,
+    "_response_char_count": 5413
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 7 Konsistenzdurchlauf},label={gpt_case7_prompt2}]
+{
+    "transformation_understanding": "Aggregiert TRANSACTIONS nach CUSTOMER_ID, ermittelt pro Kunde MIN(BOOKING_DATE) als LAST_TX_DATE und setzt IS_INACTIVE auf 'TRUE', wenn DATEDIFF(day, CURRENT_DATE, MIN(BOOKING_DATE)) > 180; anschließend Insert in CUSTOMER_CHURN.",
+    "data_lineage": [
+        "CUSTOMER_CHURN.CUSTOMER_ID <- TRANSACTIONS.CUSTOMER_ID (GROUP BY)",
+        "CUSTOMER_CHURN.LAST_TX_DATE <- MIN(TRANSACTIONS.BOOKING_DATE)",
+        "CUSTOMER_CHURN.IS_INACTIVE <- CASE WHEN DATEDIFF(day, CURRENT_DATE, MIN(BOOKING_DATE)) > 180 THEN 'TRUE' ELSE NULL END"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Aggregation der Transaktionen je Kunde und Ermittlung eines Datumsfeldes.",
+            "formula": "SELECT t.CUSTOMER_ID, MIN(t.BOOKING_DATE) AS LAST_TX_DATE FROM TRANSACTIONS t GROUP BY t.CUSTOMER_ID",
+            "improvement": "Aggregat einmal in einer CTE/Subquery berechnen und mehrfach referenzieren, um doppelte MIN()-Berechnungen zu vermeiden."
+        },
+        {
+            "step_count": 2,
+            "description": "Ableitung IS_INACTIVE anhand der Differenz zwischen aktuellem Datum und dem aggregierten Datum.",
+            "formula": "CASE WHEN DATEDIFF(day, CURRENT_DATE, MIN(t.BOOKING_DATE)) > 180 THEN 'TRUE' ELSE NULL END",
+            "improvement": "Die bereits aggregierte Spalte (z. B. last_tx_date) referenzieren, statt die Aggregatfunktion im CASE erneut auszuführen."
+        },
+        {
+            "step_count": 3,
+            "description": "Insert der berechneten Felder in CUSTOMER_CHURN.",
+            "formula": "INSERT INTO CUSTOMER_CHURN (CUSTOMER_ID, LAST_TX_DATE, IS_INACTIVE) SELECT ...",
+            "improvement": "Für Idempotenz MERGE oder DELETE-INSERT/TRUNCATE-INSERT nutzen; ändert das Ergebnis einer Einzelausführung nicht, verhindert aber Duplikate bei Wiederholungen."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Berechnung ist fachlich und technisch fehlerhaft: LAST_TX_DATE nutzt MIN statt MAX (liefert frühestes statt letztes Datum). DATEDIFF-Argumentreihenfolge führt zu negativen Werten, Bedingung >180 wird i. d. R. nie erfüllt. IS_INACTIVE ist NOT NULL, es wird aber NULL eingefügt (INSERT-Fehler). Zusätzlich mögliche Dialektprobleme (CURRENT_DATE, DATEDIFF-Signatur) und fehlende Idempotenz.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "IS_INACTIVE ist NOT NULL, CASE liefert im ELSE-Zweig NULL -> INSERT schlägt fehl.",
+            "fix_suggestion": "ELSE 'FALSE' setzen oder DEFAULT 'FALSE' definieren und CASE im ELSE weglassen; zusätzlich COALESCE anwenden, falls DATEDIFF NULL wird."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "LAST_TX_DATE verwendet MIN(BOOKING_DATE); fachlich müsste letzter Beleg MAX(BOOKING_DATE) sein.",
+            "fix_suggestion": "MAX(BOOKING_DATE) als LAST_TX_DATE verwenden."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "DATEDIFF mit Argumentreihenfolge (CURRENT_DATE, MIN(BOOKING_DATE)) ergibt negative Differenzen; Bedingung > 180 greift nicht.",
+            "fix_suggestion": "DATEDIFF korrekt anwenden: Differenz = DATEDIFF(day, last_tx_date, CURRENT_DATE) > 180."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "SQL-Dialektinkonsistenz (CURRENT_DATE, DATEDIFF-Signatur und Literal 'day').",
+            "fix_suggestion": "Auf Zieldialekt anpassen: z. B. Snowflake DATEDIFF('day', start, end) und CURRENT_DATE(), SQL Server DATEDIFF(day, start, end) und GETDATE()."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "INSERT ohne Upsert-Logik ist nicht idempotent; erneute Ausführung erzeugt Duplikate.",
+            "fix_suggestion": "MERGE/UPSERT verwenden oder Zieltabelle vor Insert leeren; Unique-Index auf CUSTOMER_ID setzen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Nullwerte in BOOKING_DATE: Aggregation kann NULL liefern; DATEDIFF mit NULL -> NULL; kollidiert mit NOT NULL von IS_INACTIVE.",
+            "fix_suggestion": "Nur nicht-null BOOKING_DATE aggregieren (WHERE BOOKING_DATE IS NOT NULL) oder COALESCE/Filterlogik ergänzen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Aggregation über große Tabelle ohne geeigneten Index kann langsam sein.",
+            "fix_suggestion": "Index auf (CUSTOMER_ID, BOOKING_DATE) bzw. Clustering/Partitionierung nach CUSTOMER_ID anlegen."
+        }
+    ],
+    "final_feedback": "Der ETL ist in der aktuellen Form nicht funktionsfähig (NOT NULL-Verstoß) und fachlich falsch (MIN statt MAX, verkehrte DATEDIFF-Reihenfolge). Korrigieren Sie die Aggregation auf MAX(BOOKING_DATE), berechnen Sie die Differenz als DATEDIFF(day, LAST_TX_DATE, CURRENT_DATE) und liefern Sie im ELSE-Zweig 'FALSE' (oder setzen Sie einen DEFAULT). Passen Sie die Funktionen an den Zieldialekt an und machen Sie den Load idempotent (MERGE). Für Performance einen Index auf (CUSTOMER_ID, BOOKING_DATE) setzen.",
+    "_source_file": "case7.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 1439.166,
+    "_response_char_count": 4816
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 7 Robustheitsdurchlauf},label={gpt_case7_prompt3}]
+{
+    "transformation_understanding": "Pro Kunde wird aus TRANSACTIONS eine Zeile in CUSTOMER_CHURN geschrieben. LAST_TX_DATE wird als MIN(BOOKING_DATE) berechnet und IS_INACTIVE per DATEDIFF gegen CURRENT_DATE auf > 180 Tage geprüft, bei Erfüllung 'TRUE', sonst NULL. Ziel ist offensichtlich die Kennzeichnung inaktiver Kunden anhand der letzten Transaktion, jedoch ist die Logik und Constraint-Beachtung fehlerhaft.",
+    "data_lineage": [
+        "TRANSACTIONS.CUSTOMER_ID -> CUSTOMER_CHURN.CUSTOMER_ID (Gruppierung je Kunde)",
+        "TRANSACTIONS.BOOKING_DATE -> MIN() -> CUSTOMER_CHURN.LAST_TX_DATE",
+        "CURRENT_DATE + TRANSACTIONS.BOOKING_DATE -> DATEDIFF() + CASE -> CUSTOMER_CHURN.IS_INACTIVE"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Gruppierung der Transaktionen je Kunde",
+            "formula": "FROM TRANSACTIONS t GROUP BY t.CUSTOMER_ID",
+            "improvement": "Index auf TRANSACTIONS(CUSTOMER_ID, BOOKING_DATE) zur Aggregationsbeschleunigung; optional BOOKING_DATE IS NOT NULL vor Gruppierung filtern."
+        },
+        {
+            "step_count": 2,
+            "description": "Ermittlung des Transaktionsdatums pro Kunde",
+            "formula": "MIN(t.BOOKING_DATE) AS LAST_TX_DATE",
+            "improvement": "Fachlich korrekt: MAX(t.BOOKING_DATE) als letzte Transaktion; bei unbekanntem Datum: NULL zulassen oder Kunden ausschließen (WHERE BOOKING_DATE IS NOT NULL)."
+        },
+        {
+            "step_count": 3,
+            "description": "Berechnung der Inaktivitäts-Flagge",
+            "formula": "CASE WHEN DATEDIFF(day, CURRENT_DATE, MIN(t.BOOKING_DATE)) > 180 THEN 'TRUE' ELSE NULL END AS IS_INACTIVE",
+            "improvement": "Korrekte Richtung und Konsistenz: CASE WHEN DATEDIFF('day', MAX(t.BOOKING_DATE), CURRENT_DATE) > 180 THEN 'TRUE' ELSE 'FALSE' END; Dialekt beachten (SQL Server: DATEDIFF(day, MAX(BOOKING_DATE), CAST(GETDATE() AS date)))."
+        },
+        {
+            "step_count": 4,
+            "description": "Schreiben in Zieltabelle",
+            "formula": "INSERT INTO CUSTOMER_CHURN (CUSTOMER_ID, LAST_TX_DATE, IS_INACTIVE) SELECT ...",
+            "improvement": "MERGE/UPSERT verwenden, um Duplikate zu vermeiden; Zielspaltenkonsistenz absichern (IS_INACTIVE NOT NULL -> nie NULL schreiben)."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Aggregation für LAST_TX_DATE ist fachlich falsch (MIN statt MAX). Die DATEDIFF-Argumentreihenfolge führt i.d.R. zu negativen Werten, wodurch die 180-Tage-Prüfung nicht greift. Zusätzlich verletzt ELSE NULL die NOT-NULL-Constraint von IS_INACTIVE. Abhängig vom SQL-Dialekt ist die DATEDIFF-Signatur/CURRENT_DATE-Nutzung inkonsistent.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "NOT-NULL-Verletzung: IS_INACTIVE ist NOT NULL, CASE liefert jedoch im ELSE-Zweig NULL.",
+            "fix_suggestion": "CASE-Logik auf ELSE 'FALSE' umstellen oder COALESCE anwenden; sicherstellen, dass nie NULL in IS_INACTIVE geschrieben wird."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falsche Bestimmung des letzten Transaktionsdatums: Verwendung von MIN(BOOKING_DATE) statt MAX(BOOKING_DATE).",
+            "fix_suggestion": "MAX(t.BOOKING_DATE) als LAST_TX_DATE verwenden."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "DATEDIFF in falscher Reihenfolge (CURRENT_DATE, BOOKING_DATE) führt zu negativen Abständen und verhindert die Erkennung inaktiver Kunden.",
+            "fix_suggestion": "DATEDIFF so ausrichten, dass CURRENT_DATE minus LAST_TX_DATE berechnet wird, z.B. DATEDIFF('day', MAX(BOOKING_DATE), CURRENT_DATE) > 180."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "SQL-Dialektinkonsistenzen: Verwendung von CURRENT_DATE/DATEDIFF-Signatur (day vs. 'day') ist nicht in allen Systemen gültig.",
+            "fix_suggestion": "Dialektkonform implementieren (z.B. Snowflake: DATEDIFF('day', MAX(BOOKING_DATE), CURRENT_DATE), SQL Server: DATEDIFF(day, MAX(BOOKING_DATE), CAST(GETDATE() AS date)))."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-BOOKING_DATE: Kunden mit nur NULL-Daten führen zu LAST_TX_DATE = NULL und damit zu potentiellen Folgefehlern bei IS_INACTIVE.",
+            "fix_suggestion": "Voraggregation BOOKING_DATE IS NOT NULL filtern oder NULL-Fälle separat behandeln (z.B. IS_INACTIVE = 'FALSE' bei fehlendem Datum)."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Insert ohne Deduplizierung/Upsert kann bei wiederholter Ausführung Duplikate erzeugen.",
+            "fix_suggestion": "MERGE/UPSERT mit Schlüssel CUSTOMER_ID oder UNIQUE-Constraint/Primary Key einführen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "VARCHAR(5) zur Abbildung einer Booleschen Flagge ist fehleranfällig.",
+            "fix_suggestion": "BOOLEAN/BIT verwenden oder CHECK-Constraint auf ('TRUE','FALSE') definieren; einheitliche Werte erzwingen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Potenzielle Performanceprobleme bei großen Datenmengen ohne geeigneten Index.",
+            "fix_suggestion": "Index auf TRANSACTIONS(CUSTOMER_ID, BOOKING_DATE) bzw. Partitionierung nach CUSTOMER_ID/BOOKING_DATE."
+        }
+    ],
+    "final_feedback": "Der ETL-Schritt ist in der vorliegenden Form nicht funktionsfähig: Er verletzt die NOT-NULL-Constraint von IS_INACTIVE, bestimmt das letzte Transaktionsdatum falsch (MIN statt MAX) und berechnet den Tagabstand in falscher Richtung. Korrigieren Sie die Aggregation auf MAX(BOOKING_DATE), drehen Sie die DATEDIFF-Argumente um und liefern Sie im ELSE-Zweig 'FALSE'. Filtern Sie nach Möglichkeit BOOKING_DATE IS NOT NULL und verwenden Sie einen MERGE/UPSERT statt reinem INSERT, um Duplikate zu vermeiden. Ergänzend empfehlen sich ein Index auf (CUSTOMER_ID, BOOKING_DATE) sowie die Vereinheitlichung der Booleschen Spalte (BOOLEAN/BIT oder CHECK-Constraint). Diese Anpassungen ändern das fachliche Ergebnis nicht, sondern stellen die korrekte und performante Ermittlung der Inaktivitätsflagge sicher.",
+    "_source_file": "case7.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 133.435,
+    "_response_char_count": 5988
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 8 Hauptdurchlauf},label={gpt_case8_prompt1}]
+{
+    "transformation_understanding": "Aus SALES_MONTHLY werden pro CUSTOMER_ID und Monat ein 3-Monats-Rollingsummenwert der Umsätze berechnet und mit 2 Dezimalstellen in SALES_ROLLING3M geschrieben.",
+    "data_lineage": [
+        "SALES_MONTHLY.CUSTOMER_ID -> SALES_ROLLING3M.CUSTOMER_ID",
+        "SALES_MONTHLY.YEAR -> SALES_ROLLING3M.YEAR",
+        "SALES_MONTHLY.MONTH -> SALES_ROLLING3M.MONTH",
+        "SALES_MONTHLY.AMOUNT_EUR (Window-SUM über 3 Monate, gerundet) -> SALES_ROLLING3M.ROLLING_3M_SUM_EUR"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Quellselektion pro Kunde und Monat",
+            "formula": "SELECT CUSTOMER_ID, YEAR, MONTH, AMOUNT_EUR FROM SALES_MONTHLY",
+            "improvement": "Index auf SALES_MONTHLY(CUSTOMER_ID, YEAR, MONTH) für sortierte Window-Operationen anlegen."
+        },
+        {
+            "step_count": 2,
+            "description": "Zeitliche Ordnung und Fensterrahmen für Rolling-Summe",
+            "formula": "PARTITION BY CUSTOMER_ID ORDER BY YEAR, MONTH ROWS BETWEEN 2 PRECEDING AND CURRENT ROW",
+            "improvement": "Bei lückenhaften Monaten Kalenderdimension verwenden oder Monate je Kunde auffüllen, um echte 3-Kalendermonate abzubilden."
+        },
+        {
+            "step_count": 3,
+            "description": "Aggregation, Nullbehandlung und Rundung",
+            "formula": "ROUND(COALESCE(SUM(CAST(AMOUNT_EUR AS DECIMAL(19,4))) OVER (...), 0), 2)",
+            "improvement": "Geldbeträge konsequent als DECIMAL(19,4) verarbeiten statt MONEY; erst am Ende auf Zieltyp CASTen."
+        },
+        {
+            "step_count": 4,
+            "description": "Schreiben ins Ziel",
+            "formula": "INSERT INTO SALES_ROLLING3M (CUSTOMER_ID, YEAR, MONTH, ROLLING_3M_SUM_EUR) SELECT ...",
+            "improvement": "Idempotenz sicherstellen (MERGE/UPSERT oder vorab DELETE/TRUNCATE; Unique Key auf (CUSTOMER_ID, YEAR, MONTH))."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Der Ausdruck referenziert eine nicht existierende Spalte (AMNT_EUR statt AMOUNT_EUR) und ordnet das Fenster fälschlich nach MONTH, YEAR, was die zeitliche Reihenfolge über Jahre hinweg verfälscht. Zudem umfasst ROWS BETWEEN 3 PRECEDING AND CURRENT ROW vier Zeilen (4-Monats-Fenster). Nullbeträge können zu NULL im Ziel (NOT NULL) führen.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falscher Spaltenname in SUM: AMNT_EUR existiert nicht.",
+            "fix_suggestion": "Auf AMOUNT_EUR korrigieren."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falsche Zeitordnung im Fenster: ORDER BY MONTH, YEAR mischt Jahre (Jan aller Jahre vor Feb etc.).",
+            "fix_suggestion": "ORDER BY YEAR, MONTH (oder DATEFROMPARTS(YEAR, MONTH, 1)) verwenden."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Fensterrahmen umfasst 4 Monate: ROWS BETWEEN 3 PRECEDING AND CURRENT ROW.",
+            "fix_suggestion": "Für 3 Monate: ROWS BETWEEN 2 PRECEDING AND CURRENT ROW."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Zielspalte NOT NULL, SUM kann bei nur NULL-Werten im Fenster NULL liefern.",
+            "fix_suggestion": "COALESCE um SUM-Window legen: COALESCE(SUM(... ) OVER (...), 0)."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "ROWS-Frame ist zeilenbasiert; bei fehlenden Monaten entspricht die Summe nicht exakt 3 Kalendermonaten.",
+            "fix_suggestion": "Monatslücken je Kunde auffüllen (Kalenderjoin) oder RANGE/INTERVAL (falls DB unterstützt) verwenden."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Mehrfachausführung erzeugt Duplikate im Ziel.",
+            "fix_suggestion": "MERGE/UPSERT nutzen oder vorher zielbezogen löschen; Unique Key auf (CUSTOMER_ID, YEAR, MONTH)."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Geldtyp MONEY und implizite Konvertierung können zu Rundungs-/Kompatibilitätsproblemen führen.",
+            "fix_suggestion": "AMOUNT_EUR als DECIMAL(19,4) casten und intern in DECIMAL rechnen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "DECIMAL(8,2) im Ziel kann bei hohen Umsätzen überlaufen.",
+            "fix_suggestion": "Zieltyp auf DECIMAL(12,2) oder größer anheben, abhängig vom Wertebereich."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Fehlende unterstützende Indizes verlangsamen Window-Sortierung.",
+            "fix_suggestion": "Index auf SALES_MONTHLY(CUSTOMER_ID, YEAR, MONTH) anlegen."
+        }
+    ],
+    "final_feedback": "Der ETL ist aktuell nicht funktionsfähig (falscher Spaltenname) und liefert bei Korrektur der Spalte dennoch falsche Ergebnisse wegen der Sortierung (MONTH, YEAR) und des 4-Monats-Fensters. Korrigierte Kernausdrücke: ORDER BY YEAR, MONTH und ROWS BETWEEN 2 PRECEDING AND CURRENT ROW. Zusätzlich COALESCE um die Window-Summe legen und AMOUNT_EUR als DECIMAL(19,4) casten; Ergebnis am Ende auf DECIMAL(8,2) (oder größer) casten. Für exakte 3-Monats-Perioden bei Lücken Monatskalender verwenden. Idempotentes Laden und geeignete Indizes einführen.",
+    "_source_file": "case8.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 912.832,
+    "_response_char_count": 4926
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 8 Konsistenzdurchlauf},label={gpt_case8_prompt2}]
+{
+    "transformation_understanding": "Es wird aus SALES_MONTHLY je CUSTOMER_ID, YEAR, MONTH eine rollierende 3-Monats-Summe berechnet und in SALES_ROLLING3M geschrieben. Die Summe erfolgt per Window-Funktion über den Kunden, mit zeitlicher Sortierung und Rundung auf 2 Dezimalstellen. Ziel ist eine kumulierte 3-Monats-Umsatzkennzahl (EUR) pro Kunde und Monat.",
+    "data_lineage": [
+        "SALES_MONTHLY.CUSTOMER_ID -> SALES_ROLLING3M.CUSTOMER_ID (1:1)",
+        "SALES_MONTHLY.YEAR -> SALES_ROLLING3M.YEAR (1:1)",
+        "SALES_MONTHLY.MONTH -> SALES_ROLLING3M.MONTH (1:1)",
+        "SALES_MONTHLY.AMOUNT_EUR -> SALES_ROLLING3M.ROLLING_3M_SUM_EUR (SUM über 3 Monate, ROUND(2))"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Auswahl der Basisattribute pro Kunde und Monat aus SALES_MONTHLY",
+            "formula": "SELECT CUSTOMER_ID, YEAR, MONTH, AMOUNT_EUR FROM SALES_MONTHLY",
+            "improvement": "Sicherstellen, dass pro CUSTOMER_ID/YEAR/MONTH höchstens eine Zeile existiert; andernfalls vorher aggregieren: SUM(AMOUNT_EUR) GROUP BY CUSTOMER_ID, YEAR, MONTH."
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung der rollierenden 3-Monats-Summe per Window-Funktion",
+            "formula": "SUM(COALESCE(AMOUNT_EUR,0)) OVER (PARTITION BY CUSTOMER_ID ORDER BY YEAR, MONTH ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)",
+            "improvement": "Deterministische Sortierung sicherstellen (bei Duplikaten um stabile Spalte erweitern, z. B. ORDER BY YEAR, MONTH, <Surrogate>)."
+        },
+        {
+            "step_count": 3,
+            "description": "Runden und Typanpassung an Zielschema",
+            "formula": "CAST(ROUND(<rolling_sum>, 2) AS DECIMAL(8,2))",
+            "improvement": "Datentyp prüfen: bei größeren Umsätzen DECIMAL(18,2) verwenden, um Überlauf zu vermeiden."
+        },
+        {
+            "step_count": 4,
+            "description": "Schreiben der Ergebnisse nach SALES_ROLLING3M",
+            "formula": "INSERT INTO SALES_ROLLING3M (CUSTOMER_ID, YEAR, MONTH, ROLLING_3M_SUM_EUR) SELECT ...",
+            "improvement": "Bei wiederholter Beladung MERGE/UPSERT oder vorher TRUNCATE/DELETE WHERE verwenden, um Duplikate zu verhindern; Indexe für Lade- und Abfrage-Performance nutzen."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die aktuelle SQL ist nicht lauffähig und fachlich fehlerhaft: (1) Spaltenname AMNT_EUR existiert nicht (korrekt: AMOUNT_EUR). (2) ORDER BY MONTH, YEAR sortiert falsch über Jahresgrenzen (Jan 2025 vor Dez 2024); korrekt ist ORDER BY YEAR, MONTH. (3) ROWS BETWEEN 3 PRECEDING AND CURRENT ROW umfasst 4 Zeilen; für 3 Monate ist 2 PRECEDING korrekt. (4) NULL in AMOUNT_EUR kann zu NULL-Summen führen, die in eine NOT NULL-Zielspalte geschrieben werden sollen; COALESCE erforderlich. (5) MONEY -> DECIMAL(8,2) erfordert explizites CAST und kann überlaufen; Präzision prüfen. Korrigierter Kernausdruck: CAST(ROUND(SUM(COALESCE(AMOUNT_EUR,0)) OVER (PARTITION BY CUSTOMER_ID ORDER BY YEAR, MONTH ROWS BETWEEN 2 PRECEDING AND CURRENT ROW), 2) AS DECIMAL(8,2)).",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falscher Spaltenname in der Window-Summe: AMNT_EUR statt AMOUNT_EUR.",
+            "fix_suggestion": "Spaltenreferenz auf AMOUNT_EUR korrigieren."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falsche zeitliche Sortierung im Fenster: ORDER BY MONTH, YEAR verfälscht Reihenfolge über Jahreswechsel.",
+            "fix_suggestion": "ORDER BY YEAR, MONTH verwenden oder eine eindeutige Monatsdatumsspalte (z. B. FIRST_DAY_OF_MONTH) nutzen."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Fensterrahmen umfasst 4 Zeilen (3 PRECEDING + CURRENT) statt 3 Monate.",
+            "fix_suggestion": "ROWS BETWEEN 2 PRECEDING AND CURRENT ROW verwenden."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "NULL-Handling: SUM über ausschließlich NULL liefert NULL; Zielspalte ist NOT NULL.",
+            "fix_suggestion": "COALESCE(AMOUNT_EUR,0) in der SUM bzw. COALESCE um die SUM legen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Datentyp MONEY in Quelle und DECIMAL(8,2) im Ziel: implizite Konvertierung/Überlauf möglich.",
+            "fix_suggestion": "Explizit CASTen und Zielpräzision prüfen/erhöhen (z. B. DECIMAL(18,2)); Wertebereiche validieren."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Mehrere Zeilen je CUSTOMER_ID/YEAR/MONTH führen zu Doppelzählungen im Fenster.",
+            "fix_suggestion": "Vor der Window-Berechnung auf Monatsebene je Kunde aggregieren oder deduplizieren."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Fenster auf Zeilenbasis: Bei Lücken in den Monaten werden fehlende Monate nicht als 0 berücksichtigt.",
+            "fix_suggestion": "Monatskalender je Kunde materialisieren (Calendar-Join) oder fehlende Monate mit 0 auffüllen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Fehlende Indizes für Window-Operationen beeinträchtigen Performance.",
+            "fix_suggestion": "Index auf SALES_MONTHLY(CUSTOMER_ID, YEAR, MONTH) anlegen; optional Clustering/Partitionierung nach CUSTOMER_ID."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Wiederholtes Insert ohne Upsert-Logik erzeugt Duplikate im Ziel.",
+            "fix_suggestion": "MERGE/UPSERT einsetzen oder vor dem Laden zielseitig deduplizieren/überschreiben."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in der vorliegenden Form nicht funktionsfähig (falscher Spaltenname) und die Rechenlogik ist inkorrekt (Sortierung und Fenstergröße). Nach Korrektur auf AMOUNT_EUR, ORDER BY YEAR, MONTH sowie ROWS BETWEEN 2 PRECEDING AND CURRENT ROW und mit COALESCE/CAST ist die Berechnung fachlich korrekt und robust. Prüfen Sie zusätzlich die Zielpräzision (ggf. DECIMAL(18,2)), sichern Sie Eindeutigkeit pro Kunde/Monat und legen Sie geeignete Indizes an, um Performance und Stabilität zu gewährleisten.",
+    "_source_file": "case8.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 1558.312,
+    "_response_char_count": 5855
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 8 Robustheitsdurchlauf},label={gpt_case8_prompt3}]
+{
+    "transformation_understanding": "Aus SALES_MONTHLY werden pro Kunde und (YEAR, MONTH) gleitende 3-Monats-Summen berechnet und in SALES_ROLLING3M geschrieben. Die Berechnung nutzt ein Window SUM mit PARTITION BY CUSTOMER_ID und einer zeitlichen Sortierung, anschließend Rundung auf 2 Nachkommastellen.",
+    "data_lineage": [
+        "SALES_MONTHLY.CUSTOMER_ID -> SALES_ROLLING3M.CUSTOMER_ID",
+        "SALES_MONTHLY.YEAR -> SALES_ROLLING3M.YEAR",
+        "SALES_MONTHLY.MONTH -> SALES_ROLLING3M.MONTH",
+        "SALES_MONTHLY.AMOUNT_EUR -> Window-SUM -> ROUND(2) -> SALES_ROLLING3M.ROLLING_3M_SUM_EUR"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Quelle lesen und Kunden-/Zeitdimension übernehmen",
+            "formula": "SELECT CUSTOMER_ID, YEAR, MONTH, AMOUNT_EUR FROM SALES_MONTHLY",
+            "improvement": "Validierung sicherstellen: MONTH zwischen 1 und 12; eindeutige Zeilen pro (CUSTOMER_ID, YEAR, MONTH) erzwingen."
+        },
+        {
+            "step_count": 2,
+            "description": "Gleitende Summe über 3 Monate je Kunde berechnen",
+            "formula": "SUM(AMNT_EUR) OVER (PARTITION BY CUSTOMER_ID ORDER BY MONTH, YEAR ROWS BETWEEN 3 PRECEDING AND CURRENT ROW)",
+            "improvement": "SUM(COALESCE(CAST(AMOUNT_EUR AS DECIMAL(18,2)),0)) OVER (PARTITION BY CUSTOMER_ID ORDER BY YEAR, MONTH ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)"
+        },
+        {
+            "step_count": 3,
+            "description": "Ergebnis runden/kasten",
+            "formula": "ROUND(<window_sum>, 2)",
+            "improvement": "CAST(ROUND(<window_sum>, 2) AS DECIMAL(18,2))"
+        },
+        {
+            "step_count": 4,
+            "description": "Ziel laden",
+            "formula": "INSERT INTO SALES_ROLLING3M (CUSTOMER_ID, YEAR, MONTH, ROLLING_3M_SUM_EUR) SELECT ...",
+            "improvement": "Vor dem Insert Ziel bereinigen oder MERGE/UPSERT verwenden, Primär-/Unique-Key auf (CUSTOMER_ID, YEAR, MONTH) setzen."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die aktuelle Berechnung ist fachlich/technisch fehlerhaft: (1) Spaltenname AMNT_EUR existiert nicht (richtig: AMOUNT_EUR). (2) ORDER BY MONTH, YEAR sortiert Monate über Jahre hinweg falsch (z.B. alle Januare zusammen); korrekt ist YEAR, MONTH oder ein Datumskey. (3) ROWS BETWEEN 3 PRECEDING AND CURRENT ROW summiert 4 statt 3 Monate; für 3M muss es 2 PRECEDING sein. (4) SUM über nur NULL-Werte liefert NULL; Zielspalte ist NOT NULL, was zu Insert-Fehlern führen kann. (5) Typ-/Präzisionsrisiko: Quelle MONEY, Ziel DECIMAL(8,2); mögliche Überläufe/implizite Casts.",
+    "error_risks": [
+        {
+            "severity": "high",
+            "source_of_risk": "Falscher Quellspaltenname: AMNT_EUR statt AMOUNT_EUR.",
+            "fix_suggestion": "Spaltenreferenz in der Window-Funktion auf AMOUNT_EUR korrigieren."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falsche zeitliche Sortierung: ORDER BY MONTH, YEAR führt zu nicht-chronologischen Summen über Jahre.",
+            "fix_suggestion": "ORDER BY YEAR, MONTH verwenden oder über einen Datumswert (z.B. DATEFROMPARTS(YEAR,MONTH,1)) sortieren."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Fensterrahmen 3 PRECEDING summiert 4 Monate.",
+            "fix_suggestion": "ROWS BETWEEN 2 PRECEDING AND CURRENT ROW verwenden für echte 3-Monats-Summe."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Verarbeitung: SUM nur aus NULL-Werten ergibt NULL; Zielspalte ist NOT NULL.",
+            "fix_suggestion": "COALESCE(AMOUNT_EUR,0) in der SUM verwenden oder Zielspalte nullable machen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Typ-/Präzisionsmismatch: MONEY -> DECIMAL(8,2) kann Überläufe/Abschneidungen verursachen.",
+            "fix_suggestion": "Quelle in DECIMAL(18,2) casten und Zielspalte auf DECIMAL(18,2) anheben."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Mehrere Zeilen pro (CUSTOMER_ID, YEAR, MONTH) führen zu doppelten Beiträge im Rolling Window.",
+            "fix_suggestion": "Eindeutigkeit in SALES_MONTHLY sicherstellen (Unique-Index) oder voraggregieren."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Nicht-deterministisches Ordering bei Duplikaten gleicher YEAR/MONTH.",
+            "fix_suggestion": "Zusätzliche Tie-Breaker im ORDER BY aufnehmen (z.B. Tagesstempel/Load_TS) oder Duplikate eliminieren."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Performance: Window-Funktion ohne passenden Index.",
+            "fix_suggestion": "Index auf SALES_MONTHLY(CUSTOMER_ID, YEAR, MONTH) INCLUDE(AMOUNT_EUR) anlegen; Ziel: Unique-Index auf (CUSTOMER_ID, YEAR, MONTH)."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist aktuell nicht funktionsfähig. Hauptgründe: falscher Spaltenname, falsche Sortierung und falscher Fensterrahmen. Korrigierte Kernlogik: ROUND(SUM(COALESCE(CAST(AMOUNT_EUR AS DECIMAL(18,2)),0)) OVER (PARTITION BY CUSTOMER_ID ORDER BY YEAR, MONTH ROWS BETWEEN 2 PRECEDING AND CURRENT ROW), 2). Zusätzlich Datentyp (mind. DECIMAL(18,2)), Eindeutigkeit und Indizes anpassen. Danach ist der Prozess fachlich und technisch konsistent und performant.",
+    "_source_file": "case8.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 1371.186,
+    "_response_char_count": 5035
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 9 Hauptdurchlauf},label={gpt_case9_prompt1}]
+{
+    "transformation_understanding": "Ziel ist eine SCD-Typ-2-Historisierung der Kundenadressen: Für geänderte Attribute soll der bisher aktuelle DIM-Datensatz beendet (VALID_TO gesetzt, IS_CURRENT = FALSE) und ein neuer aktueller Datensatz aus der Staging-Tabelle mit VALID_FROM = CHANGE_TS und VALID_TO = NULL eingefügt werden.",
+    "data_lineage": [
+        "CUSTOMER_ADDRESS_STG.CUSTOMER_ID -> DIM_CUSTOMER_ADDRESS.CUSTOMER_ID (identisch)",
+        "CUSTOMER_ADDRESS_STG.STREET -> DIM_CUSTOMER_ADDRESS.STREET (identisch)",
+        "CUSTOMER_ADDRESS_STG.CITY -> DIM_CUSTOMER_ADDRESS.CITY (identisch)",
+        "CUSTOMER_ADDRESS_STG.POSTAL_CODE -> DIM_CUSTOMER_ADDRESS.POSTAL_CODE (identisch)",
+        "CUSTOMER_ADDRESS_STG.COUNTRY -> DIM_CUSTOMER_ADDRESS.COUNTRY (identisch)",
+        "CUSTOMER_ADDRESS_STG.CHANGE_TS -> DIM_CUSTOMER_ADDRESS.VALID_FROM",
+        "Konstante NULL -> DIM_CUSTOMER_ADDRESS.VALID_TO (für aktuelle Sätze)",
+        "Konstante TRUE -> DIM_CUSTOMER_ADDRESS.IS_CURRENT (für neue aktuelle Sätze)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Beenden aktueller DIM-Sätze bei Attributänderungen (SCD2-,Close out').",
+            "formula": "UPDATE DIM_CUSTOMER_ADDRESS d\nSET VALID_TO = CAST(s.CHANGE_TS AS DATE),\n    IS_CURRENT = FALSE\nFROM CUSTOMER_ADDRESS_STG s\nWHERE d.CUSTOMER_ID = s.CUSTOMER_ID\n  AND d.IS_CURRENT = TRUE\n  AND (\n    d.STREET IS DISTINCT FROM s.STREET OR\n    d.CITY IS DISTINCT FROM s.CITY OR\n    d.POSTAL_CODE IS DISTINCT FROM s.POSTAL_CODE OR\n    d.COUNTRY IS DISTINCT FROM s.COUNTRY\n  );",
+            "improvement": "Typen angleichen (VALID_TO als TIMESTAMP wie VALID_FROM) oder konsequent casten; Index auf DIM(CUSTOMER_ID, IS_CURRENT)."
+        },
+        {
+            "step_count": 2,
+            "description": "Einfügen neuer aktueller DIM-Sätze bei Neu- oder Änderungsfällen.",
+            "formula": "INSERT INTO DIM_CUSTOMER_ADDRESS\n  (CUSTOMER_ID, STREET, CITY, POSTAL_CODE, COUNTRY, VALID_FROM, VALID_TO, IS_CURRENT)\nSELECT s.CUSTOMER_ID, s.STREET, s.CITY, s.POSTAL_CODE, s.COUNTRY,\n       s.CHANGE_TS, NULL, TRUE\nFROM CUSTOMER_ADDRESS_STG s\nLEFT JOIN DIM_CUSTOMER_ADDRESS d\n  ON d.CUSTOMER_ID = s.CUSTOMER_ID AND d.IS_CURRENT = TRUE\nWHERE d.CUSTOMER_ID IS NULL OR (\n       d.STREET IS DISTINCT FROM s.STREET OR\n       d.CITY IS DISTINCT FROM s.CITY OR\n       d.POSTAL_CODE IS DISTINCT FROM s.POSTAL_CODE OR\n       d.COUNTRY IS DISTINCT FROM s.COUNTRY\n);",
+            "improvement": "Statt LEFT JOIN + WHERE-OR-Bedingungen alternativ EXISTS verwenden; Unique-Constraint oder partiellen Index auf (CUSTOMER_ID) WHERE IS_CURRENT."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die aktuelle Logik ist syntaktisch und fachlich fehlerhaft: Das Update-Statement hat kein UPDATE-Zielalias, verwendet einen nicht existierenden Spaltennamen (POSTCODE), erkennt Änderungen teilweise falsch (COUNTRY = statt <>), setzt IS_CURRENT nicht auf FALSE und setzt VALID_TO nicht korrekt. Zusätzlich sind Vergleiche mit NULL nicht NULL-sicher und VALID_TO ist als DATE definiert, während CHANGE_TS TIMESTAMP ist.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "1. Statement ohne UPDATE-Ziel (Alias d wird verwendet, aber nicht deklariert: 'SET ... FROM ... WHERE d...').",
+            "fix_suggestion": "Korrekt: 'UPDATE DIM_CUSTOMER_ADDRESS d SET ... FROM CUSTOMER_ADDRESS_STG s WHERE d.CUSTOMER_ID = s.CUSTOMER_ID ...'."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Falsche Änderungslogik: d.COUNTRY = s.COUNTRY statt Ungleichheit; zudem Spaltenname d.POSTCODE existiert nicht (richtiger Name: POSTAL_CODE).",
+            "fix_suggestion": "Bedingungen korrigieren: d.COUNTRY <> s.COUNTRY und d.POSTAL_CODE <> s.POSTAL_CODE (bzw. NULL-sicher, s.u.)."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "SCD2-,Close out' fehlt: Alte aktuelle Zeilen bleiben IS_CURRENT = TRUE und VALID_TO wird nicht befüllt.",
+            "fix_suggestion": "Beim Update IS_CURRENT = FALSE setzen und VALID_TO auf (CAST(s.CHANGE_TS AS DATE) oder TIMESTAMP) setzen, bevor der neue Datensatz insertiert wird."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Datentypinkonsistenz: VALID_TO ist DATE, VALID_FROM/CHANGE_TS sind TIMESTAMP.",
+            "fix_suggestion": "Entweder VALID_TO auf TIMESTAMP ändern oder beim Update/Insert konsequent CAST(s.CHANGE_TS AS DATE) verwenden und Geschäftsregel (Tagesgrenze) dokumentieren."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Unsicherheit bei Vergleichen mit <>: Änderungen mit NULL werden nicht erkannt.",
+            "fix_suggestion": "NULL-sichere Vergleiche verwenden: IS DISTINCT FROM (Postgres) oder COALESCE(d.col,'empty') <> COALESCE(s.col,'empty')."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Leistungsrisiko: LEFT JOIN mit OR-Bedingungen auf Nullable-Spalten ohne geeignete Indizes.",
+            "fix_suggestion": "Index auf DIM(CUSTOMER_ID, IS_CURRENT); ggf. EXISTS statt LEFT JOIN; selektive Prädikate und Kompression/Statistiken prüfen."
+        }
+    ],
+    "final_feedback": "Der beabsichtigte SCD2-Prozess ist erkennbar, jedoch in der vorliegenden Form nicht lauffähig und fachlich inkorrekt. Zentral sind: korrektes UPDATE mit Alias, richtige Spaltennamen, Null-sichere Änderungsdetektion, Schließen des aktuellen Datensatzes (IS_CURRENT = FALSE, VALID_TO setzen) sowie konsistente Datentypen. Mit den vorgeschlagenen SQL-Korrekturen und Indizes wird der Prozess funktional und performanter, ohne das Ergebnis (Historisierung mit aktuellem Datensatz VALID_TO = NULL) zu verändern.",
+    "_source_file": "case9.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 949.96,
+    "_response_char_count": 5551
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 9 Konsistenzdurchlauf},label={gpt_case9_prompt2}]
+{
+    "transformation_understanding": "Ziel ist ein SCD-2-ähnlicher Prozess für Kundenadressen: 1) Aktuelle Dimensionseinträge bei Attributänderung "abdaten" (Gültigkeitsende setzen) und 2) neuen aktuellen Datensatz aus STG einfügen (VALID_FROM aus CHANGE_TS, IS_CURRENT = TRUE).",
+    "data_lineage": [
+        "DIM_CUSTOMER_ADDRESS.CUSTOMER_ID <- CUSTOMER_ADDRESS_STG.CUSTOMER_ID",
+        "DIM_CUSTOMER_ADDRESS.STREET <- CUSTOMER_ADDRESS_STG.STREET",
+        "DIM_CUSTOMER_ADDRESS.CITY <- CUSTOMER_ADDRESS_STG.CITY",
+        "DIM_CUSTOMER_ADDRESS.POSTAL_CODE <- CUSTOMER_ADDRESS_STG.POSTAL_CODE",
+        "DIM_CUSTOMER_ADDRESS.COUNTRY <- CUSTOMER_ADDRESS_STG.COUNTRY",
+        "DIM_CUSTOMER_ADDRESS.VALID_FROM <- CUSTOMER_ADDRESS_STG.CHANGE_TS",
+        "DIM_CUSTOMER_ADDRESS.VALID_TO <- (aus Update-Schritt, sollte auf Endzeit des alten Datensatzes gesetzt werden)",
+        "DIM_CUSTOMER_ADDRESS.IS_CURRENT <- (Update: FALSE für Alt-Datensatz; Insert: TRUE für Neu-Datensatz)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Aktualisieren der aktuellen DIM-Zeilen bei Änderungen.",
+            "formula": "UPDATE DIM_CUSTOMER_ADDRESS d\nSET VALID_TO = NULL\nFROM CUSTOMER_ADDRESS_STG s\nWHERE d.CUSTOMER_ID = s.CUSTOMER_ID\n  AND d.IS_CURRENT = TRUE\n  AND (\n    d.STREET      <> s.STREET OR\n    d.CITY        <> s.CITY OR\n    d.POSTCODE <> s.POSTAL_CODE OR \n    d.COUNTRY     = s.COUNTRY  \n  );",
+            "improvement": "Korrekt: UPDATE DIM_CUSTOMER_ADDRESS d SET VALID_TO = s.CHANGE_TS, IS_CURRENT = FALSE FROM CUSTOMER_ADDRESS_STG s WHERE d.CUSTOMER_ID = s.CUSTOMER_ID AND d.IS_CURRENT = TRUE AND (d.STREET IS DISTINCT FROM s.STREET OR d.CITY IS DISTINCT FROM s.CITY OR d.POSTAL_CODE IS DISTINCT FROM s.POSTAL_CODE OR d.COUNTRY IS DISTINCT FROM s.COUNTRY);"
+        },
+        {
+            "step_count": 2,
+            "description": "Einfügen neuer aktueller DIM-Zeilen für neue/aktualisierte Adressen.",
+            "formula": "INSERT INTO DIM_CUSTOMER_ADDRESS\n  (CUSTOMER_ID, STREET, CITY, POSTAL_CODE, COUNTRY, VALID_FROM, VALID_TO, IS_CURRENT)\nSELECT\n  s.CUSTOMER_ID, s.STREET, s.CITY, s.POSTAL_CODE, s.COUNTRY,\n  s.CHANGE_TS AS VALID_FROM,\n  NULL        AS VALID_TO,\n  TRUE        AS IS_CURRENT\nFROM CUSTOMER_ADDRESS_STG s\nLEFT JOIN DIM_CUSTOMER_ADDRESS d\n  ON d.CUSTOMER_ID = s.CUSTOMER_ID\n AND d.IS_CURRENT = TRUE\nWHERE d.CUSTOMER_ID IS NULL\n   OR d.STREET      <> s.STREET\n   OR d.CITY        <> s.CITY\n   OR d.POSTCODE <> s.POSTAL_CODE\n   OR d.COUNTRY     = s.COUNTRY;",
+            "improvement": "Korrekt: INSERT ... SELECT ... WHERE d.CUSTOMER_ID IS NULL OR (d.STREET IS DISTINCT FROM s.STREET OR d.CITY IS DISTINCT FROM s.CITY OR d.POSTAL_CODE IS DISTINCT FROM s.POSTAL_CODE OR d.COUNTRY IS DISTINCT FROM s.COUNTRY); VALID_TO nicht NULL (z. B. '9999-12-31'), Spaltenname POSTAL_CODE verwenden."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Der Prozess ist in der vorliegenden Form nicht lauffähig: 1) UPDATE-Syntax/Target fehlt und Alias d ist undefiniert; 2) Spaltenname POSTCODE ist falsch (sollte POSTAL_CODE sein); 3) Vergleichslogik COUNTRY verwendet '=' statt '<>', was unnötige Updates/Inserts auslöst; 4) VALID_TO wird auf NULL gesetzt bzw. eingefügt, die Spalte ist jedoch NOT NULL (und DATE); 5) IS_CURRENT des Alt-Datensatzes wird nicht auf FALSE gesetzt; 6) NULL-sichere Vergleiche fehlen (<> scheitert bei NULLs); 7) Zeitlogik von VALID_FROM (TIMESTAMP) und VALID_TO (DATE) ist inkonsistent. Dadurch drohen Constraint-Verletzungen, Duplikate aktueller Zeilen und inkorrekte Historisierung.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "VALID_TO ist NOT NULL (DATE), wird jedoch im UPDATE und INSERT als NULL gesetzt.",
+            "fix_suggestion": "VALID_TO auf ein hohes Enddatum setzen (z. B. '9999-12-31') oder Spaltendefinition auf TIMESTAMP NULL ändern und Standard/Logik konsistent anwenden."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Erstes Statement ist kein gültiges UPDATE (fehlendes 'UPDATE DIM_CUSTOMER_ADDRESS d') und verwendet einen undefinierten Alias d.",
+            "fix_suggestion": "Korrekte UPDATE-Syntax verwenden: UPDATE DIM_CUSTOMER_ADDRESS d SET ... FROM CUSTOMER_ADDRESS_STG s WHERE ...."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falscher Spaltenname 'POSTCODE' statt 'POSTAL_CODE' in beiden Statements.",
+            "fix_suggestion": "Spaltenreferenzen auf 'POSTAL_CODE' korrigieren."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "COUNTRY-Vergleich nutzt '=' statt '<>' und führt zu Updates/Inserts trotz unveränderter Werte.",
+            "fix_suggestion": "Auf Ungleichheit prüfen (IS DISTINCT FROM oder COALESCE-basierte Vergleiche) und '=' entfernen."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Alt-Zeilen bleiben IS_CURRENT = TRUE; neue Zeilen werden ebenfalls als IS_CURRENT = TRUE eingefügt.",
+            "fix_suggestion": "Im UPDATE Alt-Zeile IS_CURRENT = FALSE setzen; in INSERT nur eine aktuelle Zeile pro CUSTOMER_ID sicherstellen (Unique-Constraint oder WHERE NOT EXISTS)."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-unsafe Vergleiche mit '<>' (bei NULL ergibt sich UNKNOWN, Änderungen werden ggf. nicht erkannt).",
+            "fix_suggestion": "NULL-sichere Vergleiche verwenden: IS DISTINCT FROM (Postgres) oder COALESCE(a,'') <> COALESCE(b,'')."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "VALID_FROM ist TIMESTAMP, VALID_TO ist DATE; zeitliche Grenzen können sich überschneiden/ungenau sein.",
+            "fix_suggestion": "VALID_TO auf TIMESTAMP anpassen oder ein konsistentes Intervall/Granularität definieren (z. B. VALID_TO = CHANGE_TS - INTERVAL '1 millisecond')."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "POSTAL_CODE als UUID modelliert; reale Postleitzahlen sind nicht im UUID-Format.",
+            "fix_suggestion": "Datentyp auf VARCHAR ändern; falls UUID zwingend, Validierung/Konvertierung im STG sicherstellen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "OR-basiertes Change-Checking über viele Attribute ist leistungsschwach und schlecht indexnutzbar.",
+            "fix_suggestion": "Attribut-Hash (z. B. MD5 über relevante Spalten) vergleichen oder MERGE mit vorab gefilterten Change-Sätzen; passende Indizes auf (CUSTOMER_ID, IS_CURRENT)."
+        }
+    ],
+    "final_feedback": "Der beabsichtigte SCD-2-Prozess ist konzeptionell klar, aber in der Umsetzung aktuell fehlerhaft und nicht lauffähig (Syntax-/Namensfehler, NOT-NULL-Verstoß, falsche Change-Logik, fehlendes Deaktivieren der Alt-Zeile). Korrigieren Sie UPDATE/INSERT, verwenden Sie NULL-sichere Vergleiche und setzen Sie Alt-Zeilen auf IS_CURRENT = FALSE mit passendem VALID_TO. Vereinheitlichen Sie die Zeittypen und vermeiden Sie NULL für VALID_TO bei NOT NULL-Definition. Prüfen Sie den Datentyp von POSTAL_CODE und optimieren Sie die Change-Erkennung (Hash/MERGE, Indizes). Danach ist der Prozess funktionstüchtig ohne Änderung des fachlichen Ergebnisses.",
+    "_source_file": "case9.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 1735.407,
+    "_response_char_count": 6979
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 9 Robustheitsdurchlauf},label={gpt_case9_prompt3}]
+{
+    "transformation_understanding": "Aus STG werden Kundenadressen in eine SCD-Typ-2-Dimension geladen. Idee: Bei Änderungen die bisher aktuelle Zeile schließen (VALID_TO setzen, IS_CURRENT umschalten) und eine neue aktuelle Version mit VALID_FROM = CHANGE_TS einfügen. Der vorliegende Code versucht dies in zwei Statements (Update, dann Insert).",
+    "data_lineage": [
+        "DIM_CUSTOMER_ADDRESS.CUSTOMER_ID <= CUSTOMER_ADDRESS_STG.CUSTOMER_ID",
+        "DIM_CUSTOMER_ADDRESS.STREET <= CUSTOMER_ADDRESS_STG.STREET",
+        "DIM_CUSTOMER_ADDRESS.CITY <= CUSTOMER_ADDRESS_STG.CITY",
+        "DIM_CUSTOMER_ADDRESS.POSTAL_CODE <= CUSTOMER_ADDRESS_STG.POSTAL_CODE",
+        "DIM_CUSTOMER_ADDRESS.COUNTRY <= CUSTOMER_ADDRESS_STG.COUNTRY",
+        "DIM_CUSTOMER_ADDRESS.VALID_FROM <= CUSTOMER_ADDRESS_STG.CHANGE_TS",
+        "DIM_CUSTOMER_ADDRESS.VALID_TO <= NULL (offen) bzw. Abschlusszeitpunkt",
+        "DIM_CUSTOMER_ADDRESS.IS_CURRENT <= TRUE bei neu eingefügten Versionen"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Bestehende aktuelle Dim-Zeilen bei Änderung schließen.",
+            "formula": "SET VALID_TO = NULL FROM CUSTOMER_ADDRESS_STG s WHERE d.CUSTOMER_ID = s.CUSTOMER_ID AND d.IS_CURRENT = TRUE AND (d.STREET <> s.STREET OR d.CITY <> s.CITY OR d.POSTCODE <> s.POSTAL_CODE OR d.COUNTRY = s.COUNTRY);",
+            "improvement": "UPDATE DIM_CUSTOMER_ADDRESS d SET VALID_TO = COALESCE(s.CHANGE_TS, CURRENT_TIMESTAMP), IS_CURRENT = FALSE FROM CUSTOMER_ADDRESS_STG s WHERE d.CUSTOMER_ID=s.CUSTOMER_ID AND d.IS_CURRENT=TRUE AND (d.STREET IS DISTINCT FROM s.STREET OR d.CITY IS DISTINCT FROM s.CITY OR d.POSTAL_CODE IS DISTINCT FROM s.POSTAL_CODE OR d.COUNTRY IS DISTINCT FROM s.COUNTRY);"
+        },
+        {
+            "step_count": 2,
+            "description": "Neue aktuelle Versionen für neue oder geänderte Adressen einfügen.",
+            "formula": "INSERT INTO DIM_CUSTOMER_ADDRESS (...) SELECT ... FROM CUSTOMER_ADDRESS_STG s LEFT JOIN DIM_CUSTOMER_ADDRESS d ON d.CUSTOMER_ID=s.CUSTOMER_ID AND d.IS_CURRENT=TRUE WHERE d.CUSTOMER_ID IS NULL OR d.STREET<>s.STREET OR d.CITY<>s.CITY OR d.POSTCODE<>s.POSTAL_CODE OR d.COUNTRY=s.COUNTRY;",
+            "improvement": "MERGE (oder NOT EXISTS) mit gleicher Change-Logik: WHEN MATCHED AND changed THEN UPDATE (schließen); WHEN NOT MATCHED OR changed THEN INSERT (VALID_FROM=COALESCE(s.CHANGE_TS,CURRENT_TIMESTAMP), VALID_TO=NULL oder 9999-12-31, IS_CURRENT=TRUE). Null-sicher vergleichen (IS DISTINCT FROM)."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Der Prozess zielt auf SCD-Typ-2, ist aber in der vorliegenden Form nicht funktionsfähig: (1) UPDATE-Syntax ist unvollständig (kein UPDATE DIM... Alias d fehlt), und es wird ein nicht existierendes Feld d.POSTCODE referenziert. (2) VALID_TO ist NOT NULL, dennoch werden NULL-Werte gesetzt/eingefügt. (3) Change-Erkennung fehlerhaft: COUNTRY wird mit '=' statt '<>' geprüft; Null-Werte werden mit '<>' nicht korrekt erkannt; IS_CURRENT wird beim Schließen nicht auf FALSE gesetzt. (4) Datentyp-Inkonsistenz: VALID_FROM ist TIMESTAMP, VALID_TO ist DATE (Trunkierung/Überlappungen möglich). (5) Logik kann zu doppelten Inserts führen. Aus diesen Gründen ist der ETL derzeit nicht lauffähig.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Fehlende UPDATE-Klausel und falscher Spaltenname d.POSTCODE im 1. Statement (Alias d nicht definiert; Spalte POSTCODE existiert nicht).",
+            "fix_suggestion": "Korrigieren zu: UPDATE DIM_CUSTOMER_ADDRESS d ...; alle Verweise auf d.POSTAL_CODE statt d.POSTCODE verwenden."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "VALID_TO ist NOT NULL, dennoch werden NULL-Werte gesetzt/insertiert.",
+            "fix_suggestion": "Schema oder Logik anpassen: VALID_TO NULL zulassen (offene Historie) oder mit Sentinel-Datum (z. B. '9999-12-31') arbeiten und Code entsprechend setzen."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falsche Change-Bedingung für COUNTRY (Gleichheit statt Ungleichheit) führt zu unnötigen Inserts.",
+            "fix_suggestion": "Alle Attribute mit Ungleichheit prüfen und null-sicher vergleichen (IS DISTINCT FROM bzw. COALESCE)."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Null-unsichere Vergleiche ('<>') bei möglichen NULLs übersehen Änderungen.",
+            "fix_suggestion": "IS DISTINCT FROM (PostgreSQL) verwenden oder COALESCE(d.col,'(currency)') <> COALESCE(s.col,'(currency)')."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Beim Schließen der alten Version wird IS_CURRENT nicht auf FALSE gesetzt.",
+            "fix_suggestion": "Im UPDATE zusätzlich IS_CURRENT = FALSE setzen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "VALID_FROM TIMESTAMP vs. VALID_TO DATE (Zeitanteil geht verloren; mögliche Zeitraum-Überlappungen).",
+            "fix_suggestion": "Beide Felder als TIMESTAMP führen oder beim Setzen von VALID_TO konsistent casten und Konvention definieren (z. B. Ende = letzte Millisekunde vor neuem VALID_FROM)."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "INSERT-Selektion mit LEFT JOIN und breiten OR-Bedingungen kann Duplikate und schlechte Performance verursachen.",
+            "fix_suggestion": "MERGE/UPSERT atomar verwenden oder NOT EXISTS mit exakt gleicher Change-Logik; Indexe auf DIM(CUSTOMER_ID, IS_CURRENT) und STG(CUSTOMER_ID)."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "POSTAL_CODE als UUID ist fachlich ungewöhnlich und erschwert Prüfungen/Validierung.",
+            "fix_suggestion": "Datentyp prüfen (VARCHAR) oder Validierungslogik/Domänen-Check implementieren; falls UUID unvermeidlich, Format-Konversion in STG sicherstellen."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Fehlender Surrogate Key in der Dimension erschwert eindeutige Versionierung und Performance.",
+            "fix_suggestion": "Surrogatschlüssel (z. B. ADDRESS_KEY) mit eindeutigen Constraints einführen; Unique-Constraint auf (CUSTOMER_ID, VALID_FROM) oder (CUSTOMER_ID, IS_CURRENT) erwägen."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in der vorliegenden Form nicht funktionsfähig (Syntaxfehler, NOT-NULL-Verstöße, fehlerhafte Change-Erkennung, fehlendes Umschalten von IS_CURRENT). Für eine korrekte SCD-Typ-2-Implementierung: (1) UPDATE korrekt formulieren und alte Zeilen mit VALID_TO = COALESCE(CHANGE_TS, CURRENT_TIMESTAMP) sowie IS_CURRENT = FALSE schließen. (2) Neue Zeilen nur bei echten Änderungen oder neuen Kunden einfügen; null-sichere Vergleiche (IS DISTINCT FROM) verwenden. (3) VALID_TO-Strategie klären: NULL zulassen oder Sentinel-Datum; Datentypen konsistent (bevorzugt TIMESTAMP). (4) Atomar mit MERGE abbilden und geeignete Indexe setzen. So bleibt das fachliche Ergebnis unverändert, die Ausführung wird korrekt und performanter.",
+    "_source_file": "case9.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 155.233,
+    "_response_char_count": 4378
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 10 Hauptdurchlauf},label={gpt_case10_prompt1}]
+{
+    "transformation_understanding": "Pro Claim wird ein Reservebetrag berechnet als: min(LOB-spezifische Reserveobergrenze, max(0, min(Cover-Limit, Reported - Paid))) und in CLAIM_RESERVES geschrieben. Quelle ist CLAIMS, Cap kommt aus LOB_RESERVE_CAP über LINE_OF_BUSINESS.",
+    "data_lineage": [
+        "CLAIMS.CLAIM_ID -> CLAIM_RESERVES.CLAIM_ID",
+        "CLAIMS.LINE_OF_BUSINESS -> JOIN -> LOB_RESERVE_CAP.LINE_OF_BUSINESS",
+        "CLAIMS.REPORTED_AMT, CLAIMS.PAID_AMT, CLAIMS.COVER_LIMIT_AMT, LOB_RESERVE_CAP.MAX_RESERVE_AMT -> CLAIM_RESERVES.CALC_RESERVE_AMT"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Join CLAIMS mit LOB_RESERVE_CAP über Line of Business.",
+            "formula": "FROM CLAIMS c LEFT JOIN LOB_RESERVE_CAP cap ON cap.LINE_OF_BUSINESS = c.LINE_OF_BUSINESS",
+            "improvement": "Indexe auf c.LINE_OF_BUSINESS und cap.LINE_OF_BUSINESS; korrekter Spaltenname in ON-Bedingung."
+        },
+        {
+            "step_count": 2,
+            "description": "Reported- und Paid-Betrag zu Basisbedarf verrechnen.",
+            "formula": "base_amt = (c.REPORTED_AMT - c.PAID_AMT)",
+            "improvement": "REPORTED_AMT ist CLOB: numerisch casten und Nulls behandeln, z.B. base_amt = COALESCE(TO_NUMBER(c.REPORTED_AMT),0) - COALESCE(c.PAID_AMT,0)."
+        },
+        {
+            "step_count": 3,
+            "description": "Auf Cover-Limit begrenzen.",
+            "formula": "min_cover = MIN(c.COVER_LIMIT_AMT, base_amt)",
+            "improvement": "LEAST statt MIN (Aggregat). Nulls abfangen: LEAST(COALESCE(c.COVER_LIMIT_AMT, 9.9e14), base_amt)."
+        },
+        {
+            "step_count": 4,
+            "description": "Nicht-negativ machen.",
+            "formula": "non_negative = GREATEST(0, min_cover)",
+            "improvement": "COALESCE vor GREATEST, da NULL zu NULL führt: GREATEST(0, COALESCE(min_cover,0))."
+        },
+        {
+            "step_count": 5,
+            "description": "LOB-Cap anwenden.",
+            "formula": "calc_reserve = MIN(cap.MAX_RESERVE_AMT, non_negative)",
+            "improvement": "LEAST statt MIN. Fehlenden Cap als ,unbegrenzt' behandeln: LEAST(COALESCE(cap.MAX_RESERVE_AMT, 9.9e14), non_negative)."
+        },
+        {
+            "step_count": 6,
+            "description": "Ergebnis in CLAIM_RESERVES schreiben.",
+            "formula": "INSERT INTO CLAIM_RESERVES (CLAIM_ID, CALC_RESERVE_AMT) SELECT c.CLAIM_ID, calc_reserve",
+            "improvement": "MERGE/UPSERT gegen CLAIM_ID zur Duplikatsvermeidung; NOT NULL/CHK Constraint auf CALC_RESERVE_AMT >= 0."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Der SQL-Ausdruck ist aktuell nicht lauffähig: falsche Spaltennamen (CLM_ID, LINE_BUSINESS) und falsche Verwendung von MIN als Aggregat führen ohne GROUP BY zu Fehlern. Zusätzlich ist REPORTED_AMT als CLOB arithmetisch nicht nutzbar. Korrektur (dialektneutral skizziert): SELECT c.CLAIM_ID, LEAST(COALESCE(cap.MAX_RESERVE_AMT, 9.9e14), GREATEST(0, LEAST(COALESCE(c.COVER_LIMIT_AMT, 9.9e14), COALESCE(TO_NUMBER(c.REPORTED_AMT),0) - COALESCE(c.PAID_AMT,0)))) FROM CLAIMS c LEFT JOIN LOB_RESERVE_CAP cap ON cap.LINE_OF_BUSINESS = c.LINE_OF_BUSINESS.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falsche Spaltennamen: CLM_ID (statt CLAIM_ID) und LINE_BUSINESS (statt LINE_OF_BUSINESS).",
+            "fix_suggestion": "SELECT c.CLAIM_ID ... JOIN ... ON cap.LINE_OF_BUSINESS = c.LINE_OF_BUSINESS."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "MIN als Aggregatfunktion für Skalarvergleich verwendet; kein GROUP BY vorhanden.",
+            "fix_suggestion": "LEAST für Skalar-Min verwenden und alle Aggregat-MIN entfernen; kein GROUP BY nötig."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "REPORTED_AMT ist CLOB und wird arithmetisch verwendet.",
+            "fix_suggestion": "Vor der Berechnung sicher in DECIMAL casten (z.B. TO_NUMBER/TRY_CAST) und Fehlerfälle/Non-Numeric auf 0 oder NULL mappen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Propagation in GREATEST/LEAST führt zu NULL-Reserve bei fehlenden Beträgen oder fehlendem Cap.",
+            "fix_suggestion": "COALESCE für REPORTED_AMT, PAID_AMT, COVER_LIMIT_AMT und MAX_RESERVE_AMT einsetzen; fehlenden Cap als ,unbegrenzt' interpretieren."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Wiederholtes INSERT ohne Deduplizierung kann Dubletten in CLAIM_RESERVES erzeugen.",
+            "fix_suggestion": "MERGE/UPSERT nach CLAIM_ID oder UNIQUE-Constraint auf CLAIM_RESERVES.CLAIM_ID."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Join ohne passende Indexe kann zu Full Scans führen.",
+            "fix_suggestion": "Indexe auf CLAIMS.LINE_OF_BUSINESS und LOB_RESERVE_CAP.LINE_OF_BUSINESS anlegen."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist fachlich nachvollziehbar, aber in der aktuellen Form nicht funktionsfähig. Hauptprobleme: falsche Spaltennamen und Aggregatverwendung von MIN statt LEAST; zudem Typkonflikt durch CLOB und unzureichende NULL-Behandlung. Nach Korrektur dieser Punkte funktioniert die Berechnung wie beabsichtigt. Optimieren Sie zusätzlich Casting/Null-Handling, fügen Sie einen UPSERT/Unique-Constraint für CLAIM_RESERVES hinzu und stellen Sie Indexe auf den Join-Spalten bereit.",
+    "_source_file": "case10.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 174.621,
+    "_response_char_count": 5142
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 10 Konsistenzdurchlauf},label={gpt_case10_prompt2}]
+{
+    "transformation_understanding": "Je Claim wird eine Reserve berechnet: Basis = max(0, min(COVER_LIMIT_AMT, REPORTED_AMT - PAID_AMT)); anschließend wird diese Basis durch den LOB-spezifischen Cap (MAX_RESERVE_AMT) begrenzt. Ergebnis wird mit CLAIM_ID in CLAIM_RESERVES geladen.",
+    "data_lineage": [
+        "CLAIMS.CLAIM_ID -> CLAIM_RESERVES.CLAIM_ID",
+        "CLAIMS.REPORTED_AMT, CLAIMS.PAID_AMT -> (REPORTED_AMT - PAID_AMT)",
+        "CLAIMS.COVER_LIMIT_AMT -> Begrenzung der Basisreserve",
+        "LOB_RESERVE_CAP.LINE_OF_BUSINESS = CLAIMS.LINE_OF_BUSINESS -> Join zur Cap-Ermittlung",
+        "LOB_RESERVE_CAP.MAX_RESERVE_AMT -> Deckelung der Reserve",
+        "Berechnetes Resultat -> CLAIM_RESERVES.CALC_RESERVE_AMT"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Mapping der Claim-ID für den Zieldatensatz",
+            "formula": "c.CLAIM_ID -> CLAIM_RESERVES.CLAIM_ID",
+            "improvement": "Spaltenname im SELECT als c.CLAIM_ID referenzieren (statt CLM_ID)."
+        },
+        {
+            "step_count": 2,
+            "description": "Join CLAIMS zu LOB_RESERVE_CAP über Sparte",
+            "formula": "LEFT JOIN LOB_RESERVE_CAP cap ON cap.LINE_OF_BUSINESS = c.LINE_OF_BUSINESS",
+            "improvement": "Korrekte Spaltennamen nutzen; Indexe auf beiden LINE_OF_BUSINESS-Spalten."
+        },
+        {
+            "step_count": 3,
+            "description": "Ermittlung des gemeldet-minus-gezahlt Betrags",
+            "formula": "CAST(c.REPORTED_AMT AS DECIMAL(16,2)) - COALESCE(c.PAID_AMT, 0)",
+            "improvement": "Explizites CAST von CLOB auf DECIMAL; Eingabewerte vor CAST validieren/bereinigen."
+        },
+        {
+            "step_count": 4,
+            "description": "Berechnung Basisreserve (nicht negativ, max. bis Deckungslimit)",
+            "formula": "GREATEST(0, LEAST(c.COVER_LIMIT_AMT, (CAST(c.REPORTED_AMT AS DECIMAL(16,2)) - COALESCE(c.PAID_AMT,0))))",
+            "improvement": "Optional: COALESCE auf COVER_LIMIT_AMT, falls NULL logisch 0 sein soll."
+        },
+        {
+            "step_count": 5,
+            "description": "Anwendung des LOB-Caps auf die Basisreserve",
+            "formula": "LEAST(cap.MAX_RESERVE_AMT, Basisreserve)",
+            "improvement": "LEAST statt MIN verwenden; Typangleichung auf DECIMAL(16,2) sicherstellen."
+        },
+        {
+            "step_count": 6,
+            "description": "Insert in Zieltabelle",
+            "formula": "INSERT INTO CLAIM_RESERVES (CLAIM_ID, CALC_RESERVE_AMT) SELECT ...",
+            "improvement": "Idempotenz via MERGE/UPSERT oder WHERE NOT EXISTS sicherstellen; Unique-Index auf CLAIM_RESERVES.CLAIM_ID."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die aktuelle SQL ist nicht ausführbar: 1) Falsche Spaltennamen (CLM_ID, cap.LINE_BUSINESS). 2) MIN wird als 2-Argument-Funktion benutzt; dies ist ein Aggregat und erfordert GROUP BY bzw. LEAST. 3) Arithmetik mit CLOB (REPORTED_AMT) verursacht Typfehler; CAST nötig. 4) NULL-Propagation in GREATEST/LEAST kann zu NULL-Reserven führen. Korrigierte Kernformel je Claim: LEAST(cap.MAX_RESERVE_AMT, GREATEST(0, LEAST(c.COVER_LIMIT_AMT, (CAST(c.REPORTED_AMT AS DECIMAL(16,2)) - COALESCE(c.PAID_AMT,0))))) mit korrektem Join auf LINE_OF_BUSINESS.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falsche Spaltenreferenzen: CLM_ID existiert nicht (CLAIMS.CLAIM_ID), cap.LINE_BUSINESS existiert nicht (LOB_RESERVE_CAP.LINE_OF_BUSINESS).",
+            "fix_suggestion": "SELECT c.CLAIM_ID; JOIN ON cap.LINE_OF_BUSINESS = c.LINE_OF_BUSINESS."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "MIN als 2-Argument-Funktion verwendet; kollidiert mit Aggregatsemantik und fehlt GROUP BY.",
+            "fix_suggestion": "MIN(...) durch LEAST(...) ersetzen; auch inneres MIN(...) zu LEAST(...)."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Arithmetik mit CLOB (REPORTED_AMT - PAID_AMT) führt zu Typfehlern bzw. teuren impliziten Konvertierungen.",
+            "fix_suggestion": "REPORTED_AMT vorab validieren/bereinigen und explizit CAST(c.REPORTED_AMT AS DECIMAL(16,2)) verwenden."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Propagation: LEAST/GREATEST liefern NULL, wenn ein Operand NULL ist (z. B. kein Cap, NULL in Beträgen).",
+            "fix_suggestion": "Geschäftsregel klären; falls nicht gewünscht: COALESCE in den Operanden bzw. CASE für fehlenden Cap anwenden."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Join-Kardinalität: Mehrere Cap-Zeilen pro LINE_OF_BUSINESS erzeugen Duplikate und Mehrfachinserts.",
+            "fix_suggestion": "Eindeutigkeit in LOB_RESERVE_CAP sicherstellen (UNIQUE auf LINE_OF_BUSINESS) oder per ROW_NUMBER() genau eine Zeile wählen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Nicht-idempotentes INSERT kann bei Wiederholungen Duplikate in CLAIM_RESERVES erzeugen.",
+            "fix_suggestion": "MERGE/UPSERT verwenden oder WHERE NOT EXISTS; UNIQUE/PK auf CLAIM_RESERVES.CLAIM_ID."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Performance: Join ohne passende Indexe; teure CAST-Operationen auf CLOB in der Abfrage.",
+            "fix_suggestion": "Indexe auf CLAIMS.LINE_OF_BUSINESS und LOB_RESERVE_CAP.LINE_OF_BUSINESS; REPORTED_AMT als NUMERIC statt CLOB speichern."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist aktuell nicht funktionsfähig (kritische Syntax-/Typfehler). Nach Korrektur der Spaltennamen, Ersatz von MIN durch LEAST, explizitem CAST von REPORTED_AMT sowie Prüfung von NULL- und Kardinalitätsfällen ist die Berechnung fachlich konsistent: Reserve = min(LOB-Cap, max(0, min(Cover-Limit, Reported - Paid))). Für Stabilität und Performance zusätzlich Idempotenz (MERGE/UPSERT), Eindeutigkeit in LOB_RESERVE_CAP sowie geeignete Indexe umsetzen.",
+    "_source_file": "case10.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 142.448,
+    "_response_char_count": 6432
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 10 Robustheitsdurchlauf},label={gpt_case10_prompt3}]
+{
+    "transformation_understanding": "Für jeden Schadenfall (CLAIM) wird eine Reserve berechnet: (gemeldeter Betrag minus gezahlter Betrag) wird zunächst auf das Deckungslimit begrenzt, anschließend auf mindestens 0 geclamped und schließlich durch einen LOB-spezifischen Reserve-Cap begrenzt. Das Ergebnis wird als CALC_RESERVE_AMT in CLAIM_RESERVES pro CLAIM_ID gespeichert. CLAIMS wird per LINE_OF_BUSINESS mit LOB_RESERVE_CAP verknüpft.",
+    "data_lineage": [
+        "CLAIMS.CLAIM_ID -> CLAIM_RESERVES.CLAIM_ID",
+        "CLAIMS.REPORTED_AMT, CLAIMS.PAID_AMT -> (REPORTED_NUM - PAID_AMT) = UNPAID_AMT",
+        "UNPAID_AMT, CLAIMS.COVER_LIMIT_AMT -> LIMITED_BY_COVER",
+        "LIMITED_BY_COVER, LOB_RESERVE_CAP.MAX_RESERVE_AMT -> CLAIM_RESERVES.CALC_RESERVE_AMT",
+        "CLAIMS.LINE_OF_BUSINESS == LOB_RESERVE_CAP.LINE_OF_BUSINESS (Join-Schlüssel)"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "LEFT JOIN der CLAIMS mit LOB_RESERVE_CAP über die Sparte (LOB).",
+            "formula": "FROM CLAIMS c LEFT JOIN LOB_RESERVE_CAP cap ON cap.LINE_OF_BUSINESS = c.LINE_OF_BUSINESS",
+            "improvement": "Sicherstellen, dass LOB_RESERVE_CAP.LINE_OF_BUSINESS eindeutig ist (Unique-Key) und beide Join-Spalten indiziert sind."
+        },
+        {
+            "step_count": 2,
+            "description": "Parsing/Cast des gemeldeten Betrags von CLOB zu numerisch.",
+            "formula": "REPORTED_NUM = CAST(c.REPORTED_AMT AS DECIMAL(16,2))",
+            "improvement": "Robustes Parsing: z. B. TRIM/REPLACE nicht numerischer Zeichen; in Oracle TO_NUMBER verwenden. Optional: persistierte berechnete Spalte für Performance."
+        },
+        {
+            "step_count": 3,
+            "description": "Berechnung des offenen Betrags (gemeldet minus gezahlt) mit Nullbehandlung.",
+            "formula": "UNPAID_AMT = COALESCE(REPORTED_NUM, 0) - COALESCE(c.PAID_AMT, 0)",
+            "improvement": "Validierungen/Constraints, dass REPORTED_NUM und PAID_AMT nicht negativ und im gültigen Zahlenbereich liegen."
+        },
+        {
+            "step_count": 4,
+            "description": "Begrenzung durch Deckungslimit.",
+            "formula": "LIMITED_BY_COVER = LEAST(COALESCE(c.COVER_LIMIT_AMT, 999999999999.99), UNPAID_AMT)",
+            "improvement": "Geschäftsregel prüfen: Falls COVER_LIMIT_AMT NULL, unlimitiert zulassen (große Konstante) oder NULL explizit behandeln."
+        },
+        {
+            "step_count": 5,
+            "description": "Nicht-negative Untergrenze anwenden.",
+            "formula": "NON_NEG = GREATEST(0, LIMITED_BY_COVER)",
+            "improvement": "Optional: negative Zwischenergebnisse protokollieren, um Datenqualitätsprobleme zu erkennen."
+        },
+        {
+            "step_count": 6,
+            "description": "Begrenzung durch LOB-Reserve-Cap.",
+            "formula": "RESERVE = LEAST(COALESCE(cap.MAX_RESERVE_AMT, 999999999999.99), NON_NEG)",
+            "improvement": "Fallback bei fehlendem Cap klar definieren (z. B. unbegrenzt vs. Prozessfehler)."
+        },
+        {
+            "step_count": 7,
+            "description": "Insert ins Ziel.",
+            "formula": "INSERT INTO CLAIM_RESERVES (CLAIM_ID, CALC_RESERVE_AMT) SELECT c.CLAIM_ID, CAST(RESERVE AS DECIMAL(16,2))",
+            "improvement": "MERGE/UPSERT statt INSERT-only, um Dubletten zu vermeiden; Zielspalten mit passenden Constraints/Indizes versehen."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die beabsichtigte Formel ist: Reserve = LEAST(LOB-Cap, GREATEST(0, LEAST(Cover-Limit, Reported - Paid))). Die gegebene SQL ist jedoch fehlerhaft: 1) Falsche Spaltennamen (CLM_ID, LINE_BUSINESS). 2) MIN(...) wird als Aggregat statt als LEAST(...) verwendet. 3) REPORTED_AMT ist CLOB und wird ohne Typkonvertierung arithmetisch genutzt. 4) NULL-Werte führen in GREATEST/LEAST zu NULL-Resultaten. Korrigierter Ausdruck (dialektunabhängig skizziert): SELECT c.CLAIM_ID, CAST(LEAST(COALESCE(cap.MAX_RESERVE_AMT, 999999999999.99), GREATEST(0, LEAST(COALESCE(c.COVER_LIMIT_AMT, 999999999999.99), COALESCE(CAST(c.REPORTED_AMT AS DECIMAL(16,2)),0) - COALESCE(c.PAID_AMT,0)))) AS DECIMAL(16,2)).",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falsche Spaltenbezeichnungen: CLM_ID statt CLAIM_ID; cap.LINE_BUSINESS statt LINE_OF_BUSINESS.",
+            "fix_suggestion": "Spalten korrekt referenzieren: SELECT c.CLAIM_ID ... ON cap.LINE_OF_BUSINESS = c.LINE_OF_BUSINESS."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Verwendung von MIN(...) als Skalarfunktion; führt zu Syntax-/Semantikfehlern (Aggregat ohne GROUP BY).",
+            "fix_suggestion": "LEAST(...) anstelle von MIN(...) verwenden; in SQL Server via CASE-Ausdrücke emulieren."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Arithmetik mit CLOB (REPORTED_AMT) ohne Konvertierung.",
+            "fix_suggestion": "REPORTED_AMT robust in DECIMAL casten/parsen (z. B. TO_NUMBER/TRY_CAST), nicht-numerische Werte bereinigen/ablehnen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "NULL-Propagation in LEAST/GREATEST und Subtraktion führt zu NULL-Reserven.",
+            "fix_suggestion": "COALESCE/NVL einsetzen (z. B. COALESCE(PAID_AMT,0); Fallbacks für fehlende Limits/Caps definieren)."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "INSERT ohne Dublettensteuerung; bei mehrfachen Runs oder mehrfachen Cap-Zeilen pro LOB entstehen doppelte Zielzeilen.",
+            "fix_suggestion": "MERGE/UPSERT verwenden oder UNIQUE-Constraint auf CLAIM_RESERVES.CLAIM_ID; Cap-Tabelle auf Eindeutigkeit absichern."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Join-Duplikate bei mehrfachen MAX_RESERVE_AMT je LINE_OF_BUSINESS.",
+            "fix_suggestion": "Unique-Constraint/Index auf LOB_RESERVE_CAP.LINE_OF_BUSINESS oder vorab Aggregation (MAX) pro LOB."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Performance: teure CAST/Parsing-Operation auf CLOB pro Zeile; fehlende Indizes auf Join-Spalten.",
+            "fix_suggestion": "Persistierte numerische Spalte für REPORTED_AMT einführen oder ETL-Vorstufe; Indizes auf CLAIMS.LINE_OF_BUSINESS und LOB_RESERVE_CAP.LINE_OF_BUSINESS."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in der vorliegenden SQL-Fassung nicht funktionsfähig (falsche Spaltennamen, falsche Verwendung von MIN, Datentypkonflikt mit CLOB). Fachlich ist die Logik schlüssig: Reserve = min(LOB-Cap, max(0, min(Deckungslimit, gemeldet - gezahlt))). Umsetzbar wird er mit: korrekten Spaltenreferenzen; LEAST/GREATEST (bzw. CASE-Äquivalent); robuster numerischer Konvertierung von REPORTED_AMT und konsequenter NULL-Behandlung; sowie einem MERGE/UPSERT zur Dublettenvermeidung. Performance lässt sich durch Indizes auf den Join-Spalten und die Vermeidung von Row-by-Row-Casts (z. B. Vorstaging oder persistierte berechnete Spalte) verbessern. Mit diesen Anpassungen ist der Prozess stabil und performant, ohne das fachliche Ergebnis zu ändern.",
+    "_source_file": "case10.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 135.948,
+    "_response_char_count": 5123
+}
+\end{lstlisting}
+
