@@ -1,20 +1,20 @@
 {
     "gemini-2.5-pro": {
-        "average_char_count": 3405.0,
+        "average_char_count": 4556.33,
         "average_duration_seconds": 30.253,
-        "chars_per_second": 112.551,
+        "chars_per_second": 150.605,
         "num_answers": 30
     },
     "claude-sonnet-4-20250514": {
-        "average_char_count": 3108.0,
+        "average_char_count": 3433.87,
         "average_duration_seconds": 17.342,
-        "chars_per_second": 179.218,
+        "chars_per_second": 198.009,
         "num_answers": 30
     },
     "gpt-5-2025-08-07": {
-        "average_char_count": 4867.0,
+        "average_char_count": 5912.43,
         "average_duration_seconds": 49.872,
-        "chars_per_second": 97.77,
+        "chars_per_second": 118.552,
         "num_answers": 30
     }
 }
