@@ -5,7 +5,7 @@ import unicodedata
 # Mapping für Modelle (Langname → Kurzform)
 MODEL_MAP = {
     "GPT-5": ("GPT-5", "gpt"),
-    "GEMINI-2.5-PRO": ("GEMINI 2.5 Pro", "gemini"),
+    "GEMINI-2.5-PRO": ("Gemini 2.5 Pro", "gemini"),
     "CLAUDE-SONNET-4": ("Claude Sonnet 4", "claude"),
 }
 
@@ -78,20 +78,24 @@ def process_directory(base_dir: str):
             # Sanitize JSON content for LaTeX
             json_content = sanitize_text(json_content)
 
+            subsubcaption = f"Ausgabe von {model_name} Anwendungsfall {case_number} {prompt_label}"
+            subsublabel = f"{model_short}_case{case_number}_{prompt_short}"
             caption = f"Ausgabe: {model_name} Anwendungsfall {case_number} {prompt_label}"
             label = f"{model_short}_case{case_number}_{prompt_short}"
 
-            entries.append((case_number, prompt_order, caption, label, json_content))
+            # Store all relevant info per entry
+            entries.append((case_number, prompt_order, subsubcaption, subsublabel, caption, label, json_content))
 
         # Sortieren nach Case, dann Prompt-Reihenfolge
         entries.sort(key=lambda x: (x[0], x[1]))
 
         # Schreiben
         with open(output_path, "w", encoding="utf-8") as out_file:
-            for case_number, prompt_order, caption, label, json_content in entries:
+            for case_number, prompt_order, subsubcaption, subsublabel, caption, label, json_content in entries:
                 out_file.write(
-                    f"\\begin{{lstlisting}}[caption={{{caption}}},label={{{label}}}]\n"
+                    f"\\subsubsection{{{subsubcaption}}}\\label{{anhang:subsubsec:{subsublabel}}}\n"
                 )
+                out_file.write(f"\\begin{{lstlisting}}[caption={{{caption}}},label={{{label}}}]\n")
                 out_file.write(json_content + "\n")
                 out_file.write("\\end{lstlisting}\n\n")
 

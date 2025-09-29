@@ -26,5 +26,5 @@ def average_chars_in_jsons(folder_path: str):
     print(f"Durchschnitt pro Datei: {average:.2f}")
 
 if __name__ == "__main__":
-    ordner = "outputs/final_experiment/claude-sonnet-4"  # Pfad hier anpassen
+    ordner = "outputs/final_experiment/gemini-2.5-pro"  # Pfad hier anpassen
     average_chars_in_jsons(ordner)

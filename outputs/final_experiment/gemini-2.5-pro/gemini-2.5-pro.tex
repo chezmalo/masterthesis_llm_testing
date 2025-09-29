@@ -1,4 +1,5 @@
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 1 Hauptdurchlauf},label={gemini_case1_prompt1}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 1 Hauptdurchlauf}\label{anhang:subsubsec:gemini_case1_prompt1}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 1 Hauptdurchlauf},label={gemini_case1_prompt1}]
 {
     "transformation_understanding": "Der ETL-Prozess aggregiert Transaktionsdaten aus der Tabelle 'TRANSACTIONS' auf monatlicher Basis pro Kunde. Die Summe der Transaktionsbeträge wird berechnet und zusammen mit der Kunden-ID sowie dem extrahierten Jahr und Monat in die Zieltabelle 'TARGET_AGG_MONTH' geladen.",
     "data_lineage": [
@@ -66,7 +67,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 1 Konsistenzdurchlauf},label={gemini_case1_prompt2}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 1 Konsistenzdurchlauf}\label{anhang:subsubsec:gemini_case1_prompt2}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 1 Konsistenzdurchlauf},label={gemini_case1_prompt2}]
 {
     "transformation_understanding": "Der ETL-Prozess aggregiert Transaktionsdaten aus der Tabelle 'TRANSACTIONS' auf monatlicher Basis pro Kunde. Die Ergebnisse, bestehend aus Kunden-ID, Jahr, Monat und der Summe der Transaktionsbeträge, werden in die Zieltabelle 'TARGET_AGG_MONTH' geladen.",
     "data_lineage": [
@@ -128,7 +130,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 1 Robustheitsdurchlauf},label={gemini_case1_prompt3}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 1 Robustheitsdurchlauf}\label{anhang:subsubsec:gemini_case1_prompt3}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 1 Robustheitsdurchlauf},label={gemini_case1_prompt3}]
 {
     "transformation_understanding": "Der ETL-Prozess aggregiert Transaktionsdaten aus der Tabelle 'TRANSACTIONS'. Ziel ist es, die Summe der Transaktionsbeträge ('AMOUNT_EUR') pro Kunde, Jahr und Monat zu berechnen und das Ergebnis in die Zieltabelle 'TARGET_AGG_MONTH' zu schreiben.",
     "data_lineage": [
@@ -190,7 +193,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 2 Hauptdurchlauf},label={gemini_case2_prompt1}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 2 Hauptdurchlauf}\label{anhang:subsubsec:gemini_case2_prompt1}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 2 Hauptdurchlauf},label={gemini_case2_prompt1}]
 {
     "transformation_understanding": "Der ETL-Prozess dedupliziert Kundendaten aus der Staging-Tabelle 'CUSTOMER_STAGING'. Mittels einer Fensterfunktion wird für jede 'CUSTOMER_ID' der Datensatz mit dem jüngsten 'UPDATED_AT'-Zeitstempel identifiziert und in die Zieltabelle 'CUSTOMER_DEDUPED' geladen.",
     "data_lineage": [
@@ -243,7 +247,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 2 Konsistenzdurchlauf},label={gemini_case2_prompt2}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 2 Konsistenzdurchlauf}\label{anhang:subsubsec:gemini_case2_prompt2}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 2 Konsistenzdurchlauf},label={gemini_case2_prompt2}]
 {
     "transformation_understanding": "Der ETL-Prozess dedupliziert Kundendaten aus der Tabelle 'CUSTOMER_STAGING'. Mittels einer Fensterfunktion wird für jede 'CUSTOMER_ID' der Datensatz mit dem jüngsten 'UPDATED_AT'-Zeitstempel identifiziert und in die Zieltabelle 'CUSTOMER_DEDUPED' geladen.",
     "data_lineage": [
@@ -296,7 +301,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 2 Robustheitsdurchlauf},label={gemini_case2_prompt3}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 2 Robustheitsdurchlauf}\label{anhang:subsubsec:gemini_case2_prompt3}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 2 Robustheitsdurchlauf},label={gemini_case2_prompt3}]
 {
     "transformation_understanding": "Der ETL-Prozess dient der Deduplizierung von Kundendaten. Aus der Staging-Tabelle `CUSTOMER_STAGING` wird für jede `CUSTOMER_ID` der jeweils aktuellste Datensatz basierend auf dem `UPDATED_AT`-Zeitstempel ermittelt und in die Zieltabelle `CUSTOMER_DEDUPED` geladen. Die Identifizierung des aktuellsten Datensatzes erfolgt mittels der Fensterfunktion `RANK()`.",
     "data_lineage": [
@@ -357,7 +363,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 3 Hauptdurchlauf},label={gemini_case3_prompt1}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 3 Hauptdurchlauf}\label{anhang:subsubsec:gemini_case3_prompt1}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 3 Hauptdurchlauf},label={gemini_case3_prompt1}]
 {
     "transformation_understanding": "Der ETL-Prozess lädt Rohdaten aus der Tabelle CONTACTS_RAW, transformiert die Telefonnummern aus dem Feld PHONE_RAW in das E.164-Format und speichert das Ergebnis zusammen mit der Kunden-ID in der Tabelle CONTACTS_CLEAN. Die Transformation beinhaltet das Entfernen von nicht-numerischen Zeichen und die Anwendung von bedingten Formatierungsregeln, um internationale und nationale Präfixe zu standardisieren.",
     "data_lineage": [
@@ -422,7 +429,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 3 Konsistenzdurchlauf},label={gemini_case3_prompt2}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 3 Konsistenzdurchlauf}\label{anhang:subsubsec:gemini_case3_prompt2}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 3 Konsistenzdurchlauf},label={gemini_case3_prompt2}]
 {
     "transformation_understanding": "Der ETL-Prozess transferiert und transformiert Kontaktdaten aus einer Roh-Tabelle (CONTACTS_RAW) in eine bereinigte Zieltabelle (CONTACTS_CLEAN). Dabei wird die Kunden-ID direkt übernommen und die Telefonnummer (PHONE_RAW) durch Entfernen von Nicht-Ziffern und Anwendung einer Logik zur Normalisierung von Ländervorwahlen in das E.164-Format (PHONE_E164) überführt.",
     "data_lineage": [
@@ -475,7 +483,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 3 Robustheitsdurchlauf},label={gemini_case3_prompt3}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 3 Robustheitsdurchlauf}\label{anhang:subsubsec:gemini_case3_prompt3}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 3 Robustheitsdurchlauf},label={gemini_case3_prompt3}]
 {
     "transformation_understanding": "Der ETL-Prozess transferiert Daten aus der Quelltabelle CONTACTS_RAW in die Zieltabelle CONTACTS_CLEAN. Dabei wird die Spalte CUSTOMER_ID übernommen und die Roh-Telefonnummer aus PHONE_RAW in das E.164-Format konvertiert. Die Transformation der Telefonnummer erfolgt durch eine CASE-Anweisung, die basierend auf den Präfixen der bereinigten Nummer ('00', '0') unterschiedliche Formatierungsregeln anwendet.",
     "data_lineage": [
@@ -533,7 +542,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 4 Hauptdurchlauf},label={gemini_case4_prompt1}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 4 Hauptdurchlauf}\label{anhang:subsubsec:gemini_case4_prompt1}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 4 Hauptdurchlauf},label={gemini_case4_prompt1}]
 {
     "transformation_understanding": "Der ETL-Prozess reichert Zahlungsdaten aus der Tabelle PAYMENTS mit Euro-Wechselkursen aus FX_RATES an. Die Umrechnung erfolgt auf Basis von Währung und Datum. Das Ergebnis wird in die Tabelle PAYMENTS_EUR geladen.",
     "data_lineage": [
@@ -583,7 +593,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 4 Konsistenzdurchlauf},label={gemini_case4_prompt2}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 4 Konsistenzdurchlauf}\label{anhang:subsubsec:gemini_case4_prompt2}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 4 Konsistenzdurchlauf},label={gemini_case4_prompt2}]
 {
     "transformation_understanding": "Der ETL-Prozess konvertiert Zahlungsbeträge aus der Tabelle PAYMENTS in Euro. Dazu werden die Zahlungen über Währung und Datum mit den täglichen Wechselkursen aus der Tabelle FX_RATES verknüpft. Das Ergebnis der Umrechnung wird in die Zieltabelle PAYMENTS_EUR geschrieben.",
     "data_lineage": [
@@ -638,7 +649,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 4 Robustheitsdurchlauf},label={gemini_case4_prompt3}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 4 Robustheitsdurchlauf}\label{anhang:subsubsec:gemini_case4_prompt3}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 4 Robustheitsdurchlauf},label={gemini_case4_prompt3}]
 {
     "transformation_understanding": "Der ETL-Prozess konvertiert Zahlungen aus der Tabelle PAYMENTS in die Währung EUR. Dazu werden die Zahlungsdaten mit tagesaktuellen Wechselkursen aus der Tabelle FX_RATES über die Spalten für Währung und Datum verknüpft. Das berechnete Ergebnis wird in die Zieltabelle PAYMENTS_EUR geladen.",
     "data_lineage": [
@@ -694,7 +706,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 5 Hauptdurchlauf},label={gemini_case5_prompt1}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 5 Hauptdurchlauf}\label{anhang:subsubsec:gemini_case5_prompt1}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 5 Hauptdurchlauf},label={gemini_case5_prompt1}]
 {
     "transformation_understanding": "Der ETL-Prozess reichert Brutto-Verkaufsdaten aus der Tabelle SALES_GROSS mit länderspezifischen Mehrwertsteuersätzen aus VAT_RATES an. Ziel ist die Berechnung von Netto- und Mehrwertsteuerbeträgen und deren Speicherung in der Zieltabelle SALES_NET.",
     "data_lineage": [
@@ -766,7 +779,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 5 Konsistenzdurchlauf},label={gemini_case5_prompt2}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 5 Konsistenzdurchlauf}\label{anhang:subsubsec:gemini_case5_prompt2}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 5 Konsistenzdurchlauf},label={gemini_case5_prompt2}]
 {
     "transformation_understanding": "Der ETL-Prozess berechnet Netto- und Mehrwertsteuerbeträge aus Bruttoumsätzen. Dazu werden die Tabellen SALES_GROSS (Bruttoumsätze) und VAT_RATES (Mehrwertsteuersätze) über den Ländercode verknüpft und die Ergebnisse in die Zieltabelle SALES_NET geladen.",
     "data_lineage": [
@@ -832,7 +846,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 5 Robustheitsdurchlauf},label={gemini_case5_prompt3}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 5 Robustheitsdurchlauf}\label{anhang:subsubsec:gemini_case5_prompt3}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 5 Robustheitsdurchlauf},label={gemini_case5_prompt3}]
 {
     "transformation_understanding": "Der ETL-Prozess soll aus Brutto-Verkaufsdaten die Netto- und Mehrwertsteuerbeträge berechnen. Hierzu werden die Tabellen SALES_GROSS und VAT_RATES über den Ländercode verknüpft, um den jeweiligen Mehrwertsteuersatz zu ermitteln. Die berechneten Werte werden anschließend in die Zieltabelle SALES_NET eingefügt.",
     "data_lineage": [
@@ -909,7 +924,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 6 Hauptdurchlauf},label={gemini_case6_prompt1}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 6 Hauptdurchlauf}\label{anhang:subsubsec:gemini_case6_prompt1}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 6 Hauptdurchlauf},label={gemini_case6_prompt1}]
 {
     "transformation_understanding": "Der ETL-Prozess reichert Produktdaten aus 'PRODUCTS_RAW' mit Zielkategorien aus der Mapping-Tabelle 'CATEGORY_MAPPING' an. Das Ergebnis, bestehend aus Produkt-ID und zugeordneter Zielkategorie, wird in die normalisierte Tabelle 'PRODUCTS_NORM' geladen. Fehlende Mappings werden durch einen leeren String ersetzt, um die NOT-NULL-Beschränkung der Zieltabelle zu erfüllen.",
     "data_lineage": [
@@ -962,7 +978,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 6 Konsistenzdurchlauf},label={gemini_case6_prompt2}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 6 Konsistenzdurchlauf}\label{anhang:subsubsec:gemini_case6_prompt2}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 6 Konsistenzdurchlauf},label={gemini_case6_prompt2}]
 {
     "transformation_understanding": "Der ETL-Prozess reichert Roh-Produktdaten aus `PRODUCTS_RAW` mit Zielkategorien aus der Mapping-Tabelle `CATEGORY_MAPPING` an und lädt das Ergebnis in die normalisierte Tabelle `PRODUCTS_NORM`. Produkte ohne zugeordnete Kategorie erhalten einen leeren String als Standardwert.",
     "data_lineage": [
@@ -1015,7 +1032,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 6 Robustheitsdurchlauf},label={gemini_case6_prompt3}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 6 Robustheitsdurchlauf}\label{anhang:subsubsec:gemini_case6_prompt3}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 6 Robustheitsdurchlauf},label={gemini_case6_prompt3}]
 {
     "transformation_understanding": "Der ETL-Prozess reichert Produktdaten aus der Quelltabelle 'PRODUCTS_RAW' mit Zielkategorien aus der Mapping-Tabelle 'CATEGORY_MAPPING' an. Das Ergebnis wird in die normalisierte Zieltabelle 'PRODUCTS_NORM' geladen. Ein LEFT JOIN stellt sicher, dass alle Produkte aus der Quelle verarbeitet werden. Für Produkte ohne zugeordnete Kategorie wird mittels COALESCE ein Standardwert (leerer String) gesetzt.",
     "data_lineage": [
@@ -1079,7 +1097,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 7 Hauptdurchlauf},label={gemini_case7_prompt1}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 7 Hauptdurchlauf}\label{anhang:subsubsec:gemini_case7_prompt1}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 7 Hauptdurchlauf},label={gemini_case7_prompt1}]
 {
     "transformation_understanding": "Der Prozess aggregiert Daten aus der Tabelle TRANSACTIONS pro Kunde. Für jeden Kunden werden die ID, das Datum der ersten Transaktion und ein Inaktivitäts-Flag berechnet. Das Ergebnis wird in die Tabelle CUSTOMER_CHURN eingefügt.",
     "data_lineage": [
@@ -1139,7 +1158,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 7 Konsistenzdurchlauf},label={gemini_case7_prompt2}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 7 Konsistenzdurchlauf}\label{anhang:subsubsec:gemini_case7_prompt2}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 7 Konsistenzdurchlauf},label={gemini_case7_prompt2}]
 {
     "transformation_understanding": "Der ETL-Prozess aggregiert Daten aus der Tabelle 'TRANSACTIONS' auf Kundenebene. Für jeden Kunden wird das Datum der ersten Transaktion ermittelt und basierend darauf ein Inaktivitäts-Flag abgeleitet. Das Ergebnis wird in die Tabelle 'CUSTOMER_CHURN' geladen.",
     "data_lineage": [
@@ -1194,7 +1214,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 7 Robustheitsdurchlauf},label={gemini_case7_prompt3}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 7 Robustheitsdurchlauf}\label{anhang:subsubsec:gemini_case7_prompt3}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 7 Robustheitsdurchlauf},label={gemini_case7_prompt3}]
 {
     "transformation_understanding": "Der ETL-Prozess aggregiert Daten aus der Tabelle 'TRANSACTIONS' für jeden Kunden. Ziel ist es, das Datum der ersten Transaktion zu ermitteln und basierend darauf einen Inaktivitätsstatus abzuleiten. Die aggregierten Ergebnisse, bestehend aus Kunden-ID, Transaktionsdatum und Inaktivitätsstatus, werden in die Zieltabelle 'CUSTOMER_CHURN' eingefügt.",
     "data_lineage": [
@@ -1254,7 +1275,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 8 Hauptdurchlauf},label={gemini_case8_prompt1}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 8 Hauptdurchlauf}\label{anhang:subsubsec:gemini_case8_prompt1}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 8 Hauptdurchlauf},label={gemini_case8_prompt1}]
 {
     "transformation_understanding": "Der ETL-Prozess berechnet eine rollierende Summe der Umsätze pro Kunde aus der Tabelle SALES_MONTHLY und fügt die Ergebnisse in die Tabelle SALES_ROLLING3M ein. Die Berechnung erfolgt über ein Fenster, das den aktuellen und die drei vorangegangenen Monate umfasst.",
     "data_lineage": [
@@ -1303,7 +1325,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 8 Konsistenzdurchlauf},label={gemini_case8_prompt2}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 8 Konsistenzdurchlauf}\label{anhang:subsubsec:gemini_case8_prompt2}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 8 Konsistenzdurchlauf},label={gemini_case8_prompt2}]
 {
     "transformation_understanding": "Der ETL-Prozess berechnet eine rollierende Summe der Umsätze pro Kunde aus der Tabelle SALES_MONTHLY und schreibt das Ergebnis in die Tabelle SALES_ROLLING3M. Die Berechnung erfolgt mittels einer Fensterfunktion.",
     "data_lineage": [
@@ -1358,7 +1381,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 8 Robustheitsdurchlauf},label={gemini_case8_prompt3}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 8 Robustheitsdurchlauf}\label{anhang:subsubsec:gemini_case8_prompt3}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 8 Robustheitsdurchlauf},label={gemini_case8_prompt3}]
 {
     "transformation_understanding": "Der ETL-Prozess aggregiert monatliche Umsatzdaten aus der Tabelle 'SALES_MONTHLY', um für jeden Kunden einen gleitenden 3-Monats-Durchschnitt zu berechnen. Das Ergebnis wird in die Zieltabelle 'SALES_ROLLING3M' geschrieben. Die Berechnung erfolgt mittels einer SQL-Fensterfunktion, die die Daten pro Kunde partitioniert und über einen definierten Zeitrahmen summiert.",
     "data_lineage": [
@@ -1425,7 +1449,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 9 Hauptdurchlauf},label={gemini_case9_prompt1}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 9 Hauptdurchlauf}\label{anhang:subsubsec:gemini_case9_prompt1}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 9 Hauptdurchlauf},label={gemini_case9_prompt1}]
 {
     "transformation_understanding": "Der ETL-Prozess implementiert eine Slowly Changing Dimension (SCD) Type 2 Logik für Kundenadressen. In einem ersten Schritt werden bestehende, aktive Datensätze historisiert, falls eine Änderung in der Staging-Tabelle erkannt wird. Im zweiten Schritt werden neue Kunden oder die geänderten Adressdaten als neuer, aktuell gültiger Datensatz in die Dimensionstabelle eingefügt.",
     "data_lineage": [
@@ -1477,7 +1502,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 9 Konsistenzdurchlauf},label={gemini_case9_prompt2}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 9 Konsistenzdurchlauf}\label{anhang:subsubsec:gemini_case9_prompt2}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 9 Konsistenzdurchlauf},label={gemini_case9_prompt2}]
 {
     "transformation_understanding": "Der ETL-Prozess zielt darauf ab, eine Slowly Changing Dimension (SCD) Typ 2 für Kundenadressen zu implementieren. In einem ersten Schritt sollen bestehende, als aktuell markierte Datensätze in der Zieltabelle 'DIM_CUSTOMER_ADDRESS' historisiert werden, wenn sich Daten in der Staging-Tabelle 'CUSTOMER_ADDRESS_STG' geändert haben. Im zweiten Schritt werden neue oder geänderte Datensätze aus der Staging-Tabelle in die Zieltabelle eingefügt.",
     "data_lineage": [
@@ -1534,7 +1560,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 9 Robustheitsdurchlauf},label={gemini_case9_prompt3}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 9 Robustheitsdurchlauf}\label{anhang:subsubsec:gemini_case9_prompt3}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 9 Robustheitsdurchlauf},label={gemini_case9_prompt3}]
 {
     "transformation_understanding": "Der ETL-Prozess implementiert eine Slowly Changing Dimension (SCD) Typ 2 für Kundenadressen. In einem ersten Schritt sollen veraltete, aber aktuell gültige Einträge in der Zieltabelle 'DIM_CUSTOMER_ADDRESS' durch Setzen eines Gültigkeitsdatums historisiert werden. Im zweiten Schritt werden neue oder geänderte Adressdatensätze aus der Staging-Tabelle 'CUSTOMER_ADDRESS_STG' als neue, aktuell gültige Einträge in die Zieltabelle eingefügt.",
     "data_lineage": [
@@ -1593,7 +1620,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 10 Hauptdurchlauf},label={gemini_case10_prompt1}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 10 Hauptdurchlauf}\label{anhang:subsubsec:gemini_case10_prompt1}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 10 Hauptdurchlauf},label={gemini_case10_prompt1}]
 {
     "transformation_understanding": "Der ETL-Prozess berechnet Schadenreserven. Schadensdaten aus der Tabelle 'CLAIMS' werden mit sparten-spezifischen Obergrenzen aus 'LOB_RESERVE_CAP' verknüpft. Die Reserve wird als Differenz aus gemeldetem und gezahltem Betrag ermittelt, wobei sie durch das Deckungslimit und die Sparten-Obergrenze gedeckelt wird. Ein negativer Wert wird ausgeschlossen. Das Ergebnis wird in die Zieltabelle 'CLAIM_RESERVES' geladen.",
     "data_lineage": [
@@ -1653,7 +1681,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 10 Konsistenzdurchlauf},label={gemini_case10_prompt2}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 10 Konsistenzdurchlauf}\label{anhang:subsubsec:gemini_case10_prompt2}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 10 Konsistenzdurchlauf},label={gemini_case10_prompt2}]
 {
     "transformation_understanding": "Der Prozess berechnet Schadenrückstellungen. Für jeden Schaden wird der gemeldete Betrag um den bereits gezahlten Betrag reduziert. Dieses Ergebnis wird nach unten durch Null und nach oben durch das Deckungslimit der Police begrenzt. Abschließend wird eine spartenabhängige Obergrenze (Reserve Cap) angewendet. Die berechneten Werte werden in die Zieltabelle CLAIM_RESERVES geladen.",
     "data_lineage": [
@@ -1729,7 +1758,8 @@
 }
 \end{lstlisting}
 
-\begin{lstlisting}[caption={Ausgabe: GEMINI 2.5 Pro Anwendungsfall 10 Robustheitsdurchlauf},label={gemini_case10_prompt3}]
+\subsubsection{Ausgabe von Gemini 2.5 Pro Anwendungsfall 10 Robustheitsdurchlauf}\label{anhang:subsubsec:gemini_case10_prompt3}
+\begin{lstlisting}[caption={Ausgabe: Gemini 2.5 Pro Anwendungsfall 10 Robustheitsdurchlauf},label={gemini_case10_prompt3}]
 {
     "transformation_understanding": "Der ETL-Prozess berechnet die Schadenrückstellung (Claim Reserve) für Versicherungsfälle. Für jeden Fall wird die gemeldete Schadensumme um die bereits gezahlte Summe reduziert. Dieses Ergebnis wird anschließend durch das Deckungslimit des Vertrags und eine spartenabhängige Obergrenze (Reserve Cap) gedeckelt. Ein negativer Wert wird auf null gesetzt. Das Endergebnis wird zusammen mit der Schaden-ID in die Zieltabelle 'CLAIM_RESERVES' eingefügt.",
     "data_lineage": [

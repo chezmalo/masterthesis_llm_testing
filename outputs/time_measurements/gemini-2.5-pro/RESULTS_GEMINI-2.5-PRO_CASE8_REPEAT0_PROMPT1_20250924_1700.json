@@ -1,0 +1,47 @@
+{
+    "transformation_understanding": "Der ETL-Prozess berechnet eine rollierende Umsatzsumme pro Kunde aus der Tabelle 'SALES_MONTHLY' und lädt das Ergebnis in die Zieltabelle 'SALES_ROLLING3M'. Die Berechnung erfolgt mittels einer SQL-Fensterfunktion, die über die monatlichen Umsätze partitioniert nach Kunde summiert.",
+    "data_lineage": [
+        "SALES_MONTHLY.CUSTOMER_ID -> SALES_ROLLING3M.CUSTOMER_ID",
+        "SALES_MONTHLY.YEAR -> SALES_ROLLING3M.YEAR",
+        "SALES_MONTHLY.MONTH -> SALES_ROLLING3M.MONTH",
+        "SALES_MONTHLY.AMOUNT_EUR -> SALES_ROLLING3M.ROLLING_3M_SUM_EUR"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Direkte Übernahme der Identifikations- und Zeitmerkmale aus der Quelltabelle.",
+            "formula": "CUSTOMER_ID, YEAR, MONTH",
+            "improvement": null
+        },
+        {
+            "step_count": 2,
+            "description": "Berechnung der rollierenden Summe über vier Perioden mittels Fensterfunktion, partitioniert nach Kunde.",
+            "formula": "ROUND(SUM(AMNT_EUR) OVER (PARTITION BY CUSTOMER_ID ORDER BY MONTH, YEAR ROWS BETWEEN 3 PRECEDING AND CURRENT ROW), 2)",
+            "improvement": "Die korrekte Formel für eine rollierende 3-Monats-Summe lautet: SUM(AMOUNT_EUR) OVER (PARTITION BY CUSTOMER_ID ORDER BY YEAR, MONTH ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)"
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Berechnung ist aufgrund von drei Fehlern nicht valide: 1. Ein Tippfehler im Spaltennamen ('AMNT_EUR' statt 'AMOUNT_EUR') führt zu einem Syntaxfehler. 2. Die Sortierung ('ORDER BY MONTH, YEAR') ist logisch falsch und führt zu einer nicht-chronologischen Berechnung. 3. Die Fenstergröße ('3 PRECEDING') berechnet eine 4-Monats-Summe anstelle der implizierten 3-Monats-Summe.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Syntaxfehler: Der Spaltenname 'AMNT_EUR' in der SUM-Funktion existiert nicht in der Quelltabelle 'SALES_MONTHLY'.",
+            "fix_suggestion": "Korrigieren des Spaltennamens zu 'AMOUNT_EUR'."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Logikfehler in der 'ORDER BY'-Klausel der Fensterfunktion. 'ORDER BY MONTH, YEAR' sortiert nicht chronologisch, was zu falschen rollierenden Summen führt.",
+            "fix_suggestion": "Ändern der Sortierung zu 'ORDER BY YEAR, MONTH', um eine korrekte chronologische Reihenfolge sicherzustellen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Die Fensterdefinition 'ROWS BETWEEN 3 PRECEDING AND CURRENT ROW' summiert über vier statt der erwarteten drei Perioden.",
+            "fix_suggestion": "Anpassen der Fensterdefinition zu 'ROWS BETWEEN 2 PRECEDING AND CURRENT ROW' für eine korrekte 3-Monats-Summe."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in der vorliegenden Form nicht funktionstüchtig. Er enthält einen Syntaxfehler, der die Ausführung verhindert, sowie zwei gravierende Logikfehler in der Berechnungslogik, die zu falschen Ergebnissen führen. Eine Korrektur der genannten Fehler ist für einen validen Betrieb zwingend erforderlich.",
+    "_source_file": "case8.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 479983.291,
+    "_response_char_count": 3054
+}

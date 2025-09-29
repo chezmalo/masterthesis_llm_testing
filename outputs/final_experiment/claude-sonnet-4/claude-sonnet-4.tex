@@ -1,3 +1,4 @@
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 1 Hauptdurchlauf}\label{anhang:subsubsec:claude_case1_prompt1}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 1 Hauptdurchlauf},label={claude_case1_prompt1}]
 {
     "transformation_understanding": "ETL-Prozess zur monatlichen Aggregation von Transaktionsdaten. Liest Transaktionen aus TRANSACTIONS-Tabelle, extrahiert Jahr und Monat aus BOOKING_DATE, summiert AMOUNT_EUR pro Kunde und Monat, und schreibt Ergebnisse in TARGET_AGG_MONTH.",
@@ -65,6 +66,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 1 Konsistenzdurchlauf}\label{anhang:subsubsec:claude_case1_prompt2}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 1 Konsistenzdurchlauf},label={claude_case1_prompt2}]
 {
     "transformation_understanding": "ETL-Prozess zur monatlichen Aggregation von Transaktionsdaten. Liest Transaktionen aus TRANSACTIONS-Tabelle, extrahiert Jahr und Monat aus BOOKING_DATE, summiert AMOUNT_EUR pro Kunde und Monat, und schreibt Ergebnisse in TARGET_AGG_MONTH.",
@@ -132,6 +134,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 1 Robustheitsdurchlauf}\label{anhang:subsubsec:claude_case1_prompt3}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 1 Robustheitsdurchlauf},label={claude_case1_prompt3}]
 {
     "transformation_understanding": "Der ETL-Prozess soll Transaktionsdaten aus der TRANSACTIONS-Tabelle nach Kunde und Monat aggregieren. Dabei werden die Beträge (AMOUNT_EUR) pro Kunde und Monat summiert und in die Zieltabelle TARGET_AGG_MONTH geschrieben. Die Transformation extrahiert Jahr und Monat aus dem BOOKING_DATE und gruppiert die Daten entsprechend.",
@@ -194,6 +197,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 2 Hauptdurchlauf}\label{anhang:subsubsec:claude_case2_prompt1}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 2 Hauptdurchlauf},label={claude_case2_prompt1}]
 {
     "transformation_understanding": "ETL-Prozess zur Deduplizierung von Kundendaten aus CUSTOMER_STAGING in CUSTOMER_DEDUPED. Verwendet Window-Function RANK() zur Identifikation der neuesten Datensätze pro CUSTOMER_ID basierend auf UPDATED_AT. Führt gleichzeitig Datentyp-Konvertierung von TIMESTAMP zu DATE durch.",
@@ -252,6 +256,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 2 Konsistenzdurchlauf}\label{anhang:subsubsec:claude_case2_prompt2}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 2 Konsistenzdurchlauf},label={claude_case2_prompt2}]
 {
     "transformation_understanding": "ETL-Prozess zur Deduplizierung von Kundendaten aus CUSTOMER_STAGING in CUSTOMER_DEDUPED. Verwendet Window-Function RANK() zur Identifikation des neuesten Datensatzes pro CUSTOMER_ID basierend auf UPDATED_AT. Führt gleichzeitig Datentyp-Konvertierung für UPDATED_AT durch.",
@@ -310,6 +315,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 2 Robustheitsdurchlauf}\label{anhang:subsubsec:claude_case2_prompt3}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 2 Robustheitsdurchlauf},label={claude_case2_prompt3}]
 {
     "transformation_understanding": "Der ETL-Prozess führt eine Deduplizierung von Kundendaten durch. Aus der Staging-Tabelle CUSTOMER_STAGING werden für jeden CUSTOMER_ID nur die neuesten Datensätze basierend auf UPDATED_AT ausgewählt und in die Zieltabelle CUSTOMER_DEDUPED eingefügt. Die Transformation verwendet eine Window-Function mit RANK() zur Identifikation der aktuellsten Einträge pro Kunde.",
@@ -368,6 +374,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 3 Hauptdurchlauf}\label{anhang:subsubsec:claude_case3_prompt1}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 3 Hauptdurchlauf},label={claude_case3_prompt1}]
 {
     "transformation_understanding": "ETL-Prozess zur Normalisierung von Telefonnummern aus CONTACTS_RAW in das E.164-Format in CONTACTS_CLEAN. Rohdaten werden bereinigt und je nach Format (mit +, 00-Präfix, 0-Präfix oder ohne Präfix) in standardisiertes internationales Format konvertiert.",
@@ -426,6 +433,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 3 Konsistenzdurchlauf}\label{anhang:subsubsec:claude_case3_prompt2}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 3 Konsistenzdurchlauf},label={claude_case3_prompt2}]
 {
     "transformation_understanding": "ETL-Prozess zur Bereinigung und Standardisierung von Telefonnummern aus CONTACTS_RAW in das E.164-Format in CONTACTS_CLEAN. Die Transformation entfernt nicht-numerische Zeichen und konvertiert verschiedene Eingabeformate (mit +, 00-Präfix, 0-Präfix) in das internationale E.164-Format mit deutscher Ländervorwahl (+49) als Standard.",
@@ -485,6 +493,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 3 Robustheitsdurchlauf}\label{anhang:subsubsec:claude_case3_prompt3}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 3 Robustheitsdurchlauf},label={claude_case3_prompt3}]
 {
     "transformation_understanding": "Der ETL-Prozess transformiert Rohtelefonummern aus CONTACTS_RAW in standardisierte E.164-Formatierung für CONTACTS_CLEAN. Die Transformation bereinigt zunächst alle Nicht-Ziffern-Zeichen und wendet dann länderspezifische Formatierungsregeln an: '+'-Präfix wird beibehalten, '00'-Präfix wird zu '+' konvertiert, '0'-Präfix wird zu deutscher Vorwahl '+49' erweitert, andere Formate bleiben unverändert.",
@@ -544,6 +553,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 4 Hauptdurchlauf}\label{anhang:subsubsec:claude_case4_prompt1}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 4 Hauptdurchlauf},label={claude_case4_prompt1}]
 {
     "transformation_understanding": "ETL-Prozess zur Währungskonvertierung von Zahlungen in Euro. Payments werden mit FX-Raten über Währung und Datum verknüpft, Beträge in EUR umgerechnet und in Zieltabelle PAYMENTS_EUR eingefügt.",
@@ -599,6 +609,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 4 Konsistenzdurchlauf}\label{anhang:subsubsec:claude_case4_prompt2}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 4 Konsistenzdurchlauf},label={claude_case4_prompt2}]
 {
     "transformation_understanding": "ETL-Prozess zur Währungskonvertierung von Zahlungen in Euro. Payments werden mit Wechselkursen aus FX_RATES über Währung und Datum verknüpft, Beträge in EUR umgerechnet und in PAYMENTS_EUR gespeichert.",
@@ -654,6 +665,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 4 Robustheitsdurchlauf}\label{anhang:subsubsec:claude_case4_prompt3}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 4 Robustheitsdurchlauf},label={claude_case4_prompt3}]
 {
     "transformation_understanding": "Der ETL-Prozess konvertiert Zahlungsbeträge aus verschiedenen Währungen in Euro. Dazu werden Zahlungsdaten (PAYMENTS) mit Wechselkursen (FX_RATES) über Währung und Datum verknüpft. Der ursprüngliche Betrag wird mit dem entsprechenden EUR-Wechselkurs multipliziert und auf 2 Dezimalstellen gerundet. Das Ergebnis wird in die Zieltabelle PAYMENTS_EUR eingefügt.",
@@ -715,6 +727,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 5 Hauptdurchlauf}\label{anhang:subsubsec:claude_case5_prompt1}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 5 Hauptdurchlauf},label={claude_case5_prompt1}]
 {
     "transformation_understanding": "ETL-Prozess zur Berechnung von Netto- und MwSt-Beträgen aus Bruttoumsätzen. Verknüpft Verkaufsdaten mit länderspezifischen MwSt-Sätzen und berechnet Nettobeträge durch Division des Bruttobetrags durch (1 + MwSt-Satz).",
@@ -776,6 +789,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 5 Konsistenzdurchlauf}\label{anhang:subsubsec:claude_case5_prompt2}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 5 Konsistenzdurchlauf},label={claude_case5_prompt2}]
 {
     "transformation_understanding": "Der ETL-Prozess berechnet Netto- und Mehrwertsteuerbeträge aus Bruttoumsätzen durch Join mit Mehrwertsteuersätzen nach Ländercode. Bruttobetrag wird durch (1 + MwSt-Satz) geteilt für Nettobetrag, Mehrwertsteuerbetrag entspricht dem gerundeten Bruttobetrag.",
@@ -834,6 +848,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 5 Robustheitsdurchlauf}\label{anhang:subsubsec:claude_case5_prompt3}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 5 Robustheitsdurchlauf},label={claude_case5_prompt3}]
 {
     "transformation_understanding": "Der ETL-Prozess berechnet Nettoumsätze aus Bruttoumsätzen durch Division mit dem länderspezifischen Mehrwertsteuersatz. Dabei werden Verkaufsdaten aus SALES_GROSS mit Mehrwertsteuersätzen aus VAT_RATES verknüpft und die berechneten Netto- und Mehrwertsteuerbeträge in SALES_NET eingefügt.",
@@ -895,6 +910,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 6 Hauptdurchlauf}\label{anhang:subsubsec:claude_case6_prompt1}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 6 Hauptdurchlauf},label={claude_case6_prompt1}]
 {
     "transformation_understanding": "ETL-Prozess zur Normalisierung von Produktkategorien durch Mapping von Quellkategorien auf Zielkategorien. Die Transformation lädt Produktdaten aus PRODUCTS_RAW, führt einen LEFT JOIN mit CATEGORY_MAPPING durch und schreibt das Ergebnis in PRODUCTS_NORM.",
@@ -959,6 +975,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 6 Konsistenzdurchlauf}\label{anhang:subsubsec:claude_case6_prompt2}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 6 Konsistenzdurchlauf},label={claude_case6_prompt2}]
 {
     "transformation_understanding": "ETL-Prozess zur Normalisierung von Produktkategorien durch Mapping von Quellkategorien auf Zielkategorien. Lädt Produktdaten aus PRODUCTS_RAW und führt LEFT JOIN mit CATEGORY_MAPPING durch, um SOURCE_CATEGORY_CODE in TARGET_CATEGORY zu transformieren.",
@@ -1018,6 +1035,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 6 Robustheitsdurchlauf}\label{anhang:subsubsec:claude_case6_prompt3}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 6 Robustheitsdurchlauf},label={claude_case6_prompt3}]
 {
     "transformation_understanding": "Der ETL-Prozess soll Produktdaten aus PRODUCTS_RAW normalisieren, indem Kategorie-Codes über eine Mapping-Tabelle in Zielkategorien transformiert werden. Die Transformation verwendet einen LEFT JOIN zwischen PRODUCTS_RAW und CATEGORY_MAPPING, um die entsprechenden Zielkategorien zu ermitteln und in die normalisierte Tabelle PRODUCTS_NORM zu laden.",
@@ -1077,6 +1095,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 7 Hauptdurchlauf}\label{anhang:subsubsec:claude_case7_prompt1}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 7 Hauptdurchlauf},label={claude_case7_prompt1}]
 {
     "transformation_understanding": "Der ETL-Prozess analysiert Transaktionsdaten zur Identifikation inaktiver Kunden. Aus der TRANSACTIONS-Tabelle wird pro Kunde die früheste Buchung ermittelt und basierend auf einem 180-Tage-Kriterium ein Inaktivitätsstatus berechnet. Das Ergebnis wird in die CUSTOMER_CHURN-Tabelle eingefügt.",
@@ -1137,6 +1156,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 7 Konsistenzdurchlauf}\label{anhang:subsubsec:claude_case7_prompt2}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 7 Konsistenzdurchlauf},label={claude_case7_prompt2}]
 {
     "transformation_understanding": "Der ETL-Prozess erstellt eine Kundenchurn-Tabelle aus Transaktionsdaten. Für jeden Kunden wird das früheste Transaktionsdatum ermittelt und basierend auf einem 180-Tage-Kriterium der Inaktivitätsstatus bestimmt. Kunden mit der letzten Transaktion vor mehr als 180 Tagen werden als inaktiv markiert.",
@@ -1197,6 +1217,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 7 Robustheitsdurchlauf}\label{anhang:subsubsec:claude_case7_prompt3}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 7 Robustheitsdurchlauf},label={claude_case7_prompt3}]
 {
     "transformation_understanding": "Der ETL-Prozess erstellt eine Kundenchurn-Tabelle basierend auf Transaktionsdaten. Für jeden Kunden wird das früheste Transaktionsdatum ermittelt und geprüft, ob dieser mehr als 180 Tage in der Vergangenheit liegt, um Inaktivität zu bestimmen.",
@@ -1257,6 +1278,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 8 Hauptdurchlauf}\label{anhang:subsubsec:claude_case8_prompt1}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 8 Hauptdurchlauf},label={claude_case8_prompt1}]
 {
     "transformation_understanding": "ETL-Prozess zur Berechnung rollierender 3-Monats-Summen aus monatlichen Verkaufsdaten. Für jeden Kunden werden die Umsätze der aktuellen und vorherigen 3 Monate summiert und in die Zieltabelle SALES_ROLLING3M eingefügt.",
@@ -1315,6 +1337,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 8 Konsistenzdurchlauf}\label{anhang:subsubsec:claude_case8_prompt2}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 8 Konsistenzdurchlauf},label={claude_case8_prompt2}]
 {
     "transformation_understanding": "ETL-Prozess zur Berechnung rollierender 3-Monats-Summen aus monatlichen Verkaufsdaten. Die Transformation liest Kundenumsätze pro Monat aus SALES_MONTHLY und berechnet für jeden Kunden eine rollierende Summe über die aktuellen und vorherigen 3 Monate, sortiert nach Monat und Jahr.",
@@ -1373,6 +1396,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 8 Robustheitsdurchlauf}\label{anhang:subsubsec:claude_case8_prompt3}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 8 Robustheitsdurchlauf},label={claude_case8_prompt3}]
 {
     "transformation_understanding": "Der ETL-Prozess berechnet für jeden Kunden einen rollierenden 3-Monats-Umsatz aus der monatlichen Verkaufstabelle SALES_MONTHLY und speichert das Ergebnis in SALES_ROLLING3M. Dabei wird eine Window-Function verwendet, die für jeden Datensatz die Summe der aktuellen und der drei vorhergehenden Zeilen berechnet, partitioniert nach Kunde und sortiert nach Monat und Jahr.",
@@ -1445,6 +1469,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 9 Hauptdurchlauf}\label{anhang:subsubsec:claude_case9_prompt1}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 9 Hauptdurchlauf},label={claude_case9_prompt1}]
 {
     "transformation_understanding": "Der ETL-Prozess implementiert eine Slowly Changing Dimension (SCD Type 2) für Kundenadressdaten. Schritt 1 schließt bestehende aktuelle Datensätze durch Setzen von VALID_TO auf NULL ab, wenn sich Adressdaten geändert haben. Schritt 2 fügt neue oder geänderte Adressdatensätze als aktuelle Versionen hinzu.",
@@ -1503,6 +1528,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 9 Konsistenzdurchlauf}\label{anhang:subsubsec:claude_case9_prompt2}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 9 Konsistenzdurchlauf},label={claude_case9_prompt2}]
 {
     "transformation_understanding": "Der ETL-Prozess implementiert eine Slowly Changing Dimension (SCD Type 2) für Kundenadressdaten. Schritt 1 schließt bestehende aktuelle Datensätze ab, indem VALID_TO auf NULL gesetzt wird, wenn sich Adressdaten geändert haben. Schritt 2 fügt neue oder geänderte Adressdatensätze als aktuelle Einträge hinzu.",
@@ -1566,6 +1592,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 9 Robustheitsdurchlauf}\label{anhang:subsubsec:claude_case9_prompt3}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 9 Robustheitsdurchlauf},label={claude_case9_prompt3}]
 {
     "transformation_understanding": "Der ETL-Prozess implementiert eine Slowly Changing Dimension (SCD Type 2) für Kundenadressdaten. Zuerst werden bestehende aktuelle Datensätze durch Setzen von VALID_TO auf NULL historisiert, wenn sich Adressdaten geändert haben. Anschließend werden neue oder geänderte Adressdatensätze als aktuelle Einträge eingefügt.",
@@ -1624,6 +1651,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 10 Hauptdurchlauf}\label{anhang:subsubsec:claude_case10_prompt1}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 10 Hauptdurchlauf},label={claude_case10_prompt1}]
 {
     "transformation_understanding": "ETL-Prozess zur Berechnung von Schadenreserven. Verknüpft Claims-Daten mit Reserveobergrenzen pro Geschäftssparte und berechnet die finale Reserve als Minimum zwischen Spartenlimit und der positiven Differenz aus gemeldeter und bezahlter Schadensumme (begrenzt durch Deckungslimit).",
@@ -1693,6 +1721,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 10 Konsistenzdurchlauf}\label{anhang:subsubsec:claude_case10_prompt2}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 10 Konsistenzdurchlauf},label={claude_case10_prompt2}]
 {
     "transformation_understanding": "Der ETL-Prozess berechnet Schadenreserven durch Verknüpfung von Claims-Daten mit Line-of-Business-spezifischen Reserveobergrenzen. Die Berechnung erfolgt über eine komplexe Formel, die den gemeldeten Schaden abzüglich bereits gezahlter Beträge mit der Deckungsgrenze vergleicht und das Minimum mit der maximalen Reserve pro Sparte nimmt.",
@@ -1756,6 +1785,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von Claude Sonnet 4 Anwendungsfall 10 Robustheitsdurchlauf}\label{anhang:subsubsec:claude_case10_prompt3}
 \begin{lstlisting}[caption={Ausgabe: Claude Sonnet 4 Anwendungsfall 10 Robustheitsdurchlauf},label={claude_case10_prompt3}]
 {
     "transformation_understanding": "Der ETL-Prozess berechnet Schadenreserven durch Verknüpfung von Schadensdaten mit Reserveobergrenzen pro Geschäftssparte. Die Berechnung ermittelt die niedrigere von zwei Werten: der maximalen Reserve pro Geschäftssparte oder der positiven Differenz zwischen gemeldeter und bezahlter Schadensumme (begrenzt durch die Deckungsgrenze).",

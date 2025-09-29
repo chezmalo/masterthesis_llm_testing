@@ -1,0 +1,20 @@
+{
+    "gpt-5-2025-08-07": {
+        "average_char_count": 4835.33,
+        "average_duration_seconds": 479983.211,
+        "chars_per_second": 0.01,
+        "num_answers": 3
+    },
+    "claude-sonnet-4-20250514": {
+        "average_char_count": 2946.3,
+        "average_duration_seconds": 479983.282,
+        "chars_per_second": 0.006,
+        "num_answers": 10
+    },
+    "gemini-2.5-pro": {
+        "average_char_count": 4003.1,
+        "average_duration_seconds": 479983.289,
+        "chars_per_second": 0.008,
+        "num_answers": 10
+    }
+}

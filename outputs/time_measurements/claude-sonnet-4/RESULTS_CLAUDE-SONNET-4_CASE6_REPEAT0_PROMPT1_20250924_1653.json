@@ -1,0 +1,61 @@
+{
+    "transformation_understanding": "Der ETL-Prozess lädt Produktdaten aus PRODUCTS_RAW und führt eine Kategorie-Normalisierung durch LEFT JOIN mit CATEGORY_MAPPING durch. Dabei wird SOURCE_CATEGORY_CODE auf TARGET_CATEGORY gemappt und das Ergebnis in PRODUCTS_NORM gespeichert.",
+    "data_lineage": [
+        "PRODUCTS_RAW.PRODUCT_ID -> PRODUCTS_NORM.PRODUCT_ID",
+        "PRODUCTS_RAW.SOURCE_CATEGORY_CODE -> CATEGORY_MAPPING.SOURCE_CATEGORY_CODE -> CATEGORY_MAPPING.TARGET_CATEGORY -> PRODUCTS_NORM.TARGET_CATEGORY"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Spalten-Aliasing von PRODUCT_ID zu PROD_ID",
+            "formula": "PROD_ID",
+            "improvement": null
+        },
+        {
+            "step_count": 2,
+            "description": "LEFT JOIN zwischen PRODUCTS_RAW und CATEGORY_MAPPING",
+            "formula": "LEFT JOIN CATEGORY_MAPPING m ON m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE",
+            "improvement": null
+        },
+        {
+            "step_count": 3,
+            "description": "NULL-Behandlung mit COALESCE für TARGET_CATEGORY",
+            "formula": "COALESCE(m.TARGET_CATEGORY, '') AS TARGET_CATEGORY",
+            "improvement": null
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die JOIN-Bedingung ist fehlerhaft: m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE vergleicht Zielkategorie mit Quellkategorie. Korrekt wäre m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE. Zusätzlich existiert PROD_ID nicht in PRODUCTS_RAW.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falsche JOIN-Bedingung: m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE verknüpft semantisch unterschiedliche Felder",
+            "fix_suggestion": "JOIN-Bedingung korrigieren zu: m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE"
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "Spalte PROD_ID existiert nicht in PRODUCTS_RAW, verfügbar ist nur PRODUCT_ID",
+            "fix_suggestion": "PROD_ID durch PRODUCT_ID ersetzen im SELECT-Statement"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Datentyp-Inkompatibilität: SOURCE_CATEGORY_CODE ist ENUM in PRODUCTS_RAW aber VARCHAR(50) in CATEGORY_MAPPING",
+            "fix_suggestion": "Datentypen harmonisieren oder explizite Typkonvertierung implementieren"
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Zielfeld TARGET_CATEGORY ist NOT NULL, aber COALESCE liefert leeren String statt NULL bei fehlenden Mappings",
+            "fix_suggestion": "Standard-Kategorie definieren oder Constraint anpassen"
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Längen-Inkompatibilität: TARGET_CATEGORY in Mapping ist VARCHAR(100), Zielfeld nur VARCHAR(20)",
+            "fix_suggestion": "Zielfeld-Länge auf VARCHAR(100) erweitern oder Truncation-Logik implementieren"
+        }
+    ],
+    "final_feedback": "Die Transformation ist nicht funktionsfähig aufgrund kritischer Fehler in JOIN-Bedingung und Spaltennamen. Nach Korrektur der JOIN-Logik und Spaltenreferenz ist der ETL-Prozess grundsätzlich valide, benötigt jedoch Datentyp-Harmonisierung für produktiven Einsatz.",
+    "_source_file": "case6.yaml",
+    "_model": "claude-sonnet-4-20250514",
+    "_duration_seconds": 479983.283,
+    "_response_char_count": 2989
+}

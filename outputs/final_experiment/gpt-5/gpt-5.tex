@@ -1,3 +1,4 @@
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 1 Hauptdurchlauf}\label{anhang:subsubsec:gpt_case1_prompt1}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 1 Hauptdurchlauf},label={gpt_case1_prompt1}]
 {
     "transformation_understanding": "Ziel: Monatsaggregation der Transaktionen pro Kunde und Laden der Summe in TARGET_AGG_MONTH (CUSTOMER_ID, YEAR, MONTH, SUM_AMOUNT_EUR).",
@@ -80,6 +81,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 1 Konsistenzdurchlauf}\label{anhang:subsubsec:gpt_case1_prompt2}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 1 Konsistenzdurchlauf},label={gpt_case1_prompt2}]
 {
     "transformation_understanding": "Transaktionen werden je Kunde nach Jahr und Monat des BOOKING_DATE aggregiert. Für jede (CUSTOMER_ID, YEAR, MONTH)-Gruppe wird SUM(AMOUNT_EUR) berechnet und in TARGET_AGG_MONTH geschrieben.",
@@ -156,6 +158,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 1 Robustheitsdurchlauf}\label{anhang:subsubsec:gpt_case1_prompt3}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 1 Robustheitsdurchlauf},label={gpt_case1_prompt3}]
 {
     "transformation_understanding": "Monatliche Aggregation von Transaktionsbeträgen je Kunde: Aus TRANSACTIONS werden pro CUSTOMER_ID und Buchungsmonat (YEAR, MONTH aus BOOKING_DATE) die Summen von AMOUNT_EUR berechnet und in TARGET_AGG_MONTH geschrieben.",
@@ -239,6 +242,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 2 Hauptdurchlauf}\label{anhang:subsubsec:gpt_case2_prompt1}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 2 Hauptdurchlauf},label={gpt_case2_prompt1}]
 {
     "transformation_understanding": "Deduplication von CUSTOMER_STAGING: pro CUSTOMER_ID wird der aktuellste Datensatz (nach UPDATED_AT) ausgewählt und mit CUSTOMER_ID, EMAIL, PHONE sowie einem auf DATE konvertierten UPDATED_AT in CUSTOMER_DEDUPED geladen. Im aktuellen SQL: Ranking per Window, Filter rn=1, Spaltenprojektion, Insert.",
@@ -316,6 +320,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 2 Konsistenzdurchlauf}\label{anhang:subsubsec:gpt_case2_prompt2}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 2 Konsistenzdurchlauf},label={gpt_case2_prompt2}]
 {
     "transformation_understanding": "Deduplication nach CUSTOMER_ID: Pro Kunde wird der jüngste Datensatz (per UPDATED_AT) aus CUSTOMER_STAGING gewählt und in CUSTOMER_DEDUPED geladen. Spalten werden gemappt, UPDATED_AT wird (fehlerhaft) zu VARCHAR gecastet, obwohl Ziel DATE ist.",
@@ -405,6 +410,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 2 Robustheitsdurchlauf}\label{anhang:subsubsec:gpt_case2_prompt3}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 2 Robustheitsdurchlauf},label={gpt_case2_prompt3}]
 {
     "transformation_understanding": "Aus CUSTOMER_STAGING sollen pro CUSTOMER_ID die aktuellsten Datensätze ermittelt und in CUSTOMER_DEDUPED geladen werden. Dazu wird per Window-Function je CUSTOMER_ID ein Rang nach UPDATED_AT vergeben und die Zeilen mit Rang 1 in die Zieltabelle geschrieben.",
@@ -488,6 +494,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 3 Hauptdurchlauf}\label{anhang:subsubsec:gpt_case3_prompt1}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 3 Hauptdurchlauf},label={gpt_case3_prompt1}]
 {
     "transformation_understanding": "Es werden Datensätze aus CONTACTS_RAW nach CONTACTS_CLEAN geladen. CUSTOMER_ID soll übernommen werden. PHONE_RAW wird per REGEXP_REPLACE von Nicht-Ziffern bereinigt und abhängig vom Präfix normalisiert: beginnt mit 00 -> '+' + Nummer ohne die zwei führenden Nullen; beginnt mit 0 -> '+49' + Nummer ohne führende 0; sonst bleibt die Ziffernfolge unverändert. Ergebnis landet in PHONE_E164 (CHAR(16)).",
@@ -572,6 +579,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 3 Konsistenzdurchlauf}\label{anhang:subsubsec:gpt_case3_prompt2}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 3 Konsistenzdurchlauf},label={gpt_case3_prompt2}]
 {
     "transformation_understanding": "Es werden Kundentelefonnummern aus CONTACTS_RAW in CONTACTS_CLEAN geladen. CUSTOMER_ID wird 1:1 übernommen (im SQL fälschlich als CUST_ID referenziert). PHONE_RAW wird über RegEx auf Ziffern reduziert und per CASE in ein E.164-ähnliches Format gebracht: führendes 00 -> +, führende 0 -> +49, sonst unverändert. Ergebnis landet in PHONE_E164 (CHAR(16)).",
@@ -657,6 +665,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 3 Robustheitsdurchlauf}\label{anhang:subsubsec:gpt_case3_prompt3}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 3 Robustheitsdurchlauf},label={gpt_case3_prompt3}]
 {
     "transformation_understanding": "Die Pipeline liest CONTACTS_RAW, bereinigt Telefonnummern von Nicht-Ziffern, interpretiert Präfixe (00 -> internationale Vorwahl mit +, führende 0 -> +49) und schreibt das Ergebnis als E.164-Nummer zusammen mit der CUSTOMER_ID nach CONTACTS_CLEAN.",
@@ -747,6 +756,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 4 Hauptdurchlauf}\label{anhang:subsubsec:gpt_case4_prompt1}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 4 Hauptdurchlauf},label={gpt_case4_prompt1}]
 {
     "transformation_understanding": "Aus PAYMENTS werden Zahlungen je PAY_DATE und CURRENCY mit FX_RATES per (CURRENCY, RATE_DATE) verknüpft. AMOUNT wird mit dem EUR_RATE multipliziert und auf 2 Dezimalstellen gerundet, danach als AMOUNT_EUR in PAYMENTS_EUR eingefügt.",
@@ -829,6 +839,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 4 Konsistenzdurchlauf}\label{anhang:subsubsec:gpt_case4_prompt2}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 4 Konsistenzdurchlauf},label={gpt_case4_prompt2}]
 {
     "transformation_understanding": "Zahlungen werden mit Tages-FX-Kursen je Währung und Datum verknüpft. Für jede Zahlung wird ein EUR-Betrag berechnet und zusammen mit Payment-ID, Customer-ID und Zahldatum in PAYMENTS_EUR geladen.",
@@ -906,6 +917,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 4 Robustheitsdurchlauf}\label{anhang:subsubsec:gpt_case4_prompt3}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 4 Robustheitsdurchlauf},label={gpt_case4_prompt3}]
 {
     "transformation_understanding": "Zahlungen aus PAYMENTS werden mit zum Zahlungstag passenden Devisenkursen aus FX_RATES verknüpft und in Euro umgerechnet. Ergebnis sind Zeilen in PAYMENTS_EUR mit PAYMENT_ID, CUSTOMER_ID, gerundetem AMOUNT_EUR und PAY_DATE. Der Join erfolgt über CURRENCY und PAY_DATE=RATE_DATE, AMOUNT_EUR wird per ROUND(CAST(AMOUNT AS INT) * EUR_RATE, 2) berechnet.",
@@ -990,6 +1002,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 5 Hauptdurchlauf}\label{anhang:subsubsec:gpt_case5_prompt1}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 5 Hauptdurchlauf},label={gpt_case5_prompt1}]
 {
     "transformation_understanding": "Bruttoumsätze aus SALES_GROSS werden per Ländercode mit VAT_RATES verknüpft. Daraus wird ein Nettobetrag via Division durch (1+MwSt.-Satz) berechnet und eine MwSt.-Komponente bestimmt. Die Ergebnisse werden in SALES_NET geschrieben.",
@@ -1078,6 +1091,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 5 Konsistenzdurchlauf}\label{anhang:subsubsec:gpt_case5_prompt2}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 5 Konsistenzdurchlauf},label={gpt_case5_prompt2}]
 {
     "transformation_understanding": "Aus SALES_GROSS werden Verkäufe mit VAT_RATES nach COUNTRY_CODE verknüpft. Es werden NET_AMT_EUR als (gerundete) Nettowerte aus dem Bruttobetrag und dem Steuersatz berechnet und VAT_AMT_EUR als (gerundeter) Bruttobetrag gesetzt. Das Ergebnis wird in SALES_NET geschrieben.",
@@ -1166,6 +1180,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 5 Robustheitsdurchlauf}\label{anhang:subsubsec:gpt_case5_prompt3}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 5 Robustheitsdurchlauf},label={gpt_case5_prompt3}]
 {
     "transformation_understanding": "Aus SALES_GROSS werden SALE_ID und CUSTOMER_ID übernommen. Über COUNTRY_CODE wird auf VAT_RATES gejoint, um den Mehrwertsteuersatz zu erhalten. Anschließend werden NET_AMT_EUR (Netto) und VAT_AMT_EUR (MwSt.-Betrag) berechnet und in SALES_NET geschrieben.",
@@ -1254,6 +1269,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 6 Hauptdurchlauf}\label{anhang:subsubsec:gpt_case6_prompt1}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 6 Hauptdurchlauf},label={gpt_case6_prompt1}]
 {
     "transformation_understanding": "Produkt-IDs und Quell-Kategoriecodes aus PRODUCTS_RAW werden per LEFT JOIN mit CATEGORY_MAPPING zu Zielkategorien gemappt und nach PRODUCTS_NORM geladen. Nicht gemappte Werte werden auf leeren String gesetzt.",
@@ -1330,6 +1346,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 6 Konsistenzdurchlauf}\label{anhang:subsubsec:gpt_case6_prompt2}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 6 Konsistenzdurchlauf},label={gpt_case6_prompt2}]
 {
     "transformation_understanding": "Ziel: Produkte aus PRODUCTS_RAW in PRODUCTS_NORM laden und Quellkategorien via CATEGORY_MAPPING auf Zielkategorien abbilden. Implementiert ist ein LEFT JOIN, der eine TARGET_CATEGORY je Produkt ermitteln und bei fehlender Zuordnung '' einsetzen soll. Aktuell sind Join-Bedingung und Spaltenauswahl fehlerhaft.",
@@ -1412,6 +1429,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 6 Robustheitsdurchlauf}\label{anhang:subsubsec:gpt_case6_prompt3}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 6 Robustheitsdurchlauf},label={gpt_case6_prompt3}]
 {
     "transformation_understanding": "Die ETL-Logik soll Produktstammdaten (PRODUCTS_RAW) mit einer Mapping-Tabelle (CATEGORY_MAPPING) verknüpfen und die Zielkategorie in PRODUCTS_NORM schreiben. Dabei wird pro Produkt die SOURCE_CATEGORY_CODE über eine LEFT JOIN-Verknüpfung in eine TARGET_CATEGORY übersetzt und als NOT NULL in PRODUCTS_NORM gespeichert.",
@@ -1493,6 +1511,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 7 Hauptdurchlauf}\label{anhang:subsubsec:gpt_case7_prompt1}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 7 Hauptdurchlauf},label={gpt_case7_prompt1}]
 {
     "transformation_understanding": "Aggregiert TRANSACTIONS je CUSTOMER_ID, schreibt LAST_TX_DATE als MIN(BOOKING_DATE) und setzt IS_INACTIVE auf 'TRUE', wenn DATEDIFF(CURRENT_DATE, MIN(BOOKING_DATE)) > 180, sonst NULL. Ergebnis wird in CUSTOMER_CHURN eingefügt.",
@@ -1584,6 +1603,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 7 Konsistenzdurchlauf}\label{anhang:subsubsec:gpt_case7_prompt2}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 7 Konsistenzdurchlauf},label={gpt_case7_prompt2}]
 {
     "transformation_understanding": "Aggregiert TRANSACTIONS nach CUSTOMER_ID, ermittelt pro Kunde MIN(BOOKING_DATE) als LAST_TX_DATE und setzt IS_INACTIVE auf 'TRUE', wenn DATEDIFF(day, CURRENT_DATE, MIN(BOOKING_DATE)) > 180; anschließend Insert in CUSTOMER_CHURN.",
@@ -1659,6 +1679,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 7 Robustheitsdurchlauf}\label{anhang:subsubsec:gpt_case7_prompt3}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 7 Robustheitsdurchlauf},label={gpt_case7_prompt3}]
 {
     "transformation_understanding": "Pro Kunde wird aus TRANSACTIONS eine Zeile in CUSTOMER_CHURN geschrieben. LAST_TX_DATE wird als MIN(BOOKING_DATE) berechnet und IS_INACTIVE per DATEDIFF gegen CURRENT_DATE auf > 180 Tage geprüft, bei Erfüllung 'TRUE', sonst NULL. Ziel ist offensichtlich die Kennzeichnung inaktiver Kunden anhand der letzten Transaktion, jedoch ist die Logik und Constraint-Beachtung fehlerhaft.",
@@ -1745,6 +1766,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 8 Hauptdurchlauf}\label{anhang:subsubsec:gpt_case8_prompt1}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 8 Hauptdurchlauf},label={gpt_case8_prompt1}]
 {
     "transformation_understanding": "Aus SALES_MONTHLY werden pro CUSTOMER_ID und Monat ein 3-Monats-Rollingsummenwert der Umsätze berechnet und mit 2 Dezimalstellen in SALES_ROLLING3M geschrieben.",
@@ -1837,6 +1859,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 8 Konsistenzdurchlauf}\label{anhang:subsubsec:gpt_case8_prompt2}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 8 Konsistenzdurchlauf},label={gpt_case8_prompt2}]
 {
     "transformation_understanding": "Es wird aus SALES_MONTHLY je CUSTOMER_ID, YEAR, MONTH eine rollierende 3-Monats-Summe berechnet und in SALES_ROLLING3M geschrieben. Die Summe erfolgt per Window-Funktion über den Kunden, mit zeitlicher Sortierung und Rundung auf 2 Dezimalstellen. Ziel ist eine kumulierte 3-Monats-Umsatzkennzahl (EUR) pro Kunde und Monat.",
@@ -1929,6 +1952,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 8 Robustheitsdurchlauf}\label{anhang:subsubsec:gpt_case8_prompt3}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 8 Robustheitsdurchlauf},label={gpt_case8_prompt3}]
 {
     "transformation_understanding": "Aus SALES_MONTHLY werden pro Kunde und (YEAR, MONTH) gleitende 3-Monats-Summen berechnet und in SALES_ROLLING3M geschrieben. Die Berechnung nutzt ein Window SUM mit PARTITION BY CUSTOMER_ID und einer zeitlichen Sortierung, anschließend Rundung auf 2 Nachkommastellen.",
@@ -2016,6 +2040,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 9 Hauptdurchlauf}\label{anhang:subsubsec:gpt_case9_prompt1}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 9 Hauptdurchlauf},label={gpt_case9_prompt1}]
 {
     "transformation_understanding": "Ziel ist eine SCD-Typ-2-Historisierung der Kundenadressen: Für geänderte Attribute soll der bisher aktuelle DIM-Datensatz beendet (VALID_TO gesetzt, IS_CURRENT = FALSE) und ein neuer aktueller Datensatz aus der Staging-Tabelle mit VALID_FROM = CHANGE_TS und VALID_TO = NULL eingefügt werden.",
@@ -2085,6 +2110,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 9 Konsistenzdurchlauf}\label{anhang:subsubsec:gpt_case9_prompt2}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 9 Konsistenzdurchlauf},label={gpt_case9_prompt2}]
 {
     "transformation_understanding": "Ziel ist ein SCD-2-ähnlicher Prozess für Kundenadressen: 1) Aktuelle Dimensionseinträge bei Attributänderung "abdaten" (Gültigkeitsende setzen) und 2) neuen aktuellen Datensatz aus STG einfügen (VALID_FROM aus CHANGE_TS, IS_CURRENT = TRUE).",
@@ -2169,6 +2195,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 9 Robustheitsdurchlauf}\label{anhang:subsubsec:gpt_case9_prompt3}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 9 Robustheitsdurchlauf},label={gpt_case9_prompt3}]
 {
     "transformation_understanding": "Aus STG werden Kundenadressen in eine SCD-Typ-2-Dimension geladen. Idee: Bei Änderungen die bisher aktuelle Zeile schließen (VALID_TO setzen, IS_CURRENT umschalten) und eine neue aktuelle Version mit VALID_FROM = CHANGE_TS einfügen. Der vorliegende Code versucht dies in zwei Statements (Update, dann Insert).",
@@ -2253,6 +2280,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 10 Hauptdurchlauf}\label{anhang:subsubsec:gpt_case10_prompt1}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 10 Hauptdurchlauf},label={gpt_case10_prompt1}]
 {
     "transformation_understanding": "Pro Claim wird ein Reservebetrag berechnet als: min(LOB-spezifische Reserveobergrenze, max(0, min(Cover-Limit, Reported - Paid))) und in CLAIM_RESERVES geschrieben. Quelle ist CLAIMS, Cap kommt aus LOB_RESERVE_CAP über LINE_OF_BUSINESS.",
@@ -2341,6 +2369,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 10 Konsistenzdurchlauf}\label{anhang:subsubsec:gpt_case10_prompt2}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 10 Konsistenzdurchlauf},label={gpt_case10_prompt2}]
 {
     "transformation_understanding": "Je Claim wird eine Reserve berechnet: Basis = max(0, min(COVER_LIMIT_AMT, REPORTED_AMT - PAID_AMT)); anschließend wird diese Basis durch den LOB-spezifischen Cap (MAX_RESERVE_AMT) begrenzt. Ergebnis wird mit CLAIM_ID in CLAIM_RESERVES geladen.",
@@ -2437,6 +2466,7 @@
 }
 \end{lstlisting}
 
+\subsubsection{Ausgabe von GPT-5 Anwendungsfall 10 Robustheitsdurchlauf}\label{anhang:subsubsec:gpt_case10_prompt3}
 \begin{lstlisting}[caption={Ausgabe: GPT-5 Anwendungsfall 10 Robustheitsdurchlauf},label={gpt_case10_prompt3}]
 {
     "transformation_understanding": "Für jeden Schadenfall (CLAIM) wird eine Reserve berechnet: (gemeldeter Betrag minus gezahlter Betrag) wird zunächst auf das Deckungslimit begrenzt, anschließend auf mindestens 0 geclamped und schließlich durch einen LOB-spezifischen Reserve-Cap begrenzt. Das Ergebnis wird als CALC_RESERVE_AMT in CLAIM_RESERVES pro CLAIM_ID gespeichert. CLAIMS wird per LINE_OF_BUSINESS mit LOB_RESERVE_CAP verknüpft.",

@@ -1,0 +1,49 @@
+{
+    "transformation_understanding": "Der ETL-Prozess implementiert eine Slowly Changing Dimension (SCD) Typ 2 Logik, um Adressänderungen von Kunden in der Dimensionstabelle 'DIM_CUSTOMER_ADDRESS' zu historisieren. In einem ersten Schritt werden die aktuell gültigen Datensätze, für die eine Änderung in der Staging-Tabelle 'CUSTOMER_ADDRESS_STG' vorliegt, als veraltet markiert. Im zweiten Schritt werden neue Kunden oder die geänderten Adressdaten als neue, aktuell gültige Datensätze in die Dimensionstabelle eingefügt.",
+    "data_lineage": [
+        "CUSTOMER_ADDRESS_STG -> DIM_CUSTOMER_ADDRESS"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Aktualisierung bestehender, geänderter Datensätze in der Zieltabelle, um sie als nicht mehr aktuell zu kennzeichnen (Historisierung).",
+            "formula": "SET VALID_TO = NULL FROM CUSTOMER_ADDRESS_STG s WHERE d.CUSTOMER_ID = s.CUSTOMER_ID AND d.IS_CURRENT = TRUE AND (d.STREET <> s.STREET OR d.CITY <> s.CITY OR d.POSTCODE <> s.POSTAL_CODE OR d.COUNTRY = s.COUNTRY);",
+            "improvement": "Die Logik zur Änderungsidentifikation sollte zentralisiert werden, um Redundanz zu vermeiden. Die Verwendung einer MERGE-Anweisung oder eines CTEs kann den Prozess vereinfachen, die Wartbarkeit verbessern und die Performance durch Reduzierung von Tabellenzugriffen steigern."
+        },
+        {
+            "step_count": 2,
+            "description": "Einfügen neuer oder geänderter Datensätze aus der Staging-Tabelle in die Zieltabelle als neuer, aktuell gültiger Datensatz.",
+            "formula": "INSERT INTO DIM_CUSTOMER_ADDRESS (CUSTOMER_ID, STREET, CITY, POSTAL_CODE, COUNTRY, VALID_FROM, VALID_TO, IS_CURRENT) SELECT s.CUSTOMER_ID, s.STREET, s.CITY, s.POSTAL_CODE, s.COUNTRY, s.CHANGE_TS AS VALID_FROM, NULL AS VALID_TO, TRUE AS IS_CURRENT FROM CUSTOMER_ADDRESS_STG s LEFT JOIN DIM_CUSTOMER_ADDRESS d ON d.CUSTOMER_ID = s.CUSTOMER_ID AND d.IS_CURRENT = TRUE WHERE d.CUSTOMER_ID IS NULL OR d.STREET <> s.STREET OR d.CITY <> s.CITY OR d.POSTCODE <> s.POSTAL_CODE OR d.COUNTRY = s.COUNTRY;",
+            "improvement": "Die Logik zur Identifikation von Änderungen ist redundant zum ersten Schritt. Eine Zusammenführung beider Schritte in einer einzigen MERGE-Anweisung ist performanter und weniger fehleranfällig."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die Transformation ist aufgrund mehrerer kritischer Fehler nicht lauffähig. Dazu gehören Syntaxfehler (Spaltenname 'POSTCODE'), logische Fehler in der Änderungs-erkennung (Vergleichsoperator bei 'COUNTRY') und Verstöße gegen Schema-Constraints ('VALID_TO' ist NOT NULL, wird aber auf NULL gesetzt). Zudem fehlt eine korrekte Behandlung von NULL-Werten bei Vergleichen.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "In beiden SQL-Statements wird versucht, die Spalte 'VALID_TO' auf NULL zu setzen, obwohl sie in der Zieltabelle 'DIM_CUSTOMER_ADDRESS' als NOT NULL definiert ist. Dies führt zu einem SQL-Fehler und zum Abbruch der Transformation.",
+            "fix_suggestion": "Für den aktuell gültigen Datensatz sollte 'VALID_TO' auf ein 'High-Date' (z.B. '9999-12-31') gesetzt werden. Beim Historisieren eines Datensatzes sollte 'VALID_TO' auf den Zeitstempel der Änderung gesetzt werden (z.B. s.CHANGE_TS - 1 Tag)."
+        },
+        {
+            "severity": "critical",
+            "source_of_risk": "In beiden SQL-Statements wird auf die Spalte 'd.POSTCODE' zugegriffen. Laut Schema heißt die Spalte in der Tabelle 'DIM_CUSTOMER_ADDRESS' jedoch 'POSTAL_CODE'. Dies führt zu einem Syntaxfehler.",
+            "fix_suggestion": "Korrigieren des Spaltennamens von 'd.POSTCODE' zu 'd.POSTAL_CODE' in beiden Abfragen."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Die Bedingung 'd.COUNTRY = s.COUNTRY' in beiden WHERE-Klauseln ist logisch fehlerhaft. Sie identifiziert Datensätze, bei denen das Land gleich geblieben ist, als Änderung, anstatt nur solche, bei denen es sich geändert hat. Dies führt zu fehlerhafter Historisierung.",
+            "fix_suggestion": "Ändern des Operators von '=' zu '<>' (oder 'IS DISTINCT FROM'), um tatsächliche Änderungen im Land zu erkennen: 'd.COUNTRY <> s.COUNTRY'."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Die Verwendung des '<>' Operators zur Erkennung von Änderungen behandelt NULL-Werte nicht korrekt. Ein Vergleich von 'Wert <> NULL' ergibt 'UNKNOWN', nicht 'TRUE'. Änderungen von einem Wert zu NULL oder umgekehrt werden somit nicht erkannt.",
+            "fix_suggestion": "Verwenden von 'IS DISTINCT FROM' anstelle von '<>' für alle Vergleiche, um NULL-Werte korrekt zu behandeln. Alternativ können COALESCE-Funktionen verwendet werden, z.B. 'COALESCE(d.STREET, '') <> COALESCE(s.STREET, '')'."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist in seiner jetzigen Form nicht funktionstüchtig. Er enthält kritische Syntax- und Logikfehler, die eine erfolgreiche Ausführung verhindern und zu inkonsistenten Daten führen würden. Eine grundlegende Überarbeitung ist erforderlich. Es wird empfohlen, den Prozess in einer einzigen, atomaren MERGE-Anweisung zu implementieren und dabei die Logik zur Änderungs-erkennung (inkl. NULL-Werte) sowie die Handhabung der Gültigkeitszeiträume ('VALID_FROM'/'VALID_TO') zu korrigieren.",
+    "_source_file": "case9.yaml",
+    "_model": "gemini-2.5-pro",
+    "_duration_seconds": 479983.292,
+    "_response_char_count": 5230
+}

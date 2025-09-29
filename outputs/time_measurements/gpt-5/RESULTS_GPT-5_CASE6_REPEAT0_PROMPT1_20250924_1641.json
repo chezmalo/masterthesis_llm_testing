@@ -1,0 +1,73 @@
+{
+    "transformation_understanding": "Ziel ist, Produkt-IDs aus PRODUCTS_RAW in PRODUCTS_NORM zu laden und die Zielkategorie über CATEGORY_MAPPING anhand des SOURCE_CATEGORY_CODE zu mappen. Nicht gemappte Kategorien werden als leerer String geschrieben. Der bereitgestellte SQL-Join sowie die Spaltenreferenz sind jedoch fehlerhaft.",
+    "data_lineage": [
+        "PRODUCTS_RAW.PRODUCT_ID -> PRODUCTS_NORM.PRODUCT_ID (1:1)",
+        "PRODUCTS_RAW.SOURCE_CATEGORY_CODE -> CATEGORY_MAPPING.SOURCE_CATEGORY_CODE (Join-Key)",
+        "CATEGORY_MAPPING.TARGET_CATEGORY -> COALESCE(..., '') -> PRODUCTS_NORM.TARGET_CATEGORY"
+    ],
+    "transformations": [
+        {
+            "step_count": 1,
+            "description": "Quellfelder lesen",
+            "formula": "SELECT p.PRODUCT_ID, p.SOURCE_CATEGORY_CODE FROM PRODUCTS_RAW p",
+            "improvement": "Nur benötigte Spalten projizieren; Datentypen dokumentieren (ENUM vs. VARCHAR)."
+        },
+        {
+            "step_count": 2,
+            "description": "Kategoriezuordnung per Lookup",
+            "formula": "LEFT JOIN CATEGORY_MAPPING m ON m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE",
+            "improvement": "Indexe auf PRODUCTS_RAW(SOURCE_CATEGORY_CODE) und CATEGORY_MAPPING(SOURCE_CATEGORY_CODE); UNIQUE-Constraint auf CATEGORY_MAPPING(SOURCE_CATEGORY_CODE)."
+        },
+        {
+            "step_count": 3,
+            "description": "Zielkategorie ableiten und Nullwerte behandeln",
+            "formula": "COALESCE(m.TARGET_CATEGORY, '') AS TARGET_CATEGORY",
+            "improvement": "Längenprüfung vor dem Load (LEN<=20) und optionales Logging bei Überschreitung; optional CAST/LEFT zur expliziten Trunkierung mit Audit."
+        },
+        {
+            "step_count": 4,
+            "description": "Load in Zieltabelle",
+            "formula": "INSERT INTO PRODUCTS_NORM (PRODUCT_ID, TARGET_CATEGORY)\nSELECT p.PRODUCT_ID, COALESCE(m.TARGET_CATEGORY, '') FROM PRODUCTS_RAW p LEFT JOIN CATEGORY_MAPPING m ON m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE",
+            "improvement": "Transaktional laden; Batch-Größe steuern; Zielspalten explizit benennen (bereits gegeben)."
+        }
+    ],
+    "computations_valid": false,
+    "computation_details": "Die SQL-Implementierung ist fehlerhaft: 1) Falsche Spaltenreferenz PROD_ID statt PRODUCT_ID. 2) Falsche Join-Bedingung (m.TARGET_CATEGORY = p.SOURCE_CATEGORY_CODE statt m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE). Zusätzlich besteht Risiko auf String-Trunkierung (TARGET_CATEGORY 100 -> 20) und potenzielle Duplikate bei nicht-eindeutiger CATEGORY_MAPPING.",
+    "error_risks": [
+        {
+            "severity": "critical",
+            "source_of_risk": "Falsche Spaltenreferenz: PROD_ID existiert nicht in PRODUCTS_RAW (korrekt ist PRODUCT_ID).",
+            "fix_suggestion": "Spalte im SELECT auf p.PRODUCT_ID korrigieren."
+        },
+        {
+            "severity": "high",
+            "source_of_risk": "Falsche Join-Bedingung: Vergleicht m.TARGET_CATEGORY mit p.SOURCE_CATEGORY_CODE statt auf dem eigentlichen Schlüssel zu joinen.",
+            "fix_suggestion": "Join auf m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE umstellen; optional Typanpassung/CAST für konsistente Vergleiche."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Längen-/Typinkonsistenz: TARGET_CATEGORY VARCHAR(100) wird in PRODUCTS_NORM.TARGET_CATEGORY VARCHAR(20) geladen (Trunkierung/Fehler je nach SQL-Mode).",
+            "fix_suggestion": "Entweder Zielspalte auf VARCHAR(100) erweitern oder vor dem Insert LENGTH prüfen und explizit kürzen/loggen."
+        },
+        {
+            "severity": "medium",
+            "source_of_risk": "Nicht-eindeutige Zuordnung in CATEGORY_MAPPING kann Duplikate je PRODUCT_ID erzeugen.",
+            "fix_suggestion": "UNIQUE-Constraint/Index auf CATEGORY_MAPPING(SOURCE_CATEGORY_CODE) oder Aggregation/ROW_NUMBER zur Entduplikation."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "Semantische Leereinträge: COALESCE(..., '') schreibt leere Strings bei fehlender Zuordnung.",
+            "fix_suggestion": "Bewusst dokumentieren oder auf definierten Platzhalter (z. B. 'UNMAPPED') umstellen; alternativ separate Fehler-/Audit-Tabelle."
+        },
+        {
+            "severity": "low",
+            "source_of_risk": "ENUM (PRODUCTS_RAW.SOURCE_CATEGORY_CODE) vs. VARCHAR (CATEGORY_MAPPING.SOURCE_CATEGORY_CODE) kann zu impliziten Konvertierungen führen.",
+            "fix_suggestion": "Datentypen harmonisieren oder explizit CASTen; gleiche Kollation/Case-Normalisierung sicherstellen."
+        }
+    ],
+    "final_feedback": "Der ETL-Prozess ist konzeptionell korrekt (Lookup-Mapping mit Fallback), aber in der aktuellen SQL-Implementierung nicht lauffähig. Korrigiere die Spaltenreferenz (p.PRODUCT_ID) und die Join-Bedingung (m.SOURCE_CATEGORY_CODE = p.SOURCE_CATEGORY_CODE). Prüfe zudem die Zielspaltenlänge, setze Eindeutigkeit im Mapping durch und lege Indexe auf den Join-Spalten an. Damit wird die Transformation robust, konsistent und performant, ohne das gewünschte Endergebnis zu verändern.",
+    "_source_file": "case6.yaml",
+    "_model": "gpt-5-2025-08-07",
+    "_duration_seconds": 479983.277,
+    "_response_char_count": 4835
+}
